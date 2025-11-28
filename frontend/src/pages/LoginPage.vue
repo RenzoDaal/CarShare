@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth'
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
@@ -49,7 +49,7 @@ const onFormSubmit = async () => {
 
 
 <template>
-  <div class="flex justify-center items-center h-screen">
+  <div class="flex-1 flex justify-center items-center h-screen">
     <Card>
       <template #title>Login Page</template>
       <template #content>

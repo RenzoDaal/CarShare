@@ -23,6 +23,7 @@ class Car(SQLModel, table=True):
     description: Optional[str] = None
     price_per_km: float
     is_active: bool = True
+    image_url: Optional[str] = None
 
     owner: Optional[User] = Relationship(back_populates="cars")
     availabilities: List["CarAvailability"] = Relationship(back_populates="car")

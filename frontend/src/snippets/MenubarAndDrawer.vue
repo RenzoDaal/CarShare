@@ -1,0 +1,93 @@
+<script setup lang="ts">
+  import Toolbar from 'primevue/toolbar';
+  import Button from 'primevue/button';
+  import Menu from 'primevue/menu';
+  import Drawer from 'primevue/drawer';
+  import Logo from '@/assets/logo.svg';
+
+  import { ref } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useAuthStore } from '../stores/auth';
+  
+  const auth = useAuthStore();
+  const router = useRouter()
+
+  const drawerVisible = ref(false);
+  const isCarOwner = auth.user?.role_owner;
+  const homeDrawerItems = ref([
+    {
+      label: 'Home',
+      items: [
+        {
+          label: 'Dashboard',
+          icon: 'pi pi-home',
+          command: () => {
+            router.push({ name: 'home' });
+            drawerVisible.value = false;
+          },
+        }
+      ]
+    }
+  ])
+
+  const carOwnerDrawerItems = ref([
+    { 
+      label: 'Owner', 
+      items: [
+        {
+          label: 'Manage Cars',
+          icon: 'pi pi-car', 
+          command: () => {
+            router.push({ name: 'manage cars' }); 
+            drawerVisible.value = false;
+          }
+        }
+      ]
+    }
+  ]);
+
+  const carBorrowerDrawerItems = ref([
+    {
+      label: 'Borrower',
+      items: [
+        {
+          label: 'Reserve',
+          icon: 'pi pi-calendar',
+          command: () => {
+            router.push({ name: 'reserve car' });
+            drawerVisible.value = false;
+          }
+        }
+      ]
+    }
+  ]); 
+</script>
+
+
+<template>
+  <Drawer v-model:visible="drawerVisible">
+    <template #container>
+      <Menu class="!border-none" :model=homeDrawerItems />
+      <Menu class="!border-none" :model="carOwnerDrawerItems" v-if="isCarOwner"/>
+      <Menu class="!border-none" :model="carBorrowerDrawerItems" />
+    </template>
+  </Drawer>
+  <div>
+    <Toolbar class="!border-none !rounded-none">
+      <template #start>
+        <div class="flex items-center gap-4 ml-2">
+          <Button 
+            icon="pi pi-bars" 
+            variant="text" 
+            severity="secondary" 
+            rounded
+            @click="drawerVisible = true"
+          />
+          <div class="flex items-center gap-1">
+            <Logo class="h-11 w-auto text-primary" />
+          </div>
+        </div>
+      </template>
+    </Toolbar>
+  </div>
+</template>

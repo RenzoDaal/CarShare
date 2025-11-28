@@ -1,17 +1,37 @@
 import { createRouter, createWebHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
-import LoginPage from "./pages/LoginPage.vue";
-import HomePage from "./pages/HomePage.vue";
-import { useAuthStore } from "./stores/auth";
+import LoginPage from "@/pages/LoginPage.vue";
+import HomePage from "@/pages/HomePage.vue";
+import CarManagerPage from "@/pages/CarManagerPage.vue";
+import ReserveCarPage from "@/pages/ReserveCarPage.vue";
+import { useAuthStore } from "@/stores/auth";
 
 const routes: RouteRecordRaw[] = [
-  { path: "/login", name: "login", component: LoginPage },
+  {
+    path: "/login",
+    name: "login",
+    component: LoginPage,
+    meta: { hideLayout: true },
+  },
   { path: "/", name: "home", component: HomePage },
+  {
+    path: "/managecars",
+    name: "manage cars",
+    component: CarManagerPage,
+  },
+  {
+    path: "/reservecar",
+    name: "reserve car",
+    component: ReserveCarPage,
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior() {
+    return { left: 0, top: 0 };
+  },
 });
 
 router.beforeEach((to) => {
