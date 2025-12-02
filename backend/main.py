@@ -15,6 +15,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from models import Booking, BookingStatus, Car, User
+from routing import router as routing_router
 from schemas import (
     CarCreate,
     CarRead,
@@ -47,6 +48,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(routing_router)
 
 
 @app.on_event("startup")

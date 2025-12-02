@@ -32,3 +32,6 @@ Thumbs.db
 
 # --- Build artifacts ---
 *.sqlite3
+
+# --- Data ---
+/backend/data/*

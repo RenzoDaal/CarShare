@@ -3,13 +3,15 @@
   import Card from 'primevue/card';
   import DatePicker from 'primevue/datepicker';
   import Button from 'primevue/button';
+  import AutoComplete from 'primevue/autocomplete';
   import Step from 'primevue/step';
   import Stepper from 'primevue/stepper';
   import StepList from 'primevue/steplist';
   import StepPanels from 'primevue/steppanels';
   import StepPanel from 'primevue/steppanel';
+  import RouteMap from '@/components/RouteMap.vue';
 
-  import { ref, computed } from 'vue';
+  import { ref, computed, watch } from 'vue';
   import type { Car } from '@/stores/cars';
   import { useRouter } from 'vue-router';
   import { useAuthStore } from '@/stores/auth';
@@ -59,7 +61,100 @@
     activateCallback(3);
   };
 
-  // Step 3: confirmation
+  // Step 3: route & distance
+  const stops = ref<string[]>(['', '']);
+  const locationSuggestions = ref<string[]>([]);
+  const distanceKm = ref<number | null>(null);
+  const routeEstimating = ref(false);
+  const routeError = ref<string | null>(null);
+  const routeCoordinates = ref<[number, number][]>([]);
+
+  const trimmedStops = computed(() =>
+    stops.value.map(s => s.trim()).filter(Boolean)
+  );
+
+  const estimatedPrice = computed(() => {
+    if (!selectedCar.value || distanceKm.value == null)
+    {
+      return null;
+    }
+    return distanceKm.value * selectedCar.value.price_per_km;
+  });
+
+  const canGoNextFromRoute = computed(() => {
+    return trimmedStops.value.length >= 2 &&
+      distanceKm.value != null &&
+      !routeEstimating.value;
+  });
+
+  watch(
+    stops,
+    () => {
+      distanceKm.value = null;
+      routeError.value = null;
+      routeCoordinates.value = [];
+    },
+    { deep: true }
+  );
+
+  const addStop = () => {
+    stops.value.splice(stops.value.length - 1, 0, '');
+  };
+
+  const removeStop = (index: number) => {
+    if (stops.value.length <= 2)
+    {
+      return;
+    }
+    stops.value.splice(index, 1);
+  };
+
+  const searchLocations = async (event: { query: string }) => {
+    const query = (event.query || '').trim();
+    if (!query || query.length < 3) {
+      locationSuggestions.value = [];
+      return;
+    }
+
+    try {
+      const res = await http.get<string[]>('/locations/suggest', {
+        params: { query }
+      });
+      locationSuggestions.value = res.data;
+    } catch (err) {
+      console.error(err);
+      locationSuggestions.value = [];
+    }
+  };
+
+  const estimateRoute = async () => {
+    routeError.value = null;
+    distanceKm.value = null;
+    routeCoordinates.value = [];
+
+    const payloadStops = trimmedStops.value;
+    if (payloadStops.length < 2) {
+      routeError.value = 'Please enter at least a start and end location.';
+      return;
+    }
+
+    routeEstimating.value = true;
+    try {
+      const res = await http.post('/routes/estimate', {
+        stops: payloadStops
+      });
+      distanceKm.value = res.data.distance_km;
+      const backendCoords = (res.data.coordinates || []) as [number, number][];
+      routeCoordinates.value = backendCoords.map(([lon, lat]) => [lat, lon]);
+    } catch (err: any) {
+      console.error(err);
+      routeError.value = err?.response?.data?.detail ?? 'Failed to estimate route.';
+    } finally {
+      routeEstimating.value = false;
+    }
+  };
+
+  // Step 4: confirmation
   const fullName = ref(auth.user?.full_name ?? '');
   const email = ref(auth.user?.email ?? '');
 
@@ -73,6 +168,10 @@
     bookingError.value = null;
     fullName.value = auth.user?.full_name ?? '';
     email.value = auth.user?.email ?? '';
+    stops.value = ['', ''];
+    distanceKm.value = null;
+    routeError.value = null;
+    routeCoordinates.value = [];
   };
 
   const loadAvailableCars = async () => {
@@ -102,7 +201,13 @@
   const hasAvailableCars = computed(() => availableCars.value.length > 0);
 
   const canSubmitBooking = computed(() => {
-    return !!selectedCar.value && !!start.value && !!end.value && !bookingSubmitting.value;
+    return (
+      !!selectedCar.value && 
+      !!start.value && 
+      !!end.value && 
+      distanceKm.value != null && 
+      !bookingSubmitting.value
+    );
   });
 
   const submitBooking = async () => {
@@ -110,7 +215,7 @@
       bookingError.value = 'You must be logged in to create a reservation.';
       return;
     }
-    if (!selectedCar.value || !start.value || !end.value) {
+    if (!selectedCar.value || !start.value || !end.value || distanceKm.value == null) {
       return;
     }
 
@@ -124,7 +229,9 @@
           borrower_id: auth.user.id,
           car_id: selectedCar.value.id,
           start_datetime: start.value.toISOString(),
-          end_datetime: end.value.toISOString()
+          end_datetime: end.value.toISOString(),
+          distance_km: distanceKm.value,
+          estimated_price: estimatedPrice.value
         }
       });
 
@@ -151,7 +258,8 @@
           <StepList>
             <Step :value="1">Dates & Time</Step>
             <Step :value="2">Select Car</Step>
-            <Step :value="3">Confirm</Step>
+            <Step :value="3">Select Route</Step>
+            <Step :value="4">Confirm</Step>
           </StepList>
           
           <StepPanels>
@@ -258,6 +366,111 @@
             </StepPanel>
 
             <StepPanel v-slot="{ activateCallback }" :value="3">
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                <div class="flex flex-col gap-6 w-full">
+                  <div class="space-y-2">
+                    <h2 class="font-semibold text-base">Route</h2>
+                    <p class="text-sm text-surface-500">
+                      Enter your start and end location. You can add stops in between.
+                    </p>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div
+                      v-for="(_stop, index) in stops"
+                      :key="index"
+                      class="flex items-center gap-2 w-full"
+                    >
+                      <div class="flex-1 min-w-0">
+                        <span class="block text-xs font-medium mb-1">
+                          {{
+                            index === 0
+                              ? 'Start location'
+                              : index === stops.length - 1
+                                ? 'End location'
+                                : `Stop ${index}`
+                          }}
+                        </span>
+                        <AutoComplete
+                          v-model="stops[index]"
+                          :suggestions="locationSuggestions"
+                          :minLength="3"
+                          :delay="300"
+                          placeholder="Type an address"
+                          class="w-full"
+                          inputClass="w-full"
+                          @complete="searchLocations"
+                        />
+                      </div>
+
+                      <Button
+                        v-if="stops.length > 2"
+                        icon="pi pi-trash"
+                        severity="danger"
+                        text
+                        rounded
+                        @click="removeStop(index)"
+                      />
+                    </div>
+
+                    <Button label="Add stop" icon="pi pi-plus" text @click="addStop" />
+                  </div>
+
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-4">
+                      <Button
+                        label="Calculate distance"
+                        icon="pi pi-map"
+                        :loading="routeEstimating"
+                        :disabled="routeEstimating || trimmedStops.length < 2"
+                        @click="estimateRoute"
+                      />
+
+                      <div v-if="distanceKm != null" class="text-sm space-y-1">
+                        <div>
+                          <span class="font-medium">Total distance:</span>
+                          <span class="ml-1">{{ distanceKm.toFixed(1) }} km</span>
+                        </div>
+                        <div v-if="estimatedPrice != null">
+                          <span class="font-medium">Estimated cost:</span>
+                          <span class="ml-1">€{{ estimatedPrice.toFixed(2) }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p v-if="routeError" class="text-sm text-red-500">{{ routeError }}</p>
+                  </div>
+
+                  <div class="flex justify-between">
+                    <Button
+                      label="Previous"
+                      icon="pi pi-arrow-left"
+                      severity="secondary"
+                      outlined
+                      @click="activateCallback(2)"
+                    />
+
+                    <Button
+                      label="Next"
+                      icon="pi pi-arrow-right"
+                      iconPos="right"
+                      :disabled="!canGoNextFromRoute"
+                      @click="activateCallback(4)"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex flex-col h-full">
+                  <h3 class="text-sm font-medium mb-2">Route preview</h3>
+                  <div class="flex-1 min-h-[300px]">
+                    <RouteMap :coordinates="routeCoordinates" />
+                  </div>
+                </div>
+
+              </div>
+            </StepPanel>
+
+            <StepPanel v-slot="{ activateCallback }" :value="4">
               <div class="flex flex-col gap-6">
                 <div class="space-y-2">
                   <h2 class="font-semibold text-base">Reservation summary</h2>
@@ -284,6 +497,28 @@
                       <span class="ml-2">{{ end.toLocaleString() }}</span>
                     </div>
                   </div>
+
+                  <div v-if="trimmedStops.length >= 2" class="text-sm space-y-1">
+                    <div class="font-medium">Route:</div>
+                    <ul class="list-disc list-inside text-xs">
+                      <li v-for="(stop, index) in trimmedStops" :key="index">
+                        {{ stop }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div v-if="distanceKm != null" class="text-sm space-y-1">
+                    <div>
+                      <span class="font-medium">Total distance:</span>
+                      <span class="ml-2">{{ distanceKm.toFixed(1) }} km</span>
+                    </div>
+                    <div v-if="estimatedPrice != null">
+                      <span class="font-medium">Estimated cost:</span>
+                      <span class="ml-2">
+                        €{{ estimatedPrice.toFixed(2) }}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div v-if="!bookingCompleted" class="space-y-4">
@@ -308,7 +543,7 @@
                       icon="pi pi-arrow-left"
                       severity="secondary"
                       outlined
-                      @click="activateCallback(2)"
+                      @click="activateCallback(3)"
                     />
                     <Button
                       label="Confirm reservation"
