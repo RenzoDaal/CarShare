@@ -4,6 +4,7 @@ import LoginPage from "@/pages/LoginPage.vue";
 import HomePage from "@/pages/HomePage.vue";
 import CarManagerPage from "@/pages/CarManagerPage.vue";
 import ReserveCarPage from "@/pages/ReserveCarPage.vue";
+import RegisterPage from "@/pages/RegisterPage.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const routes: RouteRecordRaw[] = [
@@ -24,6 +25,12 @@ const routes: RouteRecordRaw[] = [
     name: "reserve car",
     component: ReserveCarPage,
   },
+  {
+    path: "/register",
+    name: "register",
+    component: RegisterPage,
+    meta: { hideLayout: true },
+  },
 ];
 
 const router = createRouter({
@@ -36,7 +43,7 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
-  if (!auth.isAuthenticated && to.name !== "login") {
+  if (!auth.isAuthenticated && to.name !== "login" && to.name !== "register") {
     return { name: "login" };
   }
 

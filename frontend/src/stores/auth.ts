@@ -7,6 +7,7 @@ export type User = {
   full_name: string;
   role_owner: boolean;
   role_borrower: boolean;
+  is_approved: boolean;
 };
 
 type TokenResponse = {
