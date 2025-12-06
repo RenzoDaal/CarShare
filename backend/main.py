@@ -20,6 +20,8 @@ from schemas import (
     CarCreate,
     CarRead,
     CarUpdate,
+    DashboardBookingRead,
+    DashboardResponse,
     LoginRequest,
     TokenResponse,
     UserCreate,
@@ -297,6 +299,77 @@ def create_booking(
     session.refresh(booking)
 
     return booking
+
+
+@app.get("/dashboard", response_model=DashboardResponse)
+def get_dashboard(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    now = datetime.utcnow()
+
+    # 1) Upcoming + current bookings (als borrower)
+    bookings_stmt = (
+        select(Booking)
+        .where(
+            Booking.borrower_id == current_user.id,
+            Booking.end_datetime >= now,
+        )
+        .order_by(Booking.start_datetime)
+    )
+    bookings: List[Booking] = session.exec(bookings_stmt).all()
+
+    upcoming_bookings: list[dict] = []
+
+    for b in bookings:
+        # probeer relationship, anders losse fetch
+        car = getattr(b, "car", None) or session.get(Car, b.car_id)
+        if not car:
+            continue
+
+        upcoming_bookings.append(
+            {
+                "id": b.id,
+                "car": {
+                    "id": car.id,
+                    "owner_id": car.owner_id,
+                    "name": car.name,
+                    "description": car.description,
+                    "price_per_km": car.price_per_km,
+                    "is_active": car.is_active,
+                    "image_url": getattr(car, "image_url", None),
+                },
+                "start_datetime": b.start_datetime,
+                "end_datetime": b.end_datetime,
+                "status": str(getattr(b, "status", "")),
+                "total_price": getattr(b, "total_price", None),
+            }
+        )
+
+    # 2) Cars van deze user als owner
+    active_cars: list[dict] = []
+
+    if current_user.role_owner:
+        cars_stmt = select(Car).where(Car.owner_id == current_user.id)
+        cars: List[Car] = session.exec(cars_stmt).all()
+
+        for car in cars:
+            active_cars.append(
+                {
+                    "id": car.id,
+                    "owner_id": car.owner_id,
+                    "name": car.name,
+                    "description": car.description,
+                    "price_per_km": car.price_per_km,
+                    "is_active": car.is_active,
+                    "image_url": getattr(car, "image_url", None),
+                }
+            )
+
+    return {
+        "upcoming_bookings": upcoming_bookings,
+        "active_cars": active_cars,
+    }
 
 
 @app.get("/health")

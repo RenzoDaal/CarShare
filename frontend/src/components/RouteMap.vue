@@ -19,10 +19,14 @@ const DEFAULT_ZOOM_ROUTE = 10;
 const initMap = () => {
   if (!mapContainer.value) return;
 
-  const hasRoute = props.coordinates.length > 0;
-  const center: LatLngExpression = hasRoute
-    ? props.coordinates[0]
-    : DEFAULT_CENTER;
+    const hasRoute = props.coordinates.length > 0;
+
+  let center: LatLngExpression;
+  if (hasRoute && props.coordinates[0]) {
+    center = props.coordinates[0] as LatLngExpression;
+  } else {
+    center = DEFAULT_CENTER;
+  }
 
   map = L.map(mapContainer.value).setView(
     center,

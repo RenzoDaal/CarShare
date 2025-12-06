@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
+import Password from 'primevue/password';
 import { zodResolver } from '@primevue/forms/resolvers/zod';
 import { z } from 'zod';
 import { ref } from 'vue';
@@ -17,9 +18,6 @@ const form = reactive({
   email: '',
   password: '',
 })
-
-//const loading = computed(() => auth.loading)
-//const error = computed(() => auth.error)
 
 const resolver = ref(zodResolver(
   z.object({
@@ -40,7 +38,6 @@ const onFormSubmit = async () => {
     console.log("TEST2");
     router.push({ name: 'home' })
   } catch (e) {
-    console.log("TEST3", e);
     //auth.error already set in store
   }
 };
@@ -64,11 +61,13 @@ const onFormSubmit = async () => {
               v-model="form.email" 
               placeholder="Username" 
             /> 
-            <InputText
-              class="mb-4"
-              name="password" 
+           <Password
               v-model="form.password"
-              placeholder="Password" 
+              :feedback="false"
+              toggleMask
+              class="mb-4 w-full"
+              inputClass="w-full"
+              :inputProps="{ name: 'password', placeholder: 'Password' }"
             />
 
             <Button

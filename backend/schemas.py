@@ -1,4 +1,5 @@
-from typing import Optional
+from datetime import datetime
+from typing import List, Optional
 
 from sqlmodel import SQLModel
 
@@ -52,3 +53,17 @@ class CarUpdate(SQLModel):
     price_per_km: Optional[float] = None
     is_active: Optional[bool] = None
     image_url: Optional[str] = None
+
+
+class DashboardBookingRead(SQLModel):
+    id: int
+    car: CarRead
+    start_datetime: datetime
+    end_datetime: datetime
+    status: str
+    total_price: Optional[float] = None
+
+
+class DashboardResponse(SQLModel):
+    upcoming_bookings: List[DashboardBookingRead]
+    active_cars: List[CarRead]
