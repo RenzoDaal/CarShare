@@ -14,6 +14,7 @@
 
   const drawerVisible = ref(false);
   const isCarOwner = auth.user?.role_owner;
+  const isCarBorrower = auth.user?.role_borrower;
   const homeDrawerItems = ref([
     {
       label: 'Home',
@@ -41,6 +42,14 @@
             router.push({ name: 'manage cars' }); 
             drawerVisible.value = false;
           }
+        },
+        {
+          label: 'Appointments',
+          icon: "pi pi-calendar",
+          command: () => {
+            router.push({ name: 'ownerappointments' });
+            drawerVisible.value = false;
+          }
         }
       ]
     }
@@ -57,6 +66,14 @@
             router.push({ name: 'reserve car' });
             drawerVisible.value = false;
           }
+        },
+        {
+          label: 'My appointments',
+          icon: 'pi pi-calendar',
+          command:() => {
+            router.push({ name: 'borrowerappointments' });
+            drawerVisible.value = false;
+          }
         }
       ]
     }
@@ -69,7 +86,7 @@
     <template #container>
       <Menu class="!border-none" :model=homeDrawerItems />
       <Menu class="!border-none" :model="carOwnerDrawerItems" v-if="isCarOwner"/>
-      <Menu class="!border-none" :model="carBorrowerDrawerItems" />
+      <Menu class="!border-none" :model="carBorrowerDrawerItems" v-if="isCarBorrower"/>
     </template>
   </Drawer>
   <div>

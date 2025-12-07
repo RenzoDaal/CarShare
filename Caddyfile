@@ -1,0 +1,15 @@
+carshare.services {
+    encode gzip
+
+    @api path /api/*
+
+    # API → backend
+    reverse_proxy @api carshare-backend:8000 {
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Everything else → frontend
+    reverse_proxy carshare-frontend:80 {
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

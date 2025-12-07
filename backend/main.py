@@ -1,7 +1,9 @@
 import os
 from datetime import datetime
+from typing import List
 from uuid import uuid4
 
+import schemas
 from auth import (
     create_access_token,
     get_current_user,
@@ -74,6 +76,7 @@ def register_user(
         full_name=user_in.full_name,
         role_owner=user_in.role_owner,
         role_borrower=user_in.role_borrower,
+        is_approved=False,
     )
 
     session.add(user)
@@ -91,6 +94,12 @@ def login(
     user = session.exec(select(User).where(User.email == data.email)).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is awaiting approval from an administrator.",
+        )
 
     token = create_access_token({"sub": str(user.id)})
     return TokenResponse(access_token=token, user=user_to_read(user))
@@ -219,7 +228,8 @@ def list_available_cars(
 
     overlapping_bookings = session.exec(
         select(Booking).where(
-            Booking.status != BookingStatus.CANCELLED,
+            Booking.status != BookingStatus.PENDING.value,
+            Booking.status != BookingStatus.DECLINED.value,
             Booking.start_datetime < end_dt,
             Booking.end_datetime > start_dt,
         )
@@ -291,7 +301,7 @@ def create_booking(
         start_datetime=start_dt,
         end_datetime=end_dt,
         price_per_km=car.price_per_km,
-        status=BookingStatus.PENDING,
+        status=BookingStatus.PENDING.value,
     )
 
     session.add(booking)
@@ -370,6 +380,181 @@ def get_dashboard(
         "upcoming_bookings": upcoming_bookings,
         "active_cars": active_cars,
     }
+
+
+@app.get("/bookings/owner", response_model=List[schemas.DashboardBookingRead])
+def list_owner_bookings(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.role_owner:
+        raise HTTPException(status_code=403, detail="Not an owner")
+
+    statement = (
+        select(Booking)
+        .join(Car)
+        .where(Car.owner_id == current_user.id)
+        .order_by(Booking.start_datetime.desc())
+    )
+    bookings = session.exec(statement).all()
+
+    result: List[schemas.DashboardBookingRead] = []
+    for booking in bookings:
+        car = booking.car
+        if car is None:
+            continue
+
+        result.append(
+            schemas.DashboardBookingRead(
+                id=booking.id,
+                car=schemas.CarRead(
+                    id=car.id,
+                    owner_id=car.owner_id,
+                    name=car.name,
+                    description=car.description,
+                    price_per_km=car.price_per_km,
+                    is_active=car.is_active,
+                    image_url=getattr(car, "image_url", None),
+                ),
+                start_datetime=booking.start_datetime,
+                end_datetime=booking.end_datetime,
+                status=booking.status,
+                total_price=booking.total_price,
+            )
+        )
+
+    return result
+
+
+@app.get("/bookings/borrower", response_model=List[schemas.DashboardBookingRead])
+def list_borrower_bookings(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.role_borrower:
+        raise HTTPException(status_code=403, detail="Not a borrower")
+
+    statement = (
+        select(Booking)
+        .where(Booking.borrower_id == current_user.id)
+        .order_by(Booking.start_datetime.desc())
+    )
+    bookings = session.exec(statement).all()
+
+    result: List[schemas.DashboardBookingRead] = []
+    for booking in bookings:
+        car = booking.car
+        if car is None:
+            continue
+
+        result.append(
+            schemas.DashboardBookingRead(
+                id=booking.id,
+                car=schemas.CarRead(
+                    id=car.id,
+                    owner_id=car.owner_id,
+                    name=car.name,
+                    description=car.description,
+                    price_per_km=car.price_per_km,
+                    is_active=car.is_active,
+                    image_url=getattr(car, "image_url", None),
+                ),
+                start_datetime=booking.start_datetime,
+                end_datetime=booking.end_datetime,
+                status=booking.status,
+                total_price=booking.total_price,
+            )
+        )
+
+    return result
+
+
+@app.post("/bookings/{booking_id}/accept", response_model=schemas.BookingRead)
+def accept_booking(
+    booking_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    car = booking.car
+    if car is None or car.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not allowed to modify this booking"
+        )
+
+    if booking.status != BookingStatus.PENDING.value:
+        raise HTTPException(
+            status_code=400, detail="Only pending bookings can be accepted"
+        )
+
+    booking.status = BookingStatus.ACCEPTED.value
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+
+    return schemas.BookingRead(
+        id=booking.id,
+        car=schemas.CarRead(
+            id=car.id,
+            owner_id=car.owner_id,
+            name=car.name,
+            description=car.description,
+            price_per_km=car.price_per_km,
+            is_active=car.is_active,
+            image_url=getattr(car, "image_url", None),
+        ),
+        start_datetime=booking.start_datetime,
+        end_datetime=booking.end_datetime,
+        status=booking.status,
+        total_price=booking.total_price,
+    )
+
+
+@app.post("/bookings/{booking_id}/decline", response_model=schemas.BookingRead)
+def decline_booking(
+    booking_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    car = booking.car
+    if car is None or car.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not allowed to modify this booking"
+        )
+
+    if booking.status != BookingStatus.PENDING.value:
+        raise HTTPException(
+            status_code=400, detail="Only pending bookings can be declined"
+        )
+
+    booking.status = BookingStatus.DECLINED.value
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+
+    return schemas.BookingRead(
+        id=booking.id,
+        car=schemas.CarRead(
+            id=car.id,
+            owner_id=car.owner_id,
+            name=car.name,
+            description=car.description,
+            price_per_km=car.price_per_km,
+            is_active=car.is_active,
+            image_url=getattr(car, "image_url", None),
+        ),
+        start_datetime=booking.start_datetime,
+        end_datetime=booking.end_datetime,
+        status=booking.status,
+        total_price=booking.total_price,
+    )
 
 
 @app.get("/health")

@@ -559,7 +559,7 @@
                   <div class="text-sm text-emerald-600">
                     Booking successful!
                     <br />
-                    A confirmation email has been sent.
+                    Reservation request sent! The car owner still needs to approve your booking.
                   </div>
                   
                   <div class="flex gap-2">

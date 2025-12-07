@@ -4,6 +4,8 @@ import LoginPage from "@/pages/LoginPage.vue";
 import HomePage from "@/pages/HomePage.vue";
 import CarManagerPage from "@/pages/CarManagerPage.vue";
 import ReserveCarPage from "@/pages/ReserveCarPage.vue";
+import OwnerAppointmentsPage from "@/pages/OwnerAppointmentsPage.vue";
+import BorrowersAppointmentsPage from "@/pages/BorrowerAppointmentsPage.vue";
 import RegisterPage from "@/pages/RegisterPage.vue";
 import { useAuthStore } from "@/stores/auth";
 
@@ -30,6 +32,16 @@ const routes: RouteRecordRaw[] = [
     name: "register",
     component: RegisterPage,
     meta: { hideLayout: true },
+  },
+  {
+    path: "/ownerappointments",
+    name: "ownerappointments",
+    component: OwnerAppointmentsPage,
+  },
+  {
+    path: "/borrowerappointments",
+    name: "borrowerappointments",
+    component: BorrowersAppointmentsPage,
   },
 ];
 

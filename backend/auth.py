@@ -80,4 +80,5 @@ def user_to_read(user: User) -> UserRead:
         full_name=user.full_name,
         role_owner=user.role_owner,
         role_borrower=user.role_borrower,
+        is_approved=user.is_approved,
     )

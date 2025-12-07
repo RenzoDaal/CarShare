@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from enum import Enum
 from typing import List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -11,6 +12,7 @@ class User(SQLModel, table=True):
     full_name: str
     role_owner: bool = False
     role_borrower: bool = True
+    is_approved: bool = False
 
     cars: List["Car"] = Relationship(back_populates="owner")
     bookings: List["Booking"] = Relationship(back_populates="borrower")
@@ -38,11 +40,10 @@ class CarAvailability(SQLModel, table=True):
     car: Optional[Car] = Relationship(back_populates="availabilities")
 
 
-class BookingStatus:
-    PENDING = "PENDING"
-    CONFIRMED = "CONFIRMED"
-    PAID = "PAID"
-    CANCELLED = "CANCELLED"
+class BookingStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
 
 
 class Booking(SQLModel, table=True):
@@ -57,7 +58,7 @@ class Booking(SQLModel, table=True):
     price_per_km: float
     total_price: Optional[float] = None
 
-    status: str = Field(default=BookingStatus.PENDING)
+    status: str = Field(default=BookingStatus.PENDING.value)
 
     car: Optional[Car] = Relationship(back_populates="bookings")
     borrower: Optional[User] = Relationship(back_populates="bookings")

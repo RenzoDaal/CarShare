@@ -1,7 +1,14 @@
 from datetime import datetime
+from enum import Enum
 from typing import List, Optional
 
 from sqlmodel import SQLModel
+
+
+class BookingStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
 
 
 class UserCreate(SQLModel):
@@ -18,6 +25,7 @@ class UserRead(SQLModel):
     full_name: str
     role_owner: bool
     role_borrower: bool
+    is_approved: bool
 
 
 class LoginRequest(SQLModel):
@@ -67,3 +75,12 @@ class DashboardBookingRead(SQLModel):
 class DashboardResponse(SQLModel):
     upcoming_bookings: List[DashboardBookingRead]
     active_cars: List[CarRead]
+
+
+class BookingRead(SQLModel):
+    id: int
+    car: CarRead
+    start_datetime: datetime
+    end_datetime: datetime
+    status: BookingStatus
+    total_price: Optional[float] = None
