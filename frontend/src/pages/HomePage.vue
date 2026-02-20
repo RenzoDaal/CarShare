@@ -1,105 +1,105 @@
 <script setup lang="ts">
-  import Card from 'primevue/card';
-  import Button from 'primevue/button';
-  import Tag from 'primevue/tag';
+import Card from 'primevue/card';
+import Button from 'primevue/button';
+import Tag from 'primevue/tag';
 
-  import { onMounted, ref, computed } from 'vue';
-  import { useRouter } from 'vue-router';
-  import http from '@/api/http';
-  import type { Car } from '@/stores/cars';
-  import { useAuthStore } from '@/stores/auth';
+import { onMounted, ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import http from '@/api/http';
+import type { Car } from '@/stores/cars';
+import { useAuthStore } from '@/stores/auth';
 
-  const router = useRouter();
-  const auth = useAuthStore();
+const router = useRouter();
+const auth = useAuthStore();
 
-  type DashboardBooking = {
-    id: number;
-    car: Car;
-    start_datetime: string;
-    end_datetime: string;
-    status: string;
-    total_price?: number | null;
-  };
+type DashboardBooking = {
+  id: number;
+  car: Car;
+  start_datetime: string;
+  end_datetime: string;
+  status: string;
+  total_price?: number | null;
+};
 
-  type DashboardResponse = {
-    upcoming_bookings: DashboardBooking[];
-    active_cars: Car[];
-  };
+type DashboardResponse = {
+  upcoming_bookings: DashboardBooking[];
+  active_cars: Car[];
+};
 
-  const loading = ref(true);
-  const error = ref<string | null>(null);
-  const data = ref<DashboardResponse>({
-    upcoming_bookings: [],
-    active_cars: [],
-  });
+const loading = ref(true);
+const error = ref<string | null>(null);
+const data = ref<DashboardResponse>({
+  upcoming_bookings: [],
+  active_cars: [],
+});
 
-  const isOwner = computed(() => auth.user?.role_owner ?? false);
+const isOwner = computed(() => auth.user?.role_owner ?? false);
 
-  const hasBookings = computed<boolean>(() => {
-    const value = data.value;
-    if (!value) return false;
-    return value.upcoming_bookings.length > 0;
-  });
-
-
-
-  const nextBooking = computed((): DashboardBooking | null => {
-    const value = data.value;
-
-    if (value.upcoming_bookings.length === 0) {
-      return null;
-    }
-
-    return value.upcoming_bookings[0]!;
-  });
+const hasBookings = computed<boolean>(() => {
+  const value = data.value;
+  if (!value) return false;
+  return value.upcoming_bookings.length > 0;
+});
 
 
 
-  const otherBookings = computed<DashboardBooking[]>(() => {
-    const value = data.value;
-    if (!value || value.upcoming_bookings.length <= 1) {
-      return [];
-    }
-    return value.upcoming_bookings.slice(1);
-  });
+const nextBooking = computed((): DashboardBooking | null => {
+  const value = data.value;
 
-  function formatDateTime(iso: string | null | undefined): string {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  if (value.upcoming_bookings.length === 0) {
+    return null;
   }
 
-  async function loadDashboard() {
-    loading.value = true;
-    error.value = null;
-    try {
-      const res = await http.get<DashboardResponse>('/dashboard');
-      data.value = res.data;
-    } catch (err: any) {
-      console.error(err);
-      error.value = err?.response?.data?.detail ?? 'Failed to load dashboard.';
-    }  finally {
-      loading.value = false;
-    }
-  }
+  return value.upcoming_bookings[0]!;
+});
 
-  function goToReserve() {
-    router.push({ name: 'reserve car' });
-  }
 
-  function goToManageCars() {
-    router.push({ name: 'manage cars' });
-  }
 
-  onMounted(() => {
-    loadDashboard();
+const otherBookings = computed<DashboardBooking[]>(() => {
+  const value = data.value;
+  if (!value || value.upcoming_bookings.length <= 1) {
+    return [];
+  }
+  return value.upcoming_bookings.slice(1);
+});
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
+}
+
+async function loadDashboard() {
+  loading.value = true;
+  error.value = null;
+  try {
+    const res = await http.get<DashboardResponse>('/dashboard');
+    data.value = res.data;
+  } catch (err: any) {
+    console.error(err);
+    error.value = err?.response?.data?.detail ?? 'Failed to load dashboard.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+function goToReserve() {
+  router.push({ name: 'reserve car' });
+}
+
+function goToManageCars() {
+  router.push({ name: 'manage cars' });
+}
+
+onMounted(() => {
+  loadDashboard();
+});
 </script>
 
 
@@ -132,37 +132,19 @@
               <template #title>
                 <div class="flex items-center justify-between gap-2">
                   <span>Your bookings</span>
-                  <Tag
-                    v-if="hasBookings"
-                    :value="`${data?.upcoming_bookings.length} upcoming`"
-                  />
-                  <Tag
-                    v-else
-                    value="No upcoming bookings"
-                    severity="info"
-                  />
+                  <Tag v-if="hasBookings" :value="`${data?.upcoming_bookings.length} upcoming`" />
+                  <Tag v-else value="No upcoming bookings" severity="info" />
                 </div>
               </template>
               <template #content>
                 <div v-if="!hasBookings" class="text-sm text-surface-500">
                   You don't have any upcoming bookings yet.
-                  <Button
-                    label="Reserve a car"
-                    icon="pi pi-calendar"
-                    size="small"
-                    class="mt-3"
-                    @click="goToReserve"
-                  />
+                  <Button label="Reserve a car" icon="pi pi-calendar" size="small" class="mt-3" @click="goToReserve" />
                 </div>
 
                 <div v-else class="space-y-4">
-                  <div
-                    v-if="nextBooking"
-                    class="rounded-lg border border-surface-200 p-3"
-                  >
-                    <p
-                      class="text-xs uppercase tracking-wide text-surface-500 mb-1"
-                    >
+                  <div v-if="nextBooking" class="rounded-lg border border-surface-200 p-3">
+                    <p class="text-xs uppercase tracking-wide text-surface-500 mb-1">
                       Next booking
                     </p>
                     <p class="font-medium">
@@ -173,10 +155,7 @@
                       -
                       {{ formatDateTime(nextBooking!.end_datetime) }}
                     </p>
-                    <p
-                      v-if="nextBooking!.total_price != null"
-                      class="text-sm mt-1"
-                    >
+                    <p v-if="nextBooking!.total_price != null" class="text-sm mt-1">
                       Estimated price:
                       <span class="font-semibold">
                         € {{ nextBooking!.total_price!.toFixed(2) }}
@@ -188,17 +167,12 @@
                   </div>
 
                   <div v-if="otherBookings.length" class="space-y-2">
-                    <p
-                      class="text-xs uppercase tracking-wide text-surface-500"
-                    >
+                    <p class="text-xs uppercase tracking-wide text-surface-500">
                       Later bookings
                     </p>
                     <ul class="space-y-2">
-                      <li
-                        v-for="b in otherBookings"
-                        :key="b.id"
-                        class="flex items-center justify-between text-sm border border-surface-100 rounded px-2 py-1"
-                      >
+                      <li v-for="b in otherBookings" :key="b.id"
+                        class="flex items-center justify-between text-sm border border-surface-100 rounded px-2 py-1">
                         <div>
                           <p class="font-medium">
                             {{ b.car.name }}
@@ -223,18 +197,9 @@
               </template>
               <template #content>
                 <div class="flex-1 flex flex-col gap-2">
-                  <Button
-                    label="Reserve a car"
-                    icon="pi pi-calendar"
-                    @click="goToReserve"
-                  />
-                  <Button
-                    v-if="isOwner"
-                    label="Manage my cars"
-                    icon="pi pi-car"
-                    severity="secondary"
-                    @click="goToManageCars"
-                  />
+                  <Button label="Reserve a car" icon="pi pi-calendar" @click="goToReserve" />
+                  <Button v-if="isOwner" label="Manage my cars" icon="pi pi-car" severity="secondary"
+                    @click="goToManageCars" />
                 </div>
               </template>
             </Card>
@@ -246,42 +211,25 @@
             <template #title>
               <div class="flex items-center justify-between gap-2">
                 <span>Your cars</span>
-                <Button
-                  label="Manage cars"
-                  icon="pi pi-car"
-                  size="small"
-                  severity="secondary"
-                  @click="goToManageCars"
-                />
+                <Button label="Manage cars" icon="pi pi-car" size="small" severity="secondary"
+                  @click="goToManageCars" />
               </div>
             </template>
             <template #content>
-              <div
-                v-if="!data?.active_cars?.length"
-                class="text-sm text-surface-500"
-              >
+              <div v-if="!data?.active_cars?.length" class="text-sm text-surface-500">
                 You haven't added any cars yet.
                 <span class="block mt-1">
                   Use <b>Manage cars</b> to add your first car.
                 </span>
               </div>
 
-              <div
-                v-else
-                class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
-              >
-                <Card
-                  v-for="car in data!.active_cars"
-                  :key="car.id"
-                  class="border border-surface-200 rounded-lg"
-                >
+              <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <Card v-for="car in data!.active_cars" :key="car.id" class="border border-surface-200 rounded-lg">
                   <template #title>
                     <div class="flex items-center justify-between gap-2">
                       <span>{{ car.name }}</span>
-                      <Tag
-                        :value="car.is_active ? 'Active' : 'Disabled'"
-                        :severity="car.is_active ? 'success' : 'danger'"
-                      />
+                      <Tag :value="car.is_active ? 'Active' : 'Disabled'"
+                        :severity="car.is_active ? 'success' : 'danger'" />
                     </div>
                   </template>
                   <template #content>

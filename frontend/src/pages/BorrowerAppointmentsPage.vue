@@ -82,27 +82,17 @@ onMounted(fetchBookings);
             You don't have any bookings yet.
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <Card
-              v-for="booking in upcoming"
-              :key="booking.id"
-              class="h-full"
-            >
+            <Card v-for="booking in upcoming" :key="booking.id" class="h-full">
               <template #title>{{ booking.car.name }}</template>
               <template #subtitle>
-                <Tag
-                  :value="booking.status"
-                  :severity="statusSeverity(booking.status)"
-                />
+                <Tag :value="booking.status" :severity="statusSeverity(booking.status)" />
               </template>
               <template #content>
                 <p class="text-sm text-surface-500 mb-1">
                   {{ formatDateTime(booking.start_datetime) }} –
                   {{ formatDateTime(booking.end_datetime) }}
                 </p>
-                <p
-                  v-if="booking.total_price != null"
-                  class="text-sm font-medium mt-1"
-                >
+                <p v-if="booking.total_price != null" class="text-sm font-medium mt-1">
                   Total price: €{{ booking.total_price.toFixed(2) }}
                 </p>
                 <p class="text-xs text-surface-400 mt-2">
@@ -122,11 +112,8 @@ onMounted(fetchBookings);
             No declined bookings.
           </div>
           <ul v-else class="flex flex-col gap-2 text-sm">
-            <li
-              v-for="booking in history"
-              :key="booking.id"
-              class="flex justify-between items-center border rounded-md p-2"
-            >
+            <li v-for="booking in history" :key="booking.id"
+              class="flex justify-between items-center border rounded-md p-2">
               <span>
                 {{ booking.car.name }} –
                 {{ formatDateTime(booking.start_datetime) }}

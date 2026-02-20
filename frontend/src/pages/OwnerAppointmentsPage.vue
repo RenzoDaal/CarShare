@@ -99,11 +99,8 @@ onMounted(fetchBookings);
             There are no pending bookings right now.
           </div>
           <div v-else class="flex flex-col gap-3">
-            <div
-              v-for="booking in pendingBookings"
-              :key="booking.id"
-              class="border rounded-md p-3 flex flex-col gap-2 md:flex-row md:justify-between md:items-center"
-            >
+            <div v-for="booking in pendingBookings" :key="booking.id"
+              class="border rounded-md p-3 flex flex-col gap-2 md:flex-row md:justify-between md:items-center">
               <div>
                 <div class="font-semibold">
                   {{ booking.car.name }}
@@ -117,19 +114,9 @@ onMounted(fetchBookings);
                 </div>
               </div>
               <div class="flex gap-2 mt-2 md:mt-0">
-                <Button
-                  label="Accept"
-                  icon="pi pi-check"
-                  severity="success"
-                  @click="acceptBooking(booking.id)"
-                />
-                <Button
-                  label="Decline"
-                  icon="pi pi-times"
-                  severity="danger"
-                  outlined
-                  @click="declineBooking(booking.id)"
-                />
+                <Button label="Accept" icon="pi pi-check" severity="success" @click="acceptBooking(booking.id)" />
+                <Button label="Decline" icon="pi pi-times" severity="danger" outlined
+                  @click="declineBooking(booking.id)" />
               </div>
             </div>
           </div>
@@ -144,11 +131,7 @@ onMounted(fetchBookings);
             No accepted bookings yet.
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <Card
-              v-for="booking in acceptedBookings"
-              :key="booking.id"
-              class="h-full"
-            >
+            <Card v-for="booking in acceptedBookings" :key="booking.id" class="h-full">
               <template #title>{{ booking.car.name }}</template>
               <template #subtitle>
                 <Tag severity="success" value="Accepted" />
@@ -158,10 +141,7 @@ onMounted(fetchBookings);
                   {{ formatDateTime(booking.start_datetime) }} –
                   {{ formatDateTime(booking.end_datetime) }}
                 </p>
-                <p
-                  v-if="booking.total_price != null"
-                  class="text-sm font-medium mt-1"
-                >
+                <p v-if="booking.total_price != null" class="text-sm font-medium mt-1">
                   Total price: €{{ booking.total_price.toFixed(2) }}
                 </p>
               </template>
@@ -178,11 +158,8 @@ onMounted(fetchBookings);
             No declined bookings.
           </div>
           <ul v-else class="flex flex-col gap-2 text-sm">
-            <li
-              v-for="booking in declinedBookings"
-              :key="booking.id"
-              class="flex justify-between items-center border rounded-md p-2"
-            >
+            <li v-for="booking in declinedBookings" :key="booking.id"
+              class="flex justify-between items-center border rounded-md p-2">
               <span>
                 {{ booking.car.name }} –
                 {{ formatDateTime(booking.start_datetime) }}

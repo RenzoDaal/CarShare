@@ -122,76 +122,34 @@ const goToLogin = () => {
           <div class="flex flex-col mt-4 w-96">
             <!-- Full name -->
             <div class="flex flex-col gap-1 mb-4">
-              <InputText
-                name="full_name"
-                v-model="form.full_name"
-                placeholder="Full name"
-              />
-              <Message
-                v-if="$form.full_name?.invalid"
-                severity="error"
-                size="small"
-                variant="simple"
-              >
+              <InputText name="full_name" v-model="form.full_name" placeholder="Full name" />
+              <Message v-if="$form.full_name?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.full_name.error?.message }}
               </Message>
             </div>
 
             <!-- Email -->
             <div class="flex flex-col gap-1 mb-4">
-              <InputText
-                name="email"
-                v-model="form.email"
-                placeholder="Email"
-              />
-              <Message
-                v-if="$form.email?.invalid"
-                severity="error"
-                size="small"
-                variant="simple"
-              >
+              <InputText name="email" v-model="form.email" placeholder="Email" />
+              <Message v-if="$form.email?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.email.error?.message }}
               </Message>
             </div>
 
             <!-- Password -->
             <div class="flex flex-col gap-1 mb-4">
-              <Password
-                name="password"
-                v-model="form.password"
-                :feedback="false"
-                toggleMask
-                class="w-full"
-                inputClass="w-full"
-                :inputProps="{ placeholder: 'Password' }"
-              />
-              <Message
-                v-if="$form.password?.invalid"
-                severity="error"
-                size="small"
-                variant="simple"
-              >
+              <Password name="password" v-model="form.password" :feedback="false" toggleMask class="w-full"
+                inputClass="w-full" :inputProps="{ placeholder: 'Password' }" />
+              <Message v-if="$form.password?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.password.error?.message }}
               </Message>
             </div>
 
             <!-- Confirm password -->
             <div class="flex flex-col gap-1 mb-4">
-              <Password
-                name="confirmPassword"
-                v-model="form.confirmPassword"
-                :feedback="false"
-                toggleMask
-                class="w-full"
-                inputClass="w-full"
-                :inputProps="{ placeholder: 'Confirm password' }"
-              />
-              <Message
-                v-if="$form.confirmPassword?.invalid"
-                severity="error"
-                size="small"
-                variant="simple"
-              >
+              <Password name="confirmPassword" v-model="form.confirmPassword" :feedback="false" toggleMask
+                class="w-full" inputClass="w-full" :inputProps="{ placeholder: 'Confirm password' }" />
+              <Message v-if="$form.confirmPassword?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.confirmPassword.error?.message }}
               </Message>
             </div>
@@ -199,29 +157,14 @@ const goToLogin = () => {
             <!-- Roles -->
             <div class="flex flex-col gap-1 mb-2 text-sm">
               <div class="flex items-center gap-2">
-                <Checkbox
-                  name="role_owner"
-                  v-model="form.role_owner"
-                  :binary="true"
-                  inputId="role_owner"
-                />
+                <Checkbox name="role_owner" v-model="form.role_owner" :binary="true" inputId="role_owner" />
                 <label for="role_owner">I want to list my own cars</label>
               </div>
               <div class="flex items-center gap-2">
-                <Checkbox
-                  name="role_borrower"
-                  v-model="form.role_borrower"
-                  :binary="true"
-                  inputId="role_borrower"
-                />
+                <Checkbox name="role_borrower" v-model="form.role_borrower" :binary="true" inputId="role_borrower" />
                 <label for="role_borrower">I want to borrow cars</label>
               </div>
-              <Message
-                v-if="$form.role_borrower?.invalid"
-                severity="error"
-                size="small"
-                variant="simple"
-              >
+              <Message v-if="$form.role_borrower?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.role_borrower.error?.message }}
               </Message>
             </div>
@@ -235,21 +178,9 @@ const goToLogin = () => {
               {{ successMessage }}
             </p>
 
-            <Button
-              type="submit"
-              label="Create account"
-              icon="pi pi-user-plus"
-              iconPos="right"
-              :loading="submitting"
-            />
+            <Button type="submit" label="Create account" icon="pi pi-user-plus" iconPos="right" :loading="submitting" />
 
-            <Button
-              type="button"
-              label="Back to login"
-              class="mt-3"
-              text
-              @click="goToLogin"
-            />
+            <Button type="button" label="Back to login" class="mt-3" text @click="goToLogin" />
           </div>
         </Form>
       </template>

@@ -63,38 +63,17 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
           <div class="flex flex-col mt-4 w-96">
             <!-- Email -->
             <div class="flex flex-col gap-1 mb-4">
-              <InputText
-                name="email"
-                v-model="form.email"
-                placeholder="Email"
-              />
-              <Message
-                v-if="$form.email?.invalid"
-                severity="error"
-                size="small"
-                variant="simple"
-              >
+              <InputText name="email" v-model="form.email" placeholder="Email" />
+              <Message v-if="$form.email?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.email.error?.message }}
               </Message>
             </div>
 
             <!-- Password -->
             <div class="flex flex-col gap-1 mb-4">
-              <Password
-                name="password"
-                v-model="form.password"
-                :feedback="false"
-                toggleMask
-                class="w-full"
-                inputClass="w-full"
-                :inputProps="{ placeholder: 'Password' }"
-              />
-              <Message
-                v-if="$form.password?.invalid"
-                severity="error"
-                size="small"
-                variant="simple"
-              >
+              <Password name="password" v-model="form.password" :feedback="false" toggleMask class="w-full"
+                inputClass="w-full" :inputProps="{ placeholder: 'Password' }" />
+              <Message v-if="$form.password?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.password.error?.message }}
               </Message>
             </div>
@@ -104,20 +83,11 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
               {{ auth.error }}
             </p>
 
-            <Button
-              type="submit"
-              label="Login"
-              icon="pi pi-sign-in"
-              iconPos="right"
-              :loading="auth.loading"
-            />
+            <Button type="submit" label="Login" icon="pi pi-sign-in" iconPos="right" :loading="auth.loading" />
 
             <p class="mt-4 text-sm text-center">
               Don't have an account yet?
-              <RouterLink
-                :to="{ name: 'register' }"
-                class="text-blue-500 hover:underline"
-              >
+              <RouterLink :to="{ name: 'register' }" class="text-blue-500 hover:underline">
                 Create one
               </RouterLink>
             </p>
