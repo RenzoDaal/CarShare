@@ -17,7 +17,7 @@
   const { cars } = storeToRefs(carStore);
 
   onMounted(() => {
-    carStore.fetchCars();
+    carStore.fetchMyCars();
   })
 
   const createCarDialogVisible = ref(false);
@@ -125,6 +125,10 @@
           v-model="newCar.price_per_km"
           mode="decimal"
           :min="0"
+          :step="0.01"
+          :minFractionDigits="2"
+          :maxFractionDigits="2"
+          locale="en-US"
           placeholder="Price per km"
       />
       <input type="file" accept="image/*" @change="onNewCarImageSelected" />
@@ -142,6 +146,10 @@
           v-model="editCar.price_per_km"
           mode="decimal"
           :min="0"
+          :step="0.01"
+          :minFractionDigits="2"
+          :maxFractionDigits="2"
+          locale="en-US"
           placeholder="Price per km" />
       <input type="file" accept="image/*" @change="onEditCarImageSelected" />
     </div>
@@ -171,13 +179,14 @@
       </template>
     </Toolbar>
     <div class="w-full max-w-[95%] mx-auto mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <Card v-for="car in cars" :key="car.id">
+      <Card v-for="car in cars" :key="car.id" class="overflow-hidden">
         <template #header>
-          <img
-            v-if="car.image_url"
-            :src="car.image_url"
-            alt=""
-            class="w-full h-72 object-cover rounded-md"
+          <div v-if="car.image_url" class="h-80 w-full overflow-hidden bg-surface-900">
+            <img
+              :src="car.image_url"
+              alt="car.name"
+              class="!w-full !h-full object-cover block"/>
+          </div>
         </template>
         <template #title>
           <div class="flex items-center justify-between w-full">

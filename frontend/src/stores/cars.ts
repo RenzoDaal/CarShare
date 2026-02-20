@@ -123,5 +123,9 @@ export const useCarStore = defineStore("cars", {
         this.loading = false;
       }
     },
+    async fetchMyCars() {
+      const res = await http.get<Car[]>("/cars/mine");
+      this.cars = res.data;
+    },
   },
 });

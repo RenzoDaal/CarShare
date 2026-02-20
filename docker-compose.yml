@@ -6,7 +6,7 @@ services:
     expose:
       - "8000"
     volumes:
-      - ./backend/data:/app/data
+      - /home/RenzoDaal/carshare-data:/app/data
     env_file:
       - .env
 

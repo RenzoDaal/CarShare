@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
-import L, { Map as LeafletMap, Polyline as LeafletPolyline } from 'leaflet';
-import type { LatLngExpression } from 'leaflet';
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
+import L, { Map as LeafletMap, Polyline as LeafletPolyline } from "leaflet";
+import type { LatLngExpression } from "leaflet";
 
 const props = defineProps<{
   coordinates: [number, number][]; // [lat, lon]
@@ -10,6 +10,7 @@ const props = defineProps<{
 const mapContainer = ref<HTMLDivElement | null>(null);
 let map: LeafletMap | null = null;
 let polyline: LeafletPolyline | null = null;
+let resizeObserver: ResizeObserver | null = null;
 
 // Default center if no route yet (NL-ish)
 const DEFAULT_CENTER: LatLngExpression = [52.1, 5.1];
@@ -17,24 +18,20 @@ const DEFAULT_ZOOM_NO_ROUTE = 7;
 const DEFAULT_ZOOM_ROUTE = 10;
 
 const initMap = () => {
-  if (!mapContainer.value) return;
+  if (!mapContainer.value || map) return;
 
-    const hasRoute = props.coordinates.length > 0;
+  const hasRoute = props.coordinates.length > 0;
 
-  let center: LatLngExpression;
-  if (hasRoute && props.coordinates[0]) {
-    center = props.coordinates[0] as LatLngExpression;
-  } else {
-    center = DEFAULT_CENTER;
-  }
+  const center: LatLngExpression =
+    hasRoute && props.coordinates[0] ? (props.coordinates[0] as LatLngExpression) : DEFAULT_CENTER;
 
   map = L.map(mapContainer.value).setView(
     center,
     hasRoute ? DEFAULT_ZOOM_ROUTE : DEFAULT_ZOOM_NO_ROUTE
   );
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
   }).addTo(map);
 
   if (hasRoute) {
@@ -43,16 +40,37 @@ const initMap = () => {
   }
 };
 
-onMounted(() => {
+const refreshSize = () => {
+  if (!map) return;
+  map.invalidateSize();
+};
+
+onMounted(async () => {
+  // Ensure the DOM is painted before initializing
+  await nextTick();
   initMap();
+
+  // Critical: invalidate size once after mount (Stepper panels often start hidden)
+  requestAnimationFrame(() => refreshSize());
+
+  // Critical: keep it correct when the StepPanel becomes visible / resizes
+  if (mapContainer.value) {
+    resizeObserver = new ResizeObserver(() => {
+      refreshSize();
+    });
+    resizeObserver.observe(mapContainer.value);
+  }
 });
 
 watch(
   () => props.coordinates,
-  (newCoords) => {
+  async (newCoords) => {
     if (!map) return;
 
-    // No coords: remove route if present, keep base map
+    // If the panel just became visible, ensure Leaflet knows the real size
+    await nextTick();
+    refreshSize();
+
     if (!newCoords.length) {
       if (polyline) {
         map.removeLayer(polyline);
@@ -61,7 +79,6 @@ watch(
       return;
     }
 
-    // Coords present: add/update route
     if (polyline) {
       polyline.setLatLngs(newCoords as LatLngExpression[]);
     } else {
@@ -73,6 +90,11 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  if (resizeObserver && mapContainer.value) {
+    resizeObserver.unobserve(mapContainer.value);
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   if (map) {
     map.remove();
     map = null;
@@ -82,8 +104,5 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    ref="mapContainer"
-    class="w-full h-full rounded-xl overflow-hidden"
-  />
+  <div ref="mapContainer" class="w-full h-full rounded-xl overflow-hidden" />
 </template>

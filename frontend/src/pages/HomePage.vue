@@ -126,9 +126,9 @@
       </div>
 
       <div v-else class="space-y-4">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="lg:col-span-2">
-            <Card>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+          <div class="lg:col-span-2 h-full">
+            <Card class="h-full">
               <template #title>
                 <div class="flex items-center justify-between gap-2">
                   <span>Your bookings</span>
@@ -216,13 +216,13 @@
             </Card>
           </div>
 
-          <div class="space-y-4">
-            <Card>
+          <div class="lg:col-span-1 flex">
+            <Card class="flex-1 h-full flex flex-col">
               <template #title>
                 <span>Quick actions</span>
               </template>
               <template #content>
-                <div class="flex flex-col gap-2">
+                <div class="flex-1 flex flex-col gap-2">
                   <Button
                     label="Reserve a car"
                     icon="pi pi-calendar"

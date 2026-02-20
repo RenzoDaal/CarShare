@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List
 from uuid import uuid4
 
+import emailer
 import schemas
 from auth import (
     create_access_token,
@@ -13,7 +14,16 @@ from auth import (
     verify_password,
 )
 from database import engine, init_db
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from models import Booking, BookingStatus, Car, User
@@ -140,7 +150,6 @@ def create_car(
 async def upload_car_image(
     car_id: int,
     file: UploadFile = File(...),
-    request: Request = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -163,8 +172,7 @@ async def upload_car_image(
     with open(filepath, "wb") as f:
         f.write(contents)
 
-    base_url = str(request.base_url).rstrip("/") if request else ""
-    car.image_url = f"{base_url}/static/car_images/{filename}"
+    car.image_url = f"/static/car_images/{filename}"
 
     session.add(car)
     session.commit()
@@ -251,6 +259,15 @@ def list_cars(session: Session = Depends(get_session)):
     return cars
 
 
+@app.get("/cars/mine", response_model=list[CarRead])
+def list_my_cars(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    cars = session.exec(select(Car).where(Car.owner_id == current_user.id)).all()
+    return cars
+
+
 @app.delete("/cars/{car_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_car(
     car_id: int,
@@ -280,6 +297,7 @@ def create_booking(
     car_id: int,
     start_datetime: str,
     end_datetime: str,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     from datetime import datetime
@@ -307,6 +325,20 @@ def create_booking(
     session.add(booking)
     session.commit()
     session.refresh(booking)
+
+    owner = car.owner or session.get(User, car.owner_id)
+
+    if owner and owner.email:
+        background_tasks.add_task(
+            emailer.owner_booking_request_email,
+            owner_email=owner.email,
+            owner_name=owner.full_name,
+            car_name=car.name,
+            borrower_name=borrower.full_name,
+            start_iso=booking.start_datetime.isoformat(),
+            end_iso=booking.end_datetime.isoformat(),
+            booking_id=booking.id,
+        )
 
     return booking
 
@@ -472,6 +504,7 @@ def list_borrower_bookings(
 @app.post("/bookings/{booking_id}/accept", response_model=schemas.BookingRead)
 def accept_booking(
     booking_id: int,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -495,6 +528,20 @@ def accept_booking(
     session.commit()
     session.refresh(booking)
 
+    borrower = booking.borrower or session.get(User, booking.borrower_id)
+    if borrower and borrower.email:
+        background_tasks.add_task(
+            emailer.borrower_booking_response_email,
+            borrower_email=borrower.email,
+            borrower_name=borrower.full_name,
+            car_name=car.name,
+            owner_name=current_user.full_name,
+            start_iso=booking.start_datetime.isoformat(),
+            end_iso=booking.end_datetime.isoformat(),
+            booking_id=booking.id,
+            status=booking.status,
+        )
+
     return schemas.BookingRead(
         id=booking.id,
         car=schemas.CarRead(
@@ -516,6 +563,7 @@ def accept_booking(
 @app.post("/bookings/{booking_id}/decline", response_model=schemas.BookingRead)
 def decline_booking(
     booking_id: int,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -538,6 +586,20 @@ def decline_booking(
     session.add(booking)
     session.commit()
     session.refresh(booking)
+
+    borrower = booking.borrower or session.get(User, booking.borrower_id)
+    if borrower and borrower.email:
+        background_tasks.add_task(
+            emailer.borrower_booking_response_email,
+            borrower_email=borrower.email,
+            borrower_name=borrower.full_name,
+            car_name=car.name,
+            owner_name=current_user.full_name,
+            start_iso=booking.start_datetime.isoformat(),
+            end_iso=booking.end_datetime.isoformat(),
+            booking_id=booking.id,
+            status=booking.status,
+        )
 
     return schemas.BookingRead(
         id=booking.id,

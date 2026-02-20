@@ -273,7 +273,8 @@
                       showTime
                       hourFormat="24"
                       showIcon
-                      :manualInput="false"
+                      :manualInput="true"
+                      :stepMinute="5"
                       fluid
                       inline
                     />
@@ -286,7 +287,8 @@
                       showTime
                       hourFormat="24"
                       showIcon
-                      :manualInput="false"
+                      :manualInput="true"
+                      :stepMinute="5"
                       fluid
                       inline
                     />
@@ -327,8 +329,17 @@
                   <Card
                     v-for="car in availableCars"
                     :key="car.id"
-                    class="flex flex-col justify-between"
+                    class="flex flex-col justify-between overflow-hidden"
                   >
+                    <template #header>
+                      <div v-if="car.image_url" class="h-80 w-full overflow-hidden bg-surface-900">
+                        <img
+                          :src="car.image_url"
+                          :alt="car.name"
+                          class="!w-full !h-full object-cover block"
+                        />
+                      </div>
+                    </template>
                     <template #title>
                       <div class="flex flex-col gap-1">
                         <span class="font-semibold">{{ car.name }}</span>
