@@ -66,7 +66,10 @@ const otherBookings = computed<DashboardBooking[]>(() => {
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '';
-  const d = new Date(iso);
+  // Backend returns naive UTC datetimes without a timezone suffix.
+  // Appending 'Z' tells JavaScript to treat them as UTC so local conversion is correct.
+  const normalized = iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z';
+  const d = new Date(normalized);
   return d.toLocaleString(undefined, {
     weekday: 'short',
     month: 'short',

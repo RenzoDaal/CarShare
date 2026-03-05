@@ -32,17 +32,22 @@ const error = ref<string | null>(null);
 const now = new Date();
 const upcoming = computed(() =>
   bookings.value.filter(
-    (b) => b.status !== 'declined' && new Date(b.end_datetime) >= now,
+    (b) => b.status !== 'declined' && toUtcDate(b.end_datetime) >= now,
   ),
 );
 const history = computed(() =>
   bookings.value.filter(
-    (b) => b.status === 'declined' || new Date(b.end_datetime) < now,
+    (b) => b.status === 'declined' || toUtcDate(b.end_datetime) < now,
   ),
 );
 
+function toUtcDate(value: string): Date {
+  const normalized = value.endsWith('Z') || value.includes('+') ? value : value + 'Z';
+  return new Date(normalized);
+}
+
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  return toUtcDate(value).toLocaleString();
 }
 
 function statusSeverity(status: BookingStatus) {

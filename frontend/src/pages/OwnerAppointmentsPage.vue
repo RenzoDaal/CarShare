@@ -41,7 +41,8 @@ const declinedBookings = computed(() =>
 );
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  const normalized = value.endsWith('Z') || value.includes('+') ? value : value + 'Z';
+  return new Date(normalized).toLocaleString();
 }
 
 async function fetchBookings() {
