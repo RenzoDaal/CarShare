@@ -16,6 +16,7 @@ venv/
 # --- Environment variables ---
 .env
 .env.*
+!.env.example
 
 # --- IDE / OS files ---
 .DS_Store

@@ -156,7 +156,7 @@ const confirmDeleteCar = (carId: number) => {
       <Card v-for="car in cars" :key="car.id" class="overflow-hidden">
         <template #header>
           <div v-if="car.image_url" class="h-80 w-full overflow-hidden bg-surface-900">
-            <img :src="car.image_url" alt="car.name" class="!w-full !h-full object-cover block" />
+            <img :src="car.image_url" :alt="car.name" class="!w-full !h-full object-cover block" />
           </div>
         </template>
         <template #title>

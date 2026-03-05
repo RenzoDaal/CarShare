@@ -29,11 +29,16 @@ const bookings = ref<BorrowerBooking[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+const now = new Date();
 const upcoming = computed(() =>
-  bookings.value.filter((b) => b.status !== 'declined'),
+  bookings.value.filter(
+    (b) => b.status !== 'declined' && new Date(b.end_datetime) >= now,
+  ),
 );
 const history = computed(() =>
-  bookings.value.filter((b) => b.status === 'declined'),
+  bookings.value.filter(
+    (b) => b.status === 'declined' || new Date(b.end_datetime) < now,
+  ),
 );
 
 function formatDateTime(value: string) {
@@ -106,10 +111,10 @@ onMounted(fetchBookings);
       </Card>
 
       <Card>
-        <template #title>Declined bookings</template>
+        <template #title>Past & declined bookings</template>
         <template #content>
           <div v-if="history.length === 0" class="text-sm text-surface-500">
-            No declined bookings.
+            No past or declined bookings.
           </div>
           <ul v-else class="flex flex-col gap-2 text-sm">
             <li v-for="booking in history" :key="booking.id"

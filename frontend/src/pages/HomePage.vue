@@ -12,7 +12,6 @@ import { useAuthStore } from '@/stores/auth';
 const router = useRouter();
 const auth = useAuthStore();
 
-console.log("Testing");
 
 type DashboardBooking = {
   id: number;

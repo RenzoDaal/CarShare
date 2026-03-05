@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
@@ -28,16 +28,7 @@ class Car(SQLModel, table=True):
     image_url: Optional[str] = None
 
     owner: Optional[User] = Relationship(back_populates="cars")
-    availabilities: List["CarAvailability"] = Relationship(back_populates="car")
     bookings: List["Booking"] = Relationship(back_populates="car")
-
-
-class CarAvailability(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    car_id: int = Field(foreign_key="car.id")
-    start_datetime: datetime
-    end_datetime: datetime
-    car: Optional[Car] = Relationship(back_populates="availabilities")
 
 
 class BookingStatus(str, Enum):
@@ -62,29 +53,3 @@ class Booking(SQLModel, table=True):
 
     car: Optional[Car] = Relationship(back_populates="bookings")
     borrower: Optional[User] = Relationship(back_populates="bookings")
-    route_stops: List["RouteStop"] = Relationship(back_populates="booking")
-    payment: Optional["Payment"] = Relationship(back_populates="booking")
-
-
-class RouteStop(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    booking_id: int = Field(foreign_key="booking.id")
-
-    order: int
-    label: str
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-
-    booking: Optional[Booking] = Relationship(back_populates="route_stops")
-
-
-class Payment(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    booking_id: int = Field(foreign_key="booking.id")
-    provider: str
-    provider_payment_id: str
-    amount: float
-    currency: str = "EUR"
-    status: str
-
-    booking: Optional[Booking] = Relationship(back_populates="payment")

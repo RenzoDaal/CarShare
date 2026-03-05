@@ -5,16 +5,16 @@
   import Drawer from 'primevue/drawer';
   import Logo from '@/assets/logo.svg';
 
-  import { ref } from 'vue'
+  import { ref, computed } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '../stores/auth';
-  
+
   const auth = useAuthStore();
   const router = useRouter()
 
   const drawerVisible = ref(false);
-  const isCarOwner = auth.user?.role_owner;
-  const isCarBorrower = auth.user?.role_borrower;
+  const isCarOwner = computed(() => auth.user?.role_owner ?? false);
+  const isCarBorrower = computed(() => auth.user?.role_borrower ?? false);
   const homeDrawerItems = ref([
     {
       label: 'Home',

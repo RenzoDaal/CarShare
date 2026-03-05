@@ -1,14 +1,8 @@
 from datetime import datetime
-from enum import Enum
 from typing import List, Optional
 
+from models import BookingStatus
 from sqlmodel import SQLModel
-
-
-class BookingStatus(str, Enum):
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    DECLINED = "declined"
 
 
 class UserCreate(SQLModel):

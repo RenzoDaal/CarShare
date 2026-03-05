@@ -222,12 +222,10 @@ const submitBooking = async () => {
   try {
     await http.post('/bookings', null, {
       params: {
-        borrower_id: auth.user.id,
         car_id: selectedCar.value.id,
         start_datetime: start.value.toISOString(),
         end_datetime: end.value.toISOString(),
         distance_km: distanceKm.value,
-        estimated_price: estimatedPrice.value
       }
     });
 
@@ -455,14 +453,15 @@ const submitBooking = async () => {
 
                 <div v-if="!bookingCompleted" class="space-y-4">
                   <h2 class="font-semibold text-base">Your details</h2>
-                  <div class="space-y-2">
-                    <span class="block text-sm font-medium">Name</span>
-                    <InputText v-model="fullName" class="w-full" />
-                  </div>
-
-                  <div class="space-y-2">
-                    <span class="block text-sm font-medium">Email</span>
-                    <InputText v-model="email" class="w-full" />
+                  <div class="text-sm space-y-1">
+                    <div>
+                      <span class="font-medium">Name:</span>
+                      <span class="ml-2">{{ fullName }}</span>
+                    </div>
+                    <div>
+                      <span class="font-medium">Email:</span>
+                      <span class="ml-2">{{ email }}</span>
+                    </div>
                   </div>
 
                   <div v-if="bookingError" class="text-sm text-red-500">

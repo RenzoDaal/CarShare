@@ -1,6 +1,6 @@
 import os
-from datetime import datetime
-from typing import List
+from datetime import datetime, timezone
+from typing import List, Optional
 from uuid import uuid4
 
 import emailer
@@ -45,15 +45,15 @@ app = FastAPI()
 
 BASE_DATA_DIR = "data"
 CAR_IMAGE_DIR = os.path.join(BASE_DATA_DIR, "car_images")
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
 os.makedirs(CAR_IMAGE_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=BASE_DATA_DIR), name="static")
 
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://10.142.1.159:5173",
-    "http://10.142.1.159:8080",
-]
+_raw_origins = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173",
+)
+origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,11 +120,6 @@ def read_me(current_user: User = Depends(get_current_user)):
     return user_to_read(current_user)
 
 
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 @app.post("/cars", response_model=CarRead, status_code=status.HTTP_201_CREATED)
 def create_car(
     data: CarCreate,
@@ -165,10 +160,18 @@ async def upload_car_image(
     if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
         raise HTTPException(status_code=400, detail="Unsupported image type")
 
+    contents = await file.read()
+    if len(contents) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail="Image file too large (max 5 MB)")
+
+    # Delete old image file if one exists
+    if car.image_url:
+        old_path = os.path.join(BASE_DATA_DIR, car.image_url[len("/static/"):])
+        if os.path.isfile(old_path):
+            os.remove(old_path)
+
     filename = f"{car_id}_{uuid4().hex}{ext}"
     filepath = os.path.join(CAR_IMAGE_DIR, filename)
-
-    contents = await file.read()
     with open(filepath, "wb") as f:
         f.write(contents)
 
@@ -198,7 +201,7 @@ def update_car(
             detail="Not allowed to update this car",
         )
 
-    update_data = data.dict(exclude_unset=True)
+    update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(car, field, value)
 
@@ -281,44 +284,43 @@ def delete_car(
     if car.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed to delete this car")
 
+    if car.image_url:
+        image_path = os.path.join(BASE_DATA_DIR, car.image_url[len("/static/"):])
+        if os.path.isfile(image_path):
+            os.remove(image_path)
+
     session.delete(car)
     session.commit()
 
 
-@app.get("/bookings")
-def list_bookings(session: Session = Depends(get_session)):
-    bookings = session.exec(select(Booking)).all()
-    return bookings
-
-
 @app.post("/bookings")
 def create_booking(
-    borrower_id: int,
     car_id: int,
     start_datetime: str,
     end_datetime: str,
     background_tasks: BackgroundTasks,
+    distance_km: Optional[float] = None,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    from datetime import datetime
-
     car = session.get(Car, car_id)
-    borrower = session.get(User, borrower_id)
 
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if borrower is None:
-        raise HTTPException(status_code=404, detail="User not found")
 
     start_dt = datetime.fromisoformat(start_datetime)
     end_dt = datetime.fromisoformat(end_datetime)
 
+    total_price = round(distance_km * car.price_per_km, 2) if distance_km is not None else None
+
     booking = Booking(
         car_id=car.id,
-        borrower_id=borrower.id,
+        borrower_id=current_user.id,
         start_datetime=start_dt,
         end_datetime=end_dt,
         price_per_km=car.price_per_km,
+        total_km=distance_km,
+        total_price=total_price,
         status=BookingStatus.PENDING.value,
     )
 
@@ -334,7 +336,7 @@ def create_booking(
             owner_email=owner.email,
             owner_name=owner.full_name,
             car_name=car.name,
-            borrower_name=borrower.full_name,
+            borrower_name=current_user.full_name,
             start_iso=booking.start_datetime.isoformat(),
             end_iso=booking.end_datetime.isoformat(),
             booking_id=booking.id,
@@ -348,9 +350,8 @@ def get_dashboard(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
-    # 1) Upcoming + current bookings (als borrower)
     bookings_stmt = (
         select(Booking)
         .where(
@@ -364,7 +365,6 @@ def get_dashboard(
     upcoming_bookings: list[dict] = []
 
     for b in bookings:
-        # probeer relationship, anders losse fetch
         car = getattr(b, "car", None) or session.get(Car, b.car_id)
         if not car:
             continue
@@ -388,7 +388,6 @@ def get_dashboard(
             }
         )
 
-    # 2) Cars van deze user als owner
     active_cars: list[dict] = []
 
     if current_user.role_owner:

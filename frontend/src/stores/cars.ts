@@ -59,7 +59,7 @@ export const useCarStore = defineStore("cars", {
         this.error = err.response?.data?.detail ?? "Failed to create car";
         throw err;
       } finally {
-        this.loading;
+        this.loading = false;
       }
     },
 
