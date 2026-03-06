@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import Card from 'primevue/card';
 import Tag from 'primevue/tag';
 import Button from 'primevue/button';
@@ -7,6 +7,7 @@ import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import Dialog from 'primevue/dialog';
 import DatePicker from 'primevue/datepicker';
+import AutoComplete from 'primevue/autocomplete';
 import http from '@/api/http';
 import { useConfirm } from 'primevue/useconfirm';
 
@@ -95,15 +96,80 @@ function confirmCancel(bookingId: number) {
 // Reschedule dialog
 const rescheduleVisible = ref(false);
 const rescheduleBookingId = ref<number | null>(null);
+const rescheduleBooking = ref<BorrowerBooking | null>(null);
 const rescheduleStart = ref<Date | null>(null);
 const rescheduleEnd = ref<Date | null>(null);
 const rescheduleSubmitting = ref(false);
 const rescheduleError = ref<string | null>(null);
 
+// Route within reschedule dialog
+const rescheduleStops = ref<string[]>(['', '']);
+const locationSuggestions = ref<string[]>([]);
+const rescheduleDistanceKm = ref<number | null>(null);
+const rescheduleRouteEstimating = ref(false);
+const rescheduleRouteError = ref<string | null>(null);
+
+const rescheduleTrimmedStops = computed(() =>
+  rescheduleStops.value.map(s => s.trim()).filter(Boolean)
+);
+
+const rescheduleEstimatedPrice = computed(() => {
+  const pricePerKm = rescheduleBooking.value?.car.price_per_km;
+  if (pricePerKm == null || rescheduleDistanceKm.value == null) return null;
+  return rescheduleDistanceKm.value * pricePerKm;
+});
+
+watch(rescheduleStops, () => {
+  rescheduleDistanceKm.value = null;
+  rescheduleRouteError.value = null;
+}, { deep: true });
+
+function addRescheduleStop() {
+  rescheduleStops.value.splice(rescheduleStops.value.length - 1, 0, '');
+}
+
+function removeRescheduleStop(index: number) {
+  if (rescheduleStops.value.length <= 2) return;
+  rescheduleStops.value.splice(index, 1);
+}
+
+async function searchLocations(event: { query: string }) {
+  const query = (event.query || '').trim();
+  if (!query || query.length < 3) { locationSuggestions.value = []; return; }
+  try {
+    const res = await http.get<string[]>('/locations/suggest', { params: { query } });
+    locationSuggestions.value = res.data;
+  } catch {
+    locationSuggestions.value = [];
+  }
+}
+
+async function estimateRescheduleRoute() {
+  rescheduleRouteError.value = null;
+  rescheduleDistanceKm.value = null;
+  if (rescheduleTrimmedStops.value.length < 2) {
+    rescheduleRouteError.value = 'Please enter at least a start and end location.';
+    return;
+  }
+  rescheduleRouteEstimating.value = true;
+  try {
+    const res = await http.post('/routes/estimate', { stops: rescheduleTrimmedStops.value });
+    rescheduleDistanceKm.value = res.data.distance_km;
+  } catch (err: any) {
+    rescheduleRouteError.value = err?.response?.data?.detail ?? 'Failed to estimate route.';
+  } finally {
+    rescheduleRouteEstimating.value = false;
+  }
+}
+
 function openReschedule(booking: BorrowerBooking) {
   rescheduleBookingId.value = booking.id;
+  rescheduleBooking.value = booking;
   rescheduleStart.value = toUtcDate(booking.start_datetime);
   rescheduleEnd.value = toUtcDate(booking.end_datetime);
+  rescheduleStops.value = ['', ''];
+  rescheduleDistanceKm.value = null;
+  rescheduleRouteError.value = null;
   rescheduleError.value = null;
   rescheduleVisible.value = true;
 }
@@ -120,6 +186,7 @@ async function submitReschedule() {
     await http.patch(`/bookings/${rescheduleBookingId.value}/reschedule`, {
       start_datetime: rescheduleStart.value.toISOString(),
       end_datetime: rescheduleEnd.value.toISOString(),
+      distance_km: rescheduleDistanceKm.value,
     });
     rescheduleVisible.value = false;
     await fetchBookings();
@@ -203,8 +270,10 @@ onMounted(fetchBookings);
   </div>
 
   <!-- Reschedule dialog -->
-  <Dialog v-model:visible="rescheduleVisible" header="Reschedule booking" modal :style="{ width: '36rem' }">
-    <div class="flex flex-col gap-4 mt-2">
+  <Dialog v-model:visible="rescheduleVisible" header="Reschedule booking" modal :style="{ width: '42rem' }">
+    <div class="flex flex-col gap-5 mt-2">
+
+      <!-- Dates -->
       <div class="grid gap-4 md:grid-cols-2">
         <div class="space-y-2">
           <span class="block text-sm font-medium">New start</span>
@@ -215,6 +284,38 @@ onMounted(fetchBookings);
           <DatePicker v-model="rescheduleEnd" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5" fluid />
         </div>
       </div>
+
+      <!-- Route -->
+      <div class="space-y-3">
+        <span class="block text-sm font-medium">Route</span>
+        <div v-for="(_stop, index) in rescheduleStops" :key="index" class="flex items-center gap-2">
+          <div class="flex-1 min-w-0">
+            <span class="block text-xs text-surface-400 mb-1">
+              {{ index === 0 ? 'Start location' : index === rescheduleStops.length - 1 ? 'End location' : `Stop ${index}` }}
+            </span>
+            <AutoComplete v-model="rescheduleStops[index]" :suggestions="locationSuggestions" :minLength="3"
+              :delay="300" placeholder="Type an address" class="w-full" inputClass="w-full"
+              @complete="searchLocations" />
+          </div>
+          <Button icon="pi pi-trash" severity="danger" text rounded
+            :disabled="rescheduleStops.length <= 2" @click="removeRescheduleStop(index)" />
+        </div>
+        <Button label="Add stop" icon="pi pi-plus" text size="small" @click="addRescheduleStop" />
+
+        <div class="flex items-center gap-4 flex-wrap">
+          <Button label="Calculate distance" icon="pi pi-map" size="small"
+            :loading="rescheduleRouteEstimating"
+            :disabled="rescheduleRouteEstimating || rescheduleTrimmedStops.length < 2"
+            @click="estimateRescheduleRoute" />
+          <div v-if="rescheduleDistanceKm != null" class="text-sm space-y-0.5">
+            <div><span class="font-medium">Distance:</span> {{ rescheduleDistanceKm.toFixed(1) }} km</div>
+            <div v-if="rescheduleEstimatedPrice != null"><span class="font-medium">Estimated cost:</span> €{{ rescheduleEstimatedPrice.toFixed(2) }}</div>
+          </div>
+        </div>
+        <p v-if="rescheduleRouteError" class="text-sm text-red-500">{{ rescheduleRouteError }}</p>
+        <p class="text-xs text-surface-400">Leave route empty to keep the existing distance and price.</p>
+      </div>
+
       <p class="text-xs text-surface-400">Rescheduling will reset the booking status to pending — the owner will need to re-approve.</p>
       <p v-if="rescheduleError" class="text-sm text-red-500">{{ rescheduleError }}</p>
       <div class="flex justify-end gap-2">

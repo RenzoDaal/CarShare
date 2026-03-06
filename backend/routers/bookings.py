@@ -144,6 +144,9 @@ def reschedule_booking(
     booking.start_datetime = start_dt
     booking.end_datetime = end_dt
     booking.status = BookingStatus.PENDING.value
+    if body.distance_km is not None:
+        booking.total_km = body.distance_km
+        booking.total_price = round(body.distance_km * booking.price_per_km, 2)
     session.add(booking)
     session.commit()
     session.refresh(booking)

@@ -71,6 +71,7 @@ class DashboardBookingRead(SQLModel):
 class BookingReschedule(SQLModel):
     start_datetime: str
     end_datetime: str
+    distance_km: Optional[float] = None
 
 
 class DashboardResponse(SQLModel):
