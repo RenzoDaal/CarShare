@@ -21,7 +21,7 @@ const form = reactive({
   password: '',
 });
 
-const rememberMe = ref(true);
+const rememberMe = ref(false);
 
 const resolver = ref(
   zodResolver(
