@@ -5,9 +5,10 @@
   import Drawer from 'primevue/drawer';
   import Logo from '@/assets/logo.svg';
 
-  import { ref, computed } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '../stores/auth';
+  import http from '@/api/http';
 
   const auth = useAuthStore();
   const router = useRouter()
@@ -29,6 +30,20 @@
   const drawerVisible = ref(false);
   const isCarOwner = computed(() => auth.user?.role_owner ?? false);
   const isCarBorrower = computed(() => auth.user?.role_borrower ?? false);
+  const isAdmin = computed(() => auth.user?.is_admin ?? false);
+
+  const pendingBookingsCount = ref(0);
+
+  onMounted(async () => {
+    if (isCarOwner.value) {
+      try {
+        const { data } = await http.get<{ status: string }[]>('/bookings/owner');
+        pendingBookingsCount.value = data.filter(b => b.status === 'pending').length;
+      } catch {
+        // silently ignore
+      }
+    }
+  });
   const homeDrawerItems = ref([
     {
       label: 'Home',
@@ -45,23 +60,41 @@
     }
   ])
 
-  const carOwnerDrawerItems = ref([
-    { 
-      label: 'Owner', 
+  const carOwnerDrawerItems = computed(() => [
+    {
+      label: 'Owner',
       items: [
         {
           label: 'Manage Cars',
-          icon: 'pi pi-car', 
+          icon: 'pi pi-car',
           command: () => {
-            router.push({ name: 'manage cars' }); 
+            router.push({ name: 'manage cars' });
             drawerVisible.value = false;
           }
         },
         {
           label: 'Appointments',
           icon: "pi pi-calendar",
+          badge: pendingBookingsCount.value > 0 ? String(pendingBookingsCount.value) : undefined,
+          badgeSeverity: 'warn',
           command: () => {
             router.push({ name: 'ownerappointments' });
+            drawerVisible.value = false;
+          }
+        }
+      ]
+    }
+  ]);
+
+  const adminDrawerItems = ref([
+    {
+      label: 'Admin',
+      items: [
+        {
+          label: 'User management',
+          icon: 'pi pi-users',
+          command: () => {
+            router.push({ name: 'admin' });
             drawerVisible.value = false;
           }
         }
@@ -109,6 +142,7 @@
       <Menu class="!border-none" :model=homeDrawerItems />
       <Menu class="!border-none" :model="carOwnerDrawerItems" v-if="isCarOwner"/>
       <Menu class="!border-none" :model="carBorrowerDrawerItems" v-if="isCarBorrower"/>
+      <Menu class="!border-none" :model="adminDrawerItems" v-if="isAdmin"/>
       <div class="px-4 py-2">
         <Button label="Logout" icon="pi pi-sign-out" severity="secondary" variant="text" @click="logout" />
       </div>

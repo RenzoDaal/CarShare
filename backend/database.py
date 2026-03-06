@@ -1,5 +1,6 @@
 import os
 
+from sqlalchemy import text
 from sqlmodel import SQLModel, create_engine
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -17,3 +18,17 @@ engine = create_engine(
 
 def init_db():
     SQLModel.metadata.create_all(engine)
+    _run_migrations()
+
+
+def _run_migrations():
+    migrations = [
+        "ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists

@@ -185,8 +185,9 @@ onMounted(() => {
                         € {{ nextBooking!.total_price!.toFixed(2) }}
                       </span>
                     </p>
-                    <div class="mt-2 flex items-center gap-3">
+                    <div class="mt-2 flex items-center gap-3 flex-wrap">
                       <Tag :value="nextBooking!.status" />
+                      <span v-if="nextBooking!.status === 'pending'" class="text-xs text-surface-400">Awaiting owner approval</span>
                       <Button label="Cancel" icon="pi pi-times" severity="danger" outlined size="small"
                         @click="confirmCancel(nextBooking!.id)" />
                     </div>
@@ -207,8 +208,9 @@ onMounted(() => {
                             {{ formatDateTime(b.start_datetime) }}
                           </p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap justify-end">
                           <Tag :value="b.status" />
+                          <span v-if="b.status === 'pending'" class="text-xs text-surface-400">Awaiting approval</span>
                           <Button icon="pi pi-times" severity="danger" outlined rounded size="small"
                             @click="confirmCancel(b.id)" />
                         </div>

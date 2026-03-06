@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -60,3 +62,50 @@ def login(
 @router.get("/users/me", response_model=UserRead)
 def read_me(current_user: User = Depends(get_current_user)):
     return user_to_read(current_user)
+
+
+@router.get("/admin/users", response_model=List[UserRead])
+def list_all_users(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    users = session.exec(select(User).order_by(User.id)).all()
+    return [user_to_read(u) for u in users]
+
+
+@router.post("/admin/users/{user_id}/approve", response_model=UserRead)
+def approve_user(
+    user_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_approved = True
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user_to_read(user)
+
+
+@router.delete("/admin/users/{user_id}")
+def delete_user(
+    user_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    session.delete(user)
+    session.commit()
+    return {"ok": True}

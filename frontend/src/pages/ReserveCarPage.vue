@@ -353,8 +353,8 @@ const submitBooking = async () => {
                           @complete="searchLocations" />
                       </div>
 
-                      <Button v-if="stops.length > 2" icon="pi pi-trash" severity="danger" text rounded
-                        @click="removeStop(index)" />
+                      <Button icon="pi pi-trash" severity="danger" text rounded
+                        :disabled="stops.length <= 2" @click="removeStop(index)" />
                     </div>
 
                     <Button label="Add stop" icon="pi pi-plus" text @click="addStop" />

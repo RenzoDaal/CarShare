@@ -8,6 +8,7 @@ import OwnerAppointmentsPage from "@/pages/OwnerAppointmentsPage.vue";
 import BorrowersAppointmentsPage from "@/pages/BorrowerAppointmentsPage.vue";
 import CarAvailabilityPage from "@/pages/CarAvailabilityPage.vue";
 import RegisterPage from "@/pages/RegisterPage.vue";
+import AdminPage from "@/pages/AdminPage.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const routes: RouteRecordRaw[] = [
@@ -54,6 +55,12 @@ const routes: RouteRecordRaw[] = [
     component: CarAvailabilityPage,
     meta: { requiresBorrower: true },
   },
+  {
+    path: "/admin",
+    name: "admin",
+    component: AdminPage,
+    meta: { requiresAdmin: true },
+  },
 ];
 
 const router = createRouter({
@@ -80,6 +87,10 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.requiresBorrower && !auth.user?.role_borrower) {
+    return { name: "home" };
+  }
+
+  if (to.meta.requiresAdmin && !auth.user?.is_admin) {
     return { name: "home" };
   }
 

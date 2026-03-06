@@ -8,6 +8,7 @@ export type User = {
   role_owner: boolean;
   role_borrower: boolean;
   is_approved: boolean;
+  is_admin: boolean;
 };
 
 type TokenResponse = {

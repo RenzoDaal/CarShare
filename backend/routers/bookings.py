@@ -9,6 +9,7 @@ import schemas
 from auth import get_current_user, get_session
 from models import Booking, BookingStatus, Car, User
 from schemas import (
+    BookingReschedule,
     CarRead,
     DashboardBookingRead,
     DashboardResponse,
@@ -107,6 +108,55 @@ def cancel_booking(
     )
 
 
+@router.patch("/bookings/{booking_id}/reschedule", response_model=schemas.BookingRead)
+def reschedule_booking(
+    booking_id: int,
+    body: BookingReschedule,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.borrower_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to reschedule this booking")
+    if booking.status in [BookingStatus.CANCELLED.value, BookingStatus.DECLINED.value]:
+        raise HTTPException(status_code=400, detail="Cannot reschedule a cancelled or declined booking")
+
+    start_dt = parse_iso(body.start_datetime)
+    end_dt = parse_iso(body.end_datetime)
+    if end_dt <= start_dt:
+        raise HTTPException(status_code=400, detail="End time must be after start time")
+
+    booking.start_datetime = start_dt
+    booking.end_datetime = end_dt
+    booking.status = BookingStatus.PENDING.value
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+
+    car = booking.car or session.get(Car, booking.car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    return schemas.BookingRead(
+        id=booking.id,
+        car=CarRead(
+            id=car.id,
+            owner_id=car.owner_id,
+            name=car.name,
+            description=car.description,
+            price_per_km=car.price_per_km,
+            is_active=car.is_active,
+            image_url=getattr(car, "image_url", None),
+        ),
+        start_datetime=booking.start_datetime,
+        end_datetime=booking.end_datetime,
+        status=booking.status,
+        total_price=booking.total_price,
+    )
+
+
 @router.get("/bookings/owner", response_model=List[DashboardBookingRead])
 def list_owner_bookings(
     session: Session = Depends(get_session),
@@ -127,6 +177,7 @@ def list_owner_bookings(
         car = booking.car
         if car is None:
             continue
+        borrower = booking.borrower or session.get(User, booking.borrower_id)
         result.append(
             DashboardBookingRead(
                 id=booking.id,
@@ -143,6 +194,8 @@ def list_owner_bookings(
                 end_datetime=booking.end_datetime,
                 status=booking.status,
                 total_price=booking.total_price,
+                borrower_name=borrower.full_name if borrower else None,
+                borrower_email=borrower.email if borrower else None,
             )
         )
     return result

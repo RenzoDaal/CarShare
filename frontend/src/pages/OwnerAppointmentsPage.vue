@@ -24,6 +24,8 @@ type OwnerBooking = {
   end_datetime: string;
   status: BookingStatus;
   total_price?: number | null;
+  borrower_name?: string | null;
+  borrower_email?: string | null;
 };
 
 const bookings = ref<OwnerBooking[]>([]);
@@ -113,6 +115,10 @@ onMounted(fetchBookings);
                 <div v-if="booking.total_price != null" class="text-sm mt-1">
                   Total price: €{{ booking.total_price.toFixed(2) }}
                 </div>
+                <div v-if="booking.borrower_name" class="text-sm mt-1 text-surface-500">
+                  Borrower: <span class="font-medium text-surface-700 dark:text-surface-200">{{ booking.borrower_name }}</span>
+                  <span v-if="booking.borrower_email"> — {{ booking.borrower_email }}</span>
+                </div>
               </div>
               <div class="flex gap-2 mt-2 md:mt-0">
                 <Button label="Accept" icon="pi pi-check" severity="success" @click="acceptBooking(booking.id)" />
@@ -144,6 +150,10 @@ onMounted(fetchBookings);
                 </p>
                 <p v-if="booking.total_price != null" class="text-sm font-medium mt-1">
                   Total price: €{{ booking.total_price.toFixed(2) }}
+                </p>
+                <p v-if="booking.borrower_name" class="text-sm mt-1 text-surface-500">
+                  Borrower: <span class="font-medium text-surface-700 dark:text-surface-200">{{ booking.borrower_name }}</span>
+                  <span v-if="booking.borrower_email"> — {{ booking.borrower_email }}</span>
                 </p>
               </template>
             </Card>

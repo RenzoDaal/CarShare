@@ -5,6 +5,8 @@ import Tag from 'primevue/tag';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
+import Dialog from 'primevue/dialog';
+import DatePicker from 'primevue/datepicker';
 import http from '@/api/http';
 import { useConfirm } from 'primevue/useconfirm';
 
@@ -90,6 +92,44 @@ function confirmCancel(bookingId: number) {
   });
 }
 
+// Reschedule dialog
+const rescheduleVisible = ref(false);
+const rescheduleBookingId = ref<number | null>(null);
+const rescheduleStart = ref<Date | null>(null);
+const rescheduleEnd = ref<Date | null>(null);
+const rescheduleSubmitting = ref(false);
+const rescheduleError = ref<string | null>(null);
+
+function openReschedule(booking: BorrowerBooking) {
+  rescheduleBookingId.value = booking.id;
+  rescheduleStart.value = toUtcDate(booking.start_datetime);
+  rescheduleEnd.value = toUtcDate(booking.end_datetime);
+  rescheduleError.value = null;
+  rescheduleVisible.value = true;
+}
+
+async function submitReschedule() {
+  if (!rescheduleBookingId.value || !rescheduleStart.value || !rescheduleEnd.value) return;
+  if (rescheduleEnd.value <= rescheduleStart.value) {
+    rescheduleError.value = 'End time must be after start time.';
+    return;
+  }
+  rescheduleSubmitting.value = true;
+  rescheduleError.value = null;
+  try {
+    await http.patch(`/bookings/${rescheduleBookingId.value}/reschedule`, {
+      start_datetime: rescheduleStart.value.toISOString(),
+      end_datetime: rescheduleEnd.value.toISOString(),
+    });
+    rescheduleVisible.value = false;
+    await fetchBookings();
+  } catch (err: any) {
+    rescheduleError.value = err?.response?.data?.detail ?? 'Failed to reschedule booking';
+  } finally {
+    rescheduleSubmitting.value = false;
+  }
+}
+
 onMounted(fetchBookings);
 </script>
 
@@ -116,7 +156,10 @@ onMounted(fetchBookings);
             <Card v-for="booking in upcoming" :key="booking.id" class="h-full">
               <template #title>{{ booking.car.name }}</template>
               <template #subtitle>
-                <Tag :value="booking.status" :severity="statusSeverity(booking.status)" />
+                <div class="flex items-center gap-2 flex-wrap">
+                  <Tag :value="booking.status" :severity="statusSeverity(booking.status)" />
+                  <span v-if="booking.status === 'pending'" class="text-xs text-surface-400">Awaiting owner approval</span>
+                </div>
               </template>
               <template #content>
                 <p class="text-sm text-surface-500 mb-1">
@@ -126,11 +169,9 @@ onMounted(fetchBookings);
                 <p v-if="booking.total_price != null" class="text-sm font-medium mt-1">
                   Total price: €{{ booking.total_price.toFixed(2) }}
                 </p>
-                <p class="text-xs text-surface-400 mt-2">
-                  Your booking is only final once it is
-                  <strong>accepted</strong> by the owner.
-                </p>
-                <div class="mt-3">
+                <div class="mt-3 flex gap-2 flex-wrap">
+                  <Button label="Reschedule" icon="pi pi-calendar-clock" severity="secondary" outlined size="small"
+                    @click="openReschedule(booking)" />
                   <Button label="Cancel booking" icon="pi pi-times" severity="danger" outlined size="small"
                     @click="confirmCancel(booking.id)" />
                 </div>
@@ -160,4 +201,28 @@ onMounted(fetchBookings);
       </Card>
     </template>
   </div>
+
+  <!-- Reschedule dialog -->
+  <Dialog v-model:visible="rescheduleVisible" header="Reschedule booking" modal :style="{ width: '36rem' }">
+    <div class="flex flex-col gap-4 mt-2">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-2">
+          <span class="block text-sm font-medium">New start</span>
+          <DatePicker v-model="rescheduleStart" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5" fluid />
+        </div>
+        <div class="space-y-2">
+          <span class="block text-sm font-medium">New end</span>
+          <DatePicker v-model="rescheduleEnd" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5" fluid />
+        </div>
+      </div>
+      <p class="text-xs text-surface-400">Rescheduling will reset the booking status to pending — the owner will need to re-approve.</p>
+      <p v-if="rescheduleError" class="text-sm text-red-500">{{ rescheduleError }}</p>
+      <div class="flex justify-end gap-2">
+        <Button label="Cancel" severity="secondary" outlined @click="rescheduleVisible = false" />
+        <Button label="Confirm reschedule" icon="pi pi-check" :loading="rescheduleSubmitting"
+          :disabled="!rescheduleStart || !rescheduleEnd || rescheduleSubmitting"
+          @click="submitReschedule" />
+      </div>
+    </div>
+  </Dialog>
 </template>

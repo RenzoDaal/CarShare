@@ -19,6 +19,7 @@ class UserRead(SQLModel):
     role_owner: bool
     role_borrower: bool
     is_approved: bool
+    is_admin: bool
 
 
 class LoginRequest(SQLModel):
@@ -63,6 +64,13 @@ class DashboardBookingRead(SQLModel):
     end_datetime: datetime
     status: str
     total_price: Optional[float] = None
+    borrower_name: Optional[str] = None
+    borrower_email: Optional[str] = None
+
+
+class BookingReschedule(SQLModel):
+    start_datetime: str
+    end_datetime: str
 
 
 class DashboardResponse(SQLModel):
