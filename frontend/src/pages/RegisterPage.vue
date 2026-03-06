@@ -10,6 +10,7 @@ import Message from 'primevue/message';
 import { Form } from '@primevue/forms';
 import { z } from 'zod';
 import { zodResolver } from '@primevue/forms/resolvers/zod';
+import { stringFromNullish } from '@/utils/zod';
 
 import http from '@/api/http';
 
@@ -23,13 +24,6 @@ const form = reactive({
   role_owner: false,
   role_borrower: true,
 });
-
-// Normalize null/undefined to empty string BEFORE validation
-const stringFromNullish = (schema: z.ZodString) =>
-  z.preprocess(
-    (val) => (val == null ? '' : val),
-    schema
-  );
 
 const resolver = ref(
   zodResolver(

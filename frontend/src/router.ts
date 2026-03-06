@@ -17,37 +17,42 @@ const routes: RouteRecordRaw[] = [
     component: LoginPage,
     meta: { hideLayout: true },
   },
-  { path: "/", name: "home", component: HomePage },
-  {
-    path: "/managecars",
-    name: "manage cars",
-    component: CarManagerPage,
-  },
-  {
-    path: "/reservecar",
-    name: "reserve car",
-    component: ReserveCarPage,
-  },
   {
     path: "/register",
     name: "register",
     component: RegisterPage,
     meta: { hideLayout: true },
   },
+  { path: "/", name: "home", component: HomePage },
+  {
+    path: "/managecars",
+    name: "manage cars",
+    component: CarManagerPage,
+    meta: { requiresOwner: true },
+  },
+  {
+    path: "/reservecar",
+    name: "reserve car",
+    component: ReserveCarPage,
+    meta: { requiresBorrower: true },
+  },
   {
     path: "/ownerappointments",
     name: "ownerappointments",
     component: OwnerAppointmentsPage,
+    meta: { requiresOwner: true },
   },
   {
     path: "/borrowerappointments",
     name: "borrowerappointments",
     component: BorrowersAppointmentsPage,
+    meta: { requiresBorrower: true },
   },
   {
     path: "/availability",
     name: "availability",
     component: CarAvailabilityPage,
+    meta: { requiresBorrower: true },
   },
 ];
 
@@ -61,11 +66,20 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
+
   if (!auth.isAuthenticated && to.name !== "login" && to.name !== "register") {
     return { name: "login" };
   }
 
-  if (auth.isAuthenticated && to.name === "login") {
+  if (auth.isAuthenticated && (to.name === "login" || to.name === "register")) {
+    return { name: "home" };
+  }
+
+  if (to.meta.requiresOwner && !auth.user?.role_owner) {
+    return { name: "home" };
+  }
+
+  if (to.meta.requiresBorrower && !auth.user?.role_borrower) {
     return { name: "home" };
   }
 

@@ -1,7 +1,7 @@
 import os
 import smtplib
+from datetime import datetime
 from email.message import EmailMessage
-from typing import Optional
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -19,6 +19,12 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", "CarShare <no-reply@localhost>")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5173")
+
+
+def _format_dt(iso: str) -> str:
+    """Format a naive UTC ISO datetime string for display in emails."""
+    dt = datetime.fromisoformat(iso)
+    return dt.strftime("%d %B %Y at %H:%M UTC")
 
 
 def send_email(to_email: str, subject: str, body_text: str) -> None:
@@ -62,10 +68,10 @@ def owner_booking_request_email(
     body = (
         f"Hi {owner_name},\n\n"
         f"{borrower_name} requested to book your car: {car_name}.\n\n"
-        f"Start: {start_iso}\n"
-        f"End:   {end_iso}\n"
+        f"Start: {_format_dt(start_iso)}\n"
+        f"End:   {_format_dt(end_iso)}\n"
         f"Booking ID: {booking_id}\n\n"
-        f"Respond here: {APP_BASE_URL}/owner/appointments\n"
+        f"Respond here: {APP_BASE_URL}/ownerappointments\n"
     )
     send_email(owner_email, subject, body)
 
@@ -79,15 +85,15 @@ def borrower_booking_response_email(
     start_iso: str,
     end_iso: str,
     booking_id: int,
-    status: str,  # accepted/declined
+    status: str,
 ) -> None:
     subject = f"Your booking was {status}: {car_name}"
     body = (
         f"Hi {borrower_name},\n\n"
         f"{owner_name} has {status} your booking request for: {car_name}.\n\n"
-        f"Start: {start_iso}\n"
-        f"End:   {end_iso}\n"
+        f"Start: {_format_dt(start_iso)}\n"
+        f"End:   {_format_dt(end_iso)}\n"
         f"Booking ID: {booking_id}\n\n"
-        f"View your bookings: {APP_BASE_URL}/borrower/appointments\n"
+        f"View your bookings: {APP_BASE_URL}/borrowerappointments\n"
     )
     send_email(borrower_email, subject, body)

@@ -10,6 +10,7 @@ import Message from 'primevue/message';
 import { Form } from '@primevue/forms';
 import { z } from 'zod';
 import { zodResolver } from '@primevue/forms/resolvers/zod';
+import { stringFromNullish } from '@/utils/zod';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -18,13 +19,6 @@ const form = reactive({
   email: '',
   password: '',
 });
-
-// Reuse same idea as on register page
-const stringFromNullish = (schema: z.ZodString) =>
-  z.preprocess(
-    (val) => (val == null ? '' : val),
-    schema
-  );
 
 const resolver = ref(
   zodResolver(

@@ -1,7 +1,6 @@
 from datetime import date, datetime
 from typing import List, Optional
 
-from models import BookingStatus
 from sqlmodel import SQLModel
 
 
