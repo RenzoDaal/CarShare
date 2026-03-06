@@ -74,6 +74,14 @@
             router.push({ name: 'borrowerappointments' });
             drawerVisible.value = false;
           }
+        },
+        {
+          label: 'Availability',
+          icon: 'pi pi-calendar-clock',
+          command: () => {
+            router.push({ name: 'availability' });
+            drawerVisible.value = false;
+          }
         }
       ]
     }

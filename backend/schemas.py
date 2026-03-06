@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from models import BookingStatus
@@ -78,3 +78,20 @@ class BookingRead(SQLModel):
     end_datetime: datetime
     status: BookingStatus
     total_price: Optional[float] = None
+
+
+class CarUnavailabilityCreate(SQLModel):
+    start_date: date
+    end_date: date
+
+
+class CarUnavailabilityRead(SQLModel):
+    id: int
+    car_id: int
+    start_date: date
+    end_date: date
+
+
+class CalendarDateRange(SQLModel):
+    start: date
+    end: date

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
@@ -29,12 +29,22 @@ class Car(SQLModel, table=True):
 
     owner: Optional[User] = Relationship(back_populates="cars")
     bookings: List["Booking"] = Relationship(back_populates="car")
+    unavailabilities: List["CarUnavailability"] = Relationship(back_populates="car")
 
 
 class BookingStatus(str, Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     DECLINED = "declined"
+
+
+class CarUnavailability(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    car_id: int = Field(foreign_key="car.id")
+    start_date: date
+    end_date: date
+
+    car: Optional[Car] = Relationship(back_populates="unavailabilities")
 
 
 class Booking(SQLModel, table=True):

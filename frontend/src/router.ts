@@ -6,6 +6,7 @@ import CarManagerPage from "@/pages/CarManagerPage.vue";
 import ReserveCarPage from "@/pages/ReserveCarPage.vue";
 import OwnerAppointmentsPage from "@/pages/OwnerAppointmentsPage.vue";
 import BorrowersAppointmentsPage from "@/pages/BorrowerAppointmentsPage.vue";
+import CarAvailabilityPage from "@/pages/CarAvailabilityPage.vue";
 import RegisterPage from "@/pages/RegisterPage.vue";
 import { useAuthStore } from "@/stores/auth";
 
@@ -42,6 +43,11 @@ const routes: RouteRecordRaw[] = [
     path: "/borrowerappointments",
     name: "borrowerappointments",
     component: BorrowersAppointmentsPage,
+  },
+  {
+    path: "/availability",
+    name: "availability",
+    component: CarAvailabilityPage,
   },
 ];
 

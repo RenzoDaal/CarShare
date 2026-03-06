@@ -6,11 +6,20 @@ import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import InputNumber from 'primevue/inputnumber';
+import DatePicker from 'primevue/datepicker';
 
 import { useCarStore, type NewCarPayload, type UpdateCarPayload, type Car } from '@/stores/cars';
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
+import http from '@/api/http';
+
+type UnavailabilityBlock = {
+  id: number;
+  car_id: number;
+  start_date: string;
+  end_date: string;
+};
 
 const carStore = useCarStore();
 const confirm = useConfirm();
@@ -113,6 +122,86 @@ const confirmDeleteCar = (carId: number) => {
     }
   });
 }
+
+// Unavailability management
+const unavailabilityDialogVisible = ref(false);
+const unavailabilityCarId = ref<number | null>(null);
+const unavailabilityCarName = ref('');
+const unavailabilityBlocks = ref<UnavailabilityBlock[]>([]);
+const unavailabilityLoading = ref(false);
+const unavailabilityError = ref<string | null>(null);
+
+const newBlockDates = ref<Date[] | null>(null);
+const addingBlock = ref(false);
+const addBlockError = ref<string | null>(null);
+
+const openUnavailabilityDialog = async (car: Car) => {
+  unavailabilityCarId.value = car.id;
+  unavailabilityCarName.value = car.name;
+  unavailabilityBlocks.value = [];
+  unavailabilityError.value = null;
+  newBlockDates.value = null;
+  addBlockError.value = null;
+  unavailabilityDialogVisible.value = true;
+  await loadUnavailability(car.id);
+};
+
+const loadUnavailability = async (carId: number) => {
+  unavailabilityLoading.value = true;
+  unavailabilityError.value = null;
+  try {
+    const res = await http.get<UnavailabilityBlock[]>(`/cars/${carId}/unavailability`);
+    unavailabilityBlocks.value = res.data;
+  } catch (err: any) {
+    unavailabilityError.value = err?.response?.data?.detail ?? 'Failed to load unavailability blocks.';
+  } finally {
+    unavailabilityLoading.value = false;
+  }
+};
+
+const toLocalDateString = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const addBlock = async () => {
+  if (!unavailabilityCarId.value || !newBlockDates.value || newBlockDates.value.length < 2) return;
+  const [startDate, endDate] = newBlockDates.value;
+  if (!startDate || !endDate) {
+    addBlockError.value = 'Please select a start and end date.';
+    return;
+  }
+
+  addingBlock.value = true;
+  addBlockError.value = null;
+  try {
+    await http.post<UnavailabilityBlock>(`/cars/${unavailabilityCarId.value}/unavailability`, {
+      start_date: toLocalDateString(startDate),
+      end_date: toLocalDateString(endDate),
+    });
+    newBlockDates.value = null;
+    await loadUnavailability(unavailabilityCarId.value);
+  } catch (err: any) {
+    addBlockError.value = err?.response?.data?.detail ?? 'Failed to add block.';
+  } finally {
+    addingBlock.value = false;
+  }
+};
+
+const deleteBlock = async (blockId: number) => {
+  if (!unavailabilityCarId.value) return;
+  try {
+    await http.delete(`/cars/${unavailabilityCarId.value}/unavailability/${blockId}`);
+    unavailabilityBlocks.value = unavailabilityBlocks.value.filter(b => b.id !== blockId);
+  } catch (err: any) {
+    unavailabilityError.value = err?.response?.data?.detail ?? 'Failed to delete block.';
+  }
+};
+
+const formatDate = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'medium' });
 </script>
 
 
@@ -130,6 +219,7 @@ const confirmDeleteCar = (carId: number) => {
       <Button label="Save" @click="submitCreateCar" />
     </template>
   </Dialog>
+
   <Dialog v-model:visible="editCarDialogVisible" header="Edit car" modal>
     <div class="flex flex-col gap-4">
       <InputText v-model="editCar.name" placeholder="Car name" />
@@ -143,6 +233,39 @@ const confirmDeleteCar = (carId: number) => {
       <Button label="Save" @click="submitEditCar" />
     </template>
   </Dialog>
+
+  <Dialog v-model:visible="unavailabilityDialogVisible" :header="`Block dates — ${unavailabilityCarName}`" modal
+    style="width: 32rem">
+    <div class="flex flex-col gap-6">
+      <div v-if="unavailabilityError" class="text-sm text-red-500">{{ unavailabilityError }}</div>
+
+      <div>
+        <h3 class="font-semibold text-sm mb-2">Blocked periods</h3>
+        <p v-if="unavailabilityLoading" class="text-sm text-surface-500">Loading…</p>
+        <p v-else-if="unavailabilityBlocks.length === 0" class="text-sm text-surface-500">
+          No dates blocked — car is fully available.
+        </p>
+        <ul v-else class="space-y-2">
+          <li v-for="block in unavailabilityBlocks" :key="block.id"
+            class="flex items-center justify-between text-sm bg-surface-50 dark:bg-surface-800 rounded px-3 py-2">
+            <span>{{ formatDate(block.start_date) }} → {{ formatDate(block.end_date) }}</span>
+            <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="deleteBlock(block.id)" />
+          </li>
+        </ul>
+      </div>
+
+      <div class="border-t pt-4">
+        <h3 class="font-semibold text-sm mb-3">Add blocked period</h3>
+        <DatePicker v-model="newBlockDates" selectionMode="range" showIcon :manualInput="false" fluid
+          placeholder="Select date range" class="mb-2" />
+        <p v-if="addBlockError" class="text-xs text-red-500 mb-2">{{ addBlockError }}</p>
+        <Button label="Add block" icon="pi pi-plus" size="small" :loading="addingBlock"
+          :disabled="!newBlockDates || newBlockDates.length < 2 || !newBlockDates[1] || addingBlock"
+          @click="addBlock" />
+      </div>
+    </div>
+  </Dialog>
+
   <div class="flex flex-col w-full">
     <Toolbar class="w-full max-w-[98%] mx-auto mt-4">
       <template #start>
@@ -163,6 +286,8 @@ const confirmDeleteCar = (carId: number) => {
           <div class="flex items-center justify-between w-full">
             {{ car.name }}
             <div class="flex gap-2">
+              <Button icon="pi pi-calendar-times" size="small" rounded variant="text" severity="secondary"
+                title="Manage blocked dates" @click="openUnavailabilityDialog(car)" />
               <Button icon="pi pi-ellipsis-v" size="small" rounded variant="text" severity="contrast"
                 @click="openEditDialog(car)" />
               <Button icon="pi pi-trash" size="small" rounded variant="outlined" severity="danger"

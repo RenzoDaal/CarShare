@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timezone
+from calendar import monthrange
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import uuid4
 
@@ -26,11 +27,14 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from models import Booking, BookingStatus, Car, User
+from models import Booking, BookingStatus, Car, CarUnavailability, User
 from routing import router as routing_router
 from schemas import (
+    CalendarDateRange,
     CarCreate,
     CarRead,
+    CarUnavailabilityCreate,
+    CarUnavailabilityRead,
     CarUpdate,
     DashboardBookingRead,
     DashboardResponse,
@@ -248,6 +252,17 @@ def list_available_cars(
 
     blocked_car_ids = {b.car_id for b in overlapping_bookings}
 
+    # Also block cars with an owner unavailability block overlapping the requested dates
+    start_date = start_dt.date()
+    end_date = end_dt.date()
+    unavailability_blocks = session.exec(
+        select(CarUnavailability).where(
+            CarUnavailability.start_date <= end_date,
+            CarUnavailability.end_date >= start_date,
+        )
+    ).all()
+    blocked_car_ids |= {b.car_id for b in unavailability_blocks}
+
     cars = session.exec(select(Car).where(Car.is_active == True)).all()
 
     if blocked_car_ids:
@@ -289,8 +304,147 @@ def delete_car(
         if os.path.isfile(image_path):
             os.remove(image_path)
 
+    # Delete unavailability blocks before deleting the car
+    blocks = session.exec(
+        select(CarUnavailability).where(CarUnavailability.car_id == car_id)
+    ).all()
+    for b in blocks:
+        session.delete(b)
+
     session.delete(car)
     session.commit()
+
+
+# --- Car unavailability (owner-managed blocked dates) ---
+
+@app.get("/cars/{car_id}/unavailability", response_model=List[CarUnavailabilityRead])
+def list_car_unavailability(
+    car_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to view this car's unavailability")
+
+    blocks = session.exec(
+        select(CarUnavailability)
+        .where(CarUnavailability.car_id == car_id)
+        .order_by(CarUnavailability.start_date)
+    ).all()
+    return blocks
+
+
+@app.post(
+    "/cars/{car_id}/unavailability",
+    response_model=CarUnavailabilityRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_car_unavailability(
+    car_id: int,
+    data: CarUnavailabilityCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to update this car")
+
+    if data.end_date < data.start_date:
+        raise HTTPException(
+            status_code=400, detail="End date must be on or after start date"
+        )
+
+    block = CarUnavailability(
+        car_id=car_id,
+        start_date=data.start_date,
+        end_date=data.end_date,
+    )
+    session.add(block)
+    session.commit()
+    session.refresh(block)
+    return block
+
+
+@app.delete(
+    "/cars/{car_id}/unavailability/{block_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_car_unavailability(
+    car_id: int,
+    block_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to update this car")
+
+    block = session.get(CarUnavailability, block_id)
+    if block is None or block.car_id != car_id:
+        raise HTTPException(status_code=404, detail="Unavailability block not found")
+
+    session.delete(block)
+    session.commit()
+
+
+# --- Car calendar (borrower view — combines bookings + owner blocks) ---
+
+@app.get("/cars/{car_id}/calendar", response_model=List[CalendarDateRange])
+def get_car_calendar(
+    car_id: int,
+    year: int,
+    month: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    _, days_in_month = monthrange(year, month)
+    month_start = date(year, month, 1)
+    month_end = date(year, month, days_in_month)
+
+    ranges: List[CalendarDateRange] = []
+
+    # Accepted bookings overlapping this month
+    month_start_dt = datetime(year, month, 1, 0, 0, 0)
+    month_end_dt = datetime(year, month, days_in_month, 23, 59, 59)
+    bookings = session.exec(
+        select(Booking).where(
+            Booking.car_id == car_id,
+            Booking.status == BookingStatus.ACCEPTED.value,
+            Booking.start_datetime <= month_end_dt,
+            Booking.end_datetime >= month_start_dt,
+        )
+    ).all()
+    for b in bookings:
+        ranges.append(
+            CalendarDateRange(
+                start=b.start_datetime.date(),
+                end=b.end_datetime.date(),
+            )
+        )
+
+    # Owner unavailability blocks overlapping this month
+    blocks = session.exec(
+        select(CarUnavailability).where(
+            CarUnavailability.car_id == car_id,
+            CarUnavailability.start_date <= month_end,
+            CarUnavailability.end_date >= month_start,
+        )
+    ).all()
+    for b in blocks:
+        ranges.append(CalendarDateRange(start=b.start_date, end=b.end_date))
+
+    return ranges
 
 
 @app.post("/bookings")
