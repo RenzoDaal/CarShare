@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import http from '@/api/http';
 
-const router = useRouter();
 const email = ref('');
 const submitting = ref(false);
 const submitted = ref(false);
