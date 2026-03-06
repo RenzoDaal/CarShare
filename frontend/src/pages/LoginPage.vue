@@ -6,6 +6,7 @@ import Card from 'primevue/card';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
+import Checkbox from 'primevue/checkbox';
 import Message from 'primevue/message';
 import { Form } from '@primevue/forms';
 import { z } from 'zod';
@@ -19,6 +20,8 @@ const form = reactive({
   email: '',
   password: '',
 });
+
+const rememberMe = ref(true);
 
 const resolver = ref(
   zodResolver(
@@ -40,7 +43,7 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
     await auth.login({
       email: form.email,
       password: form.password,
-    });
+    }, rememberMe.value);
     router.push({ name: 'home' });
   } catch (e) {
     // auth.error is already set in the store and shown in the template
@@ -70,6 +73,12 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
               <Message v-if="$form.password?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.password.error?.message }}
               </Message>
+            </div>
+
+            <!-- Remember me -->
+            <div class="flex items-center gap-2 mb-4">
+              <Checkbox v-model="rememberMe" :binary="true" inputId="rememberMe" />
+              <label for="rememberMe" class="text-sm">Remember me</label>
             </div>
 
             <!-- Backend auth error -->

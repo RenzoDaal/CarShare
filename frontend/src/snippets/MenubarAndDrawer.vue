@@ -12,6 +12,12 @@
   const auth = useAuthStore();
   const router = useRouter()
 
+  const logout = () => {
+    auth.logout();
+    drawerVisible.value = false;
+    router.push({ name: 'login' });
+  };
+
   const isDark = ref(document.documentElement.classList.contains('dark'));
 
   const toggleDarkMode = () => {
@@ -103,6 +109,9 @@
       <Menu class="!border-none" :model=homeDrawerItems />
       <Menu class="!border-none" :model="carOwnerDrawerItems" v-if="isCarOwner"/>
       <Menu class="!border-none" :model="carBorrowerDrawerItems" v-if="isCarBorrower"/>
+      <div class="px-4 py-2">
+        <Button label="Logout" icon="pi pi-sign-out" severity="secondary" variant="text" @click="logout" />
+      </div>
     </template>
   </Drawer>
   <div>
