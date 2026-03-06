@@ -19,67 +19,68 @@ const routes: RouteRecordRaw[] = [
     path: "/login",
     name: "login",
     component: LoginPage,
-    meta: { hideLayout: true },
+    meta: { hideLayout: true, title: "Login" },
   },
   {
     path: "/register",
     name: "register",
     component: RegisterPage,
-    meta: { hideLayout: true },
+    meta: { hideLayout: true, title: "Create account" },
   },
   {
     path: "/forgot-password",
     name: "forgot-password",
     component: ForgotPasswordPage,
-    meta: { hideLayout: true },
+    meta: { hideLayout: true, title: "Reset password" },
   },
   {
     path: "/reset-password",
     name: "reset-password",
     component: ResetPasswordPage,
-    meta: { hideLayout: true },
+    meta: { hideLayout: true, title: "Set new password" },
   },
-  { path: "/", name: "home", component: HomePage },
+  { path: "/", name: "home", component: HomePage, meta: { title: "Dashboard" } },
   {
     path: "/managecars",
     name: "manage cars",
     component: CarManagerPage,
-    meta: { requiresOwner: true },
+    meta: { requiresOwner: true, title: "Manage Cars" },
   },
   {
     path: "/reservecar",
     name: "reserve car",
     component: ReserveCarPage,
-    meta: { requiresBorrower: true },
+    meta: { requiresBorrower: true, title: "Reserve a Car" },
   },
   {
     path: "/ownerappointments",
     name: "ownerappointments",
     component: OwnerAppointmentsPage,
-    meta: { requiresOwner: true },
+    meta: { requiresOwner: true, title: "Appointments" },
   },
   {
     path: "/borrowerappointments",
     name: "borrowerappointments",
     component: BorrowersAppointmentsPage,
-    meta: { requiresBorrower: true },
+    meta: { requiresBorrower: true, title: "My Appointments" },
   },
   {
     path: "/availability",
     name: "availability",
     component: CarAvailabilityPage,
-    meta: { requiresBorrower: true },
+    meta: { requiresBorrower: true, title: "Car Availability" },
   },
   {
     path: "/admin",
     name: "admin",
     component: AdminPage,
-    meta: { requiresAdmin: true },
+    meta: { requiresAdmin: true, title: "Admin" },
   },
   {
     path: "/profile",
     name: "profile",
     component: ProfilePage,
+    meta: { title: "My Profile" },
   },
 ];
 
@@ -92,6 +93,8 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
+  document.title = to.meta.title ? `${to.meta.title} — CarShare` : "CarShare";
+
   const auth = useAuthStore();
 
   const publicRoutes = ["login", "register", "forgot-password", "reset-password"];
