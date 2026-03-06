@@ -12,6 +12,14 @@
   const auth = useAuthStore();
   const router = useRouter()
 
+  const isDark = ref(document.documentElement.classList.contains('dark'));
+
+  const toggleDarkMode = () => {
+    isDark.value = !isDark.value;
+    document.documentElement.classList.toggle('dark', isDark.value);
+    localStorage.setItem('darkMode', String(isDark.value));
+  };
+
   const drawerVisible = ref(false);
   const isCarOwner = computed(() => auth.user?.role_owner ?? false);
   const isCarBorrower = computed(() => auth.user?.role_borrower ?? false);
@@ -99,6 +107,15 @@
   </Drawer>
   <div>
     <Toolbar class="!border-none !rounded-none">
+      <template #end>
+        <Button
+          :icon="isDark ? 'pi pi-sun' : 'pi pi-moon'"
+          variant="text"
+          severity="secondary"
+          rounded
+          @click="toggleDarkMode"
+        />
+      </template>
       <template #start>
         <div class="flex items-center gap-4 ml-2">
           <Button 

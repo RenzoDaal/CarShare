@@ -80,7 +80,7 @@ onMounted(fetchBookings);
 </script>
 
 <template>
-  <div class="p-4 flex flex-col gap-4">
+  <div class="p-4 flex flex-col gap-4 max-w-5xl mx-auto w-full">
     <h1 class="text-2xl font-semibold mb-2">Appointments for your cars</h1>
 
     <Message v-if="error" severity="error" :closable="false">

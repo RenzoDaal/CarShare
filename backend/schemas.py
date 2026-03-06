@@ -76,7 +76,7 @@ class BookingRead(SQLModel):
     car: CarRead
     start_datetime: datetime
     end_datetime: datetime
-    status: BookingStatus
+    status: str
     total_price: Optional[float] = None
 
 

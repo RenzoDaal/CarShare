@@ -2,11 +2,13 @@
 import { ref, onMounted, computed } from 'vue';
 import Card from 'primevue/card';
 import Tag from 'primevue/tag';
+import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import http from '@/api/http';
+import { useConfirm } from 'primevue/useconfirm';
 
-type BookingStatus = 'pending' | 'accepted' | 'declined';
+type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
 type BorrowerBooking = {
   id: number;
@@ -25,6 +27,7 @@ type BorrowerBooking = {
   total_price?: number | null;
 };
 
+const confirm = useConfirm();
 const bookings = ref<BorrowerBooking[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -32,12 +35,12 @@ const error = ref<string | null>(null);
 const now = new Date();
 const upcoming = computed(() =>
   bookings.value.filter(
-    (b) => b.status !== 'declined' && toUtcDate(b.end_datetime) >= now,
+    (b) => b.status !== 'declined' && b.status !== 'cancelled' && toUtcDate(b.end_datetime) >= now,
   ),
 );
 const history = computed(() =>
   bookings.value.filter(
-    (b) => b.status === 'declined' || toUtcDate(b.end_datetime) < now,
+    (b) => b.status === 'declined' || b.status === 'cancelled' || toUtcDate(b.end_datetime) < now,
   ),
 );
 
@@ -69,11 +72,29 @@ async function fetchBookings() {
   }
 }
 
+function confirmCancel(bookingId: number) {
+  confirm.require({
+    message: 'Are you sure you want to cancel this booking?',
+    header: 'Cancel booking',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Keep booking', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Cancel booking', severity: 'danger' },
+    accept: async () => {
+      try {
+        await http.post(`/bookings/${bookingId}/cancel`);
+        await fetchBookings();
+      } catch (err: any) {
+        error.value = err?.response?.data?.detail ?? 'Failed to cancel booking';
+      }
+    },
+  });
+}
+
 onMounted(fetchBookings);
 </script>
 
 <template>
-  <div class="p-4 flex flex-col gap-4">
+  <div class="p-4 flex flex-col gap-4 max-w-5xl mx-auto w-full">
     <h1 class="text-2xl font-semibold mb-2">My appointments</h1>
 
     <Message v-if="error" severity="error" :closable="false">
@@ -89,7 +110,7 @@ onMounted(fetchBookings);
         <template #title>Upcoming and current</template>
         <template #content>
           <div v-if="upcoming.length === 0" class="text-sm text-surface-500">
-            You don't have any bookings yet.
+            You don't have any upcoming bookings.
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <Card v-for="booking in upcoming" :key="booking.id" class="h-full">
@@ -109,6 +130,10 @@ onMounted(fetchBookings);
                   Your booking is only final once it is
                   <strong>accepted</strong> by the owner.
                 </p>
+                <div class="mt-3">
+                  <Button label="Cancel booking" icon="pi pi-times" severity="danger" outlined size="small"
+                    @click="confirmCancel(booking.id)" />
+                </div>
               </template>
             </Card>
           </div>
@@ -116,10 +141,10 @@ onMounted(fetchBookings);
       </Card>
 
       <Card>
-        <template #title>Past & declined bookings</template>
+        <template #title>Past & cancelled bookings</template>
         <template #content>
           <div v-if="history.length === 0" class="text-sm text-surface-500">
-            No past or declined bookings.
+            No past or cancelled bookings.
           </div>
           <ul v-else class="flex flex-col gap-2 text-sm">
             <li v-for="booking in history" :key="booking.id"
@@ -128,7 +153,7 @@ onMounted(fetchBookings);
                 {{ booking.car.name }} –
                 {{ formatDateTime(booking.start_datetime) }}
               </span>
-              <Tag severity="danger" value="Declined" />
+              <Tag :value="booking.status" :severity="statusSeverity(booking.status)" />
             </li>
           </ul>
         </template>

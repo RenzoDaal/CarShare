@@ -36,6 +36,7 @@ class BookingStatus(str, Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     DECLINED = "declined"
+    CANCELLED = "cancelled"
 
 
 class CarUnavailability(SQLModel, table=True):

@@ -29,8 +29,16 @@ const MyTheme = definePreset(Aura, {
 app.use(PrimeVue, {
   theme: {
     preset: MyTheme,
+    options: {
+      darkModeSelector: '.dark',
+    },
   },
 });
+
+// Apply saved dark mode preference before first render
+if (localStorage.getItem('darkMode') === 'true') {
+  document.documentElement.classList.add('dark');
+}
 
 app.use(router);
 app.mount("#app");

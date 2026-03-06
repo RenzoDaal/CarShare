@@ -499,6 +499,47 @@ def create_booking(
     return booking
 
 
+@app.post("/bookings/{booking_id}/cancel", response_model=schemas.BookingRead)
+def cancel_booking(
+    booking_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    if booking.borrower_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to cancel this booking")
+
+    if booking.status == BookingStatus.CANCELLED.value:
+        raise HTTPException(status_code=400, detail="Booking is already cancelled")
+
+    car = booking.car or session.get(Car, booking.car_id)
+
+    booking.status = BookingStatus.CANCELLED.value
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+
+    return schemas.BookingRead(
+        id=booking.id,
+        car=schemas.CarRead(
+            id=car.id,
+            owner_id=car.owner_id,
+            name=car.name,
+            description=car.description,
+            price_per_km=car.price_per_km,
+            is_active=car.is_active,
+            image_url=getattr(car, "image_url", None),
+        ),
+        start_datetime=booking.start_datetime,
+        end_datetime=booking.end_datetime,
+        status=booking.status,
+        total_price=booking.total_price,
+    )
+
+
 @app.get("/dashboard", response_model=DashboardResponse)
 def get_dashboard(
     current_user: User = Depends(get_current_user),
@@ -511,6 +552,8 @@ def get_dashboard(
         .where(
             Booking.borrower_id == current_user.id,
             Booking.end_datetime >= now,
+            Booking.status != BookingStatus.CANCELLED.value,
+            Booking.status != BookingStatus.DECLINED.value,
         )
         .order_by(Booking.start_datetime)
     )

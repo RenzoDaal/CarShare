@@ -8,9 +8,11 @@ import { useRouter } from 'vue-router';
 import http from '@/api/http';
 import type { Car } from '@/stores/cars';
 import { useAuthStore } from '@/stores/auth';
+import { useConfirm } from 'primevue/useconfirm';
 
 const router = useRouter();
 const auth = useAuthStore();
+const confirm = useConfirm();
 
 
 type DashboardBooking = {
@@ -93,6 +95,24 @@ async function loadDashboard() {
   }
 }
 
+function confirmCancel(bookingId: number) {
+  confirm.require({
+    message: 'Are you sure you want to cancel this booking?',
+    header: 'Cancel booking',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Keep booking', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Cancel booking', severity: 'danger' },
+    accept: async () => {
+      try {
+        await http.post(`/bookings/${bookingId}/cancel`);
+        await loadDashboard();
+      } catch (err: any) {
+        error.value = err?.response?.data?.detail ?? 'Failed to cancel booking';
+      }
+    },
+  });
+}
+
 function goToReserve() {
   router.push({ name: 'reserve car' });
 }
@@ -165,8 +185,10 @@ onMounted(() => {
                         € {{ nextBooking!.total_price!.toFixed(2) }}
                       </span>
                     </p>
-                    <div class="mt-2">
+                    <div class="mt-2 flex items-center gap-3">
                       <Tag :value="nextBooking!.status" />
+                      <Button label="Cancel" icon="pi pi-times" severity="danger" outlined size="small"
+                        @click="confirmCancel(nextBooking!.id)" />
                     </div>
                   </div>
 
@@ -185,7 +207,11 @@ onMounted(() => {
                             {{ formatDateTime(b.start_datetime) }}
                           </p>
                         </div>
-                        <Tag :value="b.status" />
+                        <div class="flex items-center gap-2">
+                          <Tag :value="b.status" />
+                          <Button icon="pi pi-times" severity="danger" outlined rounded size="small"
+                            @click="confirmCancel(b.id)" />
+                        </div>
                       </li>
                     </ul>
                   </div>
