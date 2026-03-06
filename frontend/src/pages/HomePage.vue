@@ -30,11 +30,15 @@ type DashboardBooking = {
   end_datetime: string;
   status: string;
   total_price?: number | null;
+  borrower_name?: string | null;
+  borrower_email?: string | null;
+  notes?: string | null;
 };
 
 type DashboardResponse = {
   upcoming_bookings: DashboardBooking[];
   active_cars: Car[];
+  active_rentals: DashboardBooking[];
 };
 
 const loading = ref(true);
@@ -42,6 +46,7 @@ const error = ref<string | null>(null);
 const data = ref<DashboardResponse>({
   upcoming_bookings: [],
   active_cars: [],
+  active_rentals: [],
 });
 
 const isOwner = computed(() => auth.user?.role_owner ?? false);
@@ -257,6 +262,36 @@ onMounted(() => {
               </template>
             </Card>
           </div>
+        </div>
+
+        <div v-if="isOwner && data.active_rentals.length > 0">
+          <Card class="mb-4">
+            <template #title>
+              <div class="flex items-center gap-2">
+                <span>Currently in use</span>
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold">{{ data.active_rentals.length }}</span>
+              </div>
+            </template>
+            <template #content>
+              <div class="flex flex-col gap-3">
+                <div v-for="rental in data.active_rentals" :key="rental.id"
+                  class="border border-green-200 dark:border-green-800 rounded-lg p-3 flex flex-col gap-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-semibold">{{ rental.car.name }}</span>
+                    <Tag value="Active" severity="success" />
+                  </div>
+                  <p class="text-sm text-surface-500">
+                    {{ formatDateTime(rental.start_datetime) }} – {{ formatDateTime(rental.end_datetime) }}
+                  </p>
+                  <p v-if="rental.borrower_name" class="text-sm">
+                    Borrower: <span class="font-medium">{{ rental.borrower_name }}</span>
+                    <span v-if="rental.borrower_email" class="text-surface-400"> — {{ rental.borrower_email }}</span>
+                  </p>
+                  <p v-if="rental.notes" class="text-sm italic text-surface-400">"{{ rental.notes }}"</p>
+                </div>
+              </div>
+            </template>
+          </Card>
         </div>
 
         <div v-if="isOwner && carStats.length > 0">

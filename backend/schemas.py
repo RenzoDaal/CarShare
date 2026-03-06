@@ -80,6 +80,7 @@ class BookingReschedule(SQLModel):
 class DashboardResponse(SQLModel):
     upcoming_bookings: List[DashboardBookingRead]
     active_cars: List[CarRead]
+    active_rentals: List[DashboardBookingRead] = []
 
 
 class BookingRead(SQLModel):

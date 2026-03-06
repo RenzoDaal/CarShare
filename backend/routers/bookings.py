@@ -442,6 +442,7 @@ def get_dashboard(
         )
 
     active_cars: List[CarRead] = []
+    active_rentals: List[DashboardBookingRead] = []
     if current_user.role_owner:
         cars = session.exec(select(Car).where(Car.owner_id == current_user.id)).all()
         for car in cars:
@@ -457,4 +458,42 @@ def get_dashboard(
                 )
             )
 
-    return DashboardResponse(upcoming_bookings=upcoming_bookings, active_cars=active_cars)
+        ongoing = session.exec(
+            select(Booking)
+            .join(Car)
+            .where(
+                Car.owner_id == current_user.id,
+                Booking.status == BookingStatus.ACCEPTED.value,
+                Booking.start_datetime <= now,
+                Booking.end_datetime >= now,
+            )
+        ).all()
+        for b in ongoing:
+            car = getattr(b, "car", None) or session.get(Car, b.car_id)
+            borrower = getattr(b, "borrower", None) or session.get(User, b.borrower_id)
+            if not car:
+                continue
+            active_rentals.append(
+                DashboardBookingRead(
+                    id=b.id,
+                    car=CarRead(
+                        id=car.id,
+                        owner_id=car.owner_id,
+                        name=car.name,
+                        description=car.description,
+                        price_per_km=car.price_per_km,
+                        is_active=car.is_active,
+                        image_url=getattr(car, "image_url", None),
+                    ),
+                    start_datetime=b.start_datetime,
+                    end_datetime=b.end_datetime,
+                    status=str(b.status),
+                    total_price=getattr(b, "total_price", None),
+                    borrower_name=borrower.full_name if borrower else None,
+                    borrower_email=borrower.email if borrower else None,
+                    stops=_parse_stops(b.stops_json),
+                    notes=b.notes,
+                )
+            )
+
+    return DashboardResponse(upcoming_bookings=upcoming_bookings, active_cars=active_cars, active_rentals=active_rentals)
