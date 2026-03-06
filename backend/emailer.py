@@ -76,6 +76,52 @@ def owner_booking_request_email(
     send_email(owner_email, subject, body)
 
 
+def borrower_booking_confirmation_email(
+    *,
+    borrower_email: str,
+    borrower_name: str,
+    car_name: str,
+    owner_name: str,
+    start_iso: str,
+    end_iso: str,
+    booking_id: int,
+) -> None:
+    subject = f"Booking request sent: {car_name}"
+    body = (
+        f"Hi {borrower_name},\n\n"
+        f"Your booking request for {car_name} has been sent to {owner_name}.\n\n"
+        f"Start: {_format_dt(start_iso)}\n"
+        f"End:   {_format_dt(end_iso)}\n"
+        f"Booking ID: {booking_id}\n\n"
+        f"You will receive an email once the owner responds.\n"
+        f"View your bookings: {APP_BASE_URL}/borrowerappointments\n"
+    )
+    send_email(borrower_email, subject, body)
+
+
+def owner_booking_reschedule_email(
+    *,
+    owner_email: str,
+    owner_name: str,
+    car_name: str,
+    borrower_name: str,
+    start_iso: str,
+    end_iso: str,
+    booking_id: int,
+) -> None:
+    subject = f"Booking rescheduled: {car_name}"
+    body = (
+        f"Hi {owner_name},\n\n"
+        f"{borrower_name} has rescheduled their booking for {car_name}.\n\n"
+        f"New start: {_format_dt(start_iso)}\n"
+        f"New end:   {_format_dt(end_iso)}\n"
+        f"Booking ID: {booking_id}\n\n"
+        f"The booking is now pending your approval again.\n"
+        f"Respond here: {APP_BASE_URL}/ownerappointments\n"
+    )
+    send_email(owner_email, subject, body)
+
+
 def borrower_booking_response_email(
     *,
     borrower_email: str,

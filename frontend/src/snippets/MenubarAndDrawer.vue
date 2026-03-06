@@ -55,6 +55,14 @@
             router.push({ name: 'home' });
             drawerVisible.value = false;
           },
+        },
+        {
+          label: 'My profile',
+          icon: 'pi pi-user',
+          command: () => {
+            router.push({ name: 'profile' });
+            drawerVisible.value = false;
+          },
         }
       ]
     }

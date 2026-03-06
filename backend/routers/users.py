@@ -12,7 +12,7 @@ from auth import (
     verify_password,
 )
 from models import User
-from schemas import LoginRequest, TokenResponse, UserCreate, UserRead
+from schemas import ChangePassword, LoginRequest, TokenResponse, UserCreate, UserRead, UserUpdate
 
 router = APIRouter()
 
@@ -62,6 +62,45 @@ def login(
 @router.get("/users/me", response_model=UserRead)
 def read_me(current_user: User = Depends(get_current_user)):
     return user_to_read(current_user)
+
+
+@router.patch("/users/me", response_model=UserRead)
+def update_me(
+    data: UserUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if data.email is not None and data.email != current_user.email:
+        existing = session.exec(select(User).where(User.email == data.email)).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        current_user.email = data.email
+    if data.full_name is not None:
+        current_user.full_name = data.full_name
+    if data.role_owner is not None:
+        current_user.role_owner = data.role_owner
+    if data.role_borrower is not None:
+        current_user.role_borrower = data.role_borrower
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return user_to_read(current_user)
+
+
+@router.post("/users/me/change-password")
+def change_password(
+    data: ChangePassword,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    current_user.password_hash = get_password_hash(data.new_password)
+    session.add(current_user)
+    session.commit()
+    return {"ok": True}
 
 
 @router.get("/admin/users", response_model=List[UserRead])

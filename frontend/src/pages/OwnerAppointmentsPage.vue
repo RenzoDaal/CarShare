@@ -7,7 +7,7 @@ import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import http from '@/api/http';
 
-type BookingStatus = 'pending' | 'accepted' | 'declined';
+type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
 type OwnerBooking = {
   id: number;
@@ -40,6 +40,9 @@ const acceptedBookings = computed(() =>
 );
 const declinedBookings = computed(() =>
   bookings.value.filter((b) => b.status === 'declined'),
+);
+const cancelledBookings = computed(() =>
+  bookings.value.filter((b) => b.status === 'cancelled'),
 );
 
 function formatDateTime(value: string) {
@@ -162,7 +165,7 @@ onMounted(fetchBookings);
       </Card>
 
       <!-- Declined -->
-      <Card>
+      <Card class="mb-4">
         <template #title>Declined bookings</template>
         <template #content>
           <div v-if="declinedBookings.length === 0" class="text-sm text-surface-500">
@@ -171,11 +174,33 @@ onMounted(fetchBookings);
           <ul v-else class="flex flex-col gap-2 text-sm">
             <li v-for="booking in declinedBookings" :key="booking.id"
               class="flex justify-between items-center border rounded-md p-2">
-              <span>
-                {{ booking.car.name }} –
+              <div>
+                <span class="font-medium">{{ booking.car.name }}</span> –
                 {{ formatDateTime(booking.start_datetime) }}
-              </span>
+                <span v-if="booking.borrower_name" class="ml-2 text-surface-400">({{ booking.borrower_name }})</span>
+              </div>
               <Tag severity="danger" value="Declined" />
+            </li>
+          </ul>
+        </template>
+      </Card>
+
+      <!-- Cancelled -->
+      <Card>
+        <template #title>Cancelled bookings</template>
+        <template #content>
+          <div v-if="cancelledBookings.length === 0" class="text-sm text-surface-500">
+            No cancelled bookings.
+          </div>
+          <ul v-else class="flex flex-col gap-2 text-sm">
+            <li v-for="booking in cancelledBookings" :key="booking.id"
+              class="flex justify-between items-center border rounded-md p-2">
+              <div>
+                <span class="font-medium">{{ booking.car.name }}</span> –
+                {{ formatDateTime(booking.start_datetime) }}
+                <span v-if="booking.borrower_name" class="ml-2 text-surface-400">({{ booking.borrower_name }})</span>
+              </div>
+              <Tag severity="secondary" value="Cancelled" />
             </li>
           </ul>
         </template>

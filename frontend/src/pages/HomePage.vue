@@ -10,6 +10,14 @@ import type { Car } from '@/stores/cars';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirm } from 'primevue/useconfirm';
 
+type CarStats = {
+  car_id: number;
+  car_name: string;
+  total_bookings: number;
+  total_km: number;
+  total_earnings: number;
+};
+
 const router = useRouter();
 const auth = useAuthStore();
 const confirm = useConfirm();
@@ -81,6 +89,18 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
+const carStats = ref<CarStats[]>([]);
+
+async function loadCarStats() {
+  if (!auth.user?.role_owner) return;
+  try {
+    const res = await http.get<CarStats[]>('/cars/stats');
+    carStats.value = res.data;
+  } catch {
+    // silently ignore stats failure
+  }
+}
+
 async function loadDashboard() {
   loading.value = true;
   error.value = null;
@@ -123,6 +143,7 @@ function goToManageCars() {
 
 onMounted(() => {
   loadDashboard();
+  loadCarStats();
 });
 </script>
 
@@ -236,6 +257,23 @@ onMounted(() => {
               </template>
             </Card>
           </div>
+        </div>
+
+        <div v-if="isOwner && carStats.length > 0">
+          <Card class="mb-4">
+            <template #title>Usage stats</template>
+            <template #content>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div v-for="stat in carStats" :key="stat.car_id"
+                  class="border rounded-lg p-3 flex flex-col gap-1">
+                  <p class="font-semibold text-sm">{{ stat.car_name }}</p>
+                  <p class="text-xs text-surface-500">{{ stat.total_bookings }} accepted booking{{ stat.total_bookings !== 1 ? 's' : '' }}</p>
+                  <p class="text-xs text-surface-500">{{ stat.total_km.toFixed(0) }} km total</p>
+                  <p class="text-sm font-medium mt-1">€{{ stat.total_earnings.toFixed(2) }} earned</p>
+                </div>
+              </div>
+            </template>
+          </Card>
         </div>
 
         <div v-if="isOwner">

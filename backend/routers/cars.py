@@ -14,6 +14,7 @@ from schemas import (
     CalendarDateRange,
     CarCreate,
     CarRead,
+    CarStatsRead,
     CarUnavailabilityCreate,
     CarUnavailabilityRead,
     CarUpdate,
@@ -21,6 +22,34 @@ from schemas import (
 from utils import parse_iso
 
 router = APIRouter()
+
+
+@router.get("/cars/stats", response_model=List[CarStatsRead])
+def get_car_stats(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.role_owner:
+        raise HTTPException(status_code=403, detail="Not an owner")
+    cars = session.exec(select(Car).where(Car.owner_id == current_user.id)).all()
+    result = []
+    for car in cars:
+        accepted_bookings = session.exec(
+            select(Booking).where(
+                Booking.car_id == car.id,
+                Booking.status == BookingStatus.ACCEPTED.value,
+            )
+        ).all()
+        result.append(
+            CarStatsRead(
+                car_id=car.id,
+                car_name=car.name,
+                total_bookings=len(accepted_bookings),
+                total_km=sum(b.total_km or 0 for b in accepted_bookings),
+                total_earnings=sum(b.total_price or 0 for b in accepted_bookings),
+            )
+        )
+    return result
 
 
 @router.post("/cars", response_model=CarRead, status_code=status.HTTP_201_CREATED)

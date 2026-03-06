@@ -87,6 +87,26 @@ class BookingRead(SQLModel):
     total_price: Optional[float] = None
 
 
+class UserUpdate(SQLModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    role_owner: Optional[bool] = None
+    role_borrower: Optional[bool] = None
+
+
+class ChangePassword(SQLModel):
+    current_password: str
+    new_password: str
+
+
+class CarStatsRead(SQLModel):
+    car_id: int
+    car_name: str
+    total_bookings: int
+    total_km: float
+    total_earnings: float
+
+
 class CarUnavailabilityCreate(SQLModel):
     start_date: date
     end_date: date

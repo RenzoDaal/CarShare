@@ -81,6 +81,13 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
+    updateUser(user: User) {
+      this.user = user;
+      // Re-save with whichever storage currently holds the token
+      const inLocal = !!localStorage.getItem("auth_token");
+      this.saveToStorage(inLocal);
+    },
+
     logout() {
       this.token = null;
       this.user = null;

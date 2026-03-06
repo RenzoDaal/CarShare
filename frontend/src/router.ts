@@ -9,6 +9,7 @@ import BorrowersAppointmentsPage from "@/pages/BorrowerAppointmentsPage.vue";
 import CarAvailabilityPage from "@/pages/CarAvailabilityPage.vue";
 import RegisterPage from "@/pages/RegisterPage.vue";
 import AdminPage from "@/pages/AdminPage.vue";
+import ProfilePage from "@/pages/ProfilePage.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const routes: RouteRecordRaw[] = [
@@ -60,6 +61,11 @@ const routes: RouteRecordRaw[] = [
     name: "admin",
     component: AdminPage,
     meta: { requiresAdmin: true },
+  },
+  {
+    path: "/profile",
+    name: "profile",
+    component: ProfilePage,
   },
 ];
 

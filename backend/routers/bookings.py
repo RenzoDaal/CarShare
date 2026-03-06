@@ -64,6 +64,18 @@ def create_booking(
             booking_id=booking.id,
         )
 
+    if current_user.email:
+        background_tasks.add_task(
+            emailer.borrower_booking_confirmation_email,
+            borrower_email=current_user.email,
+            borrower_name=current_user.full_name,
+            car_name=car.name,
+            owner_name=owner.full_name if owner else "the owner",
+            start_iso=booking.start_datetime.isoformat(),
+            end_iso=booking.end_datetime.isoformat(),
+            booking_id=booking.id,
+        )
+
     return booking
 
 
@@ -112,6 +124,7 @@ def cancel_booking(
 def reschedule_booking(
     booking_id: int,
     body: BookingReschedule,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -138,6 +151,19 @@ def reschedule_booking(
     car = booking.car or session.get(Car, booking.car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
+
+    owner = car.owner or session.get(User, car.owner_id)
+    if owner and owner.email:
+        background_tasks.add_task(
+            emailer.owner_booking_reschedule_email,
+            owner_email=owner.email,
+            owner_name=owner.full_name,
+            car_name=car.name,
+            borrower_name=current_user.full_name,
+            start_iso=booking.start_datetime.isoformat(),
+            end_iso=booking.end_datetime.isoformat(),
+            booking_id=booking.id,
+        )
 
     return schemas.BookingRead(
         id=booking.id,
