@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import List, Optional
 
@@ -54,6 +54,15 @@ class PasswordResetToken(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id")
     token: str = Field(sa_column=Column(String, unique=True, index=True))
     expires_at: datetime
+
+
+class Notification(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    message: str
+    is_read: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    booking_id: Optional[int] = None
 
 
 class Booking(SQLModel, table=True):

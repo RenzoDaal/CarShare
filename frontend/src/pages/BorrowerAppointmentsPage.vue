@@ -8,6 +8,7 @@ import ProgressSpinner from 'primevue/progressspinner';
 import Dialog from 'primevue/dialog';
 import DatePicker from 'primevue/datepicker';
 import AutoComplete from 'primevue/autocomplete';
+import Textarea from 'primevue/textarea';
 import http from '@/api/http';
 import { useConfirm } from 'primevue/useconfirm';
 
@@ -105,6 +106,7 @@ const rescheduleSubmitting = ref(false);
 const rescheduleError = ref<string | null>(null);
 
 // Route within reschedule dialog
+const rescheduleNotes = ref<string>('');
 const rescheduleStops = ref<string[]>(['', '']);
 const locationSuggestions = ref<string[]>([]);
 const rescheduleDistanceKm = ref<number | null>(null);
@@ -170,6 +172,7 @@ function openReschedule(booking: BorrowerBooking) {
   rescheduleStart.value = toUtcDate(booking.start_datetime);
   rescheduleEnd.value = toUtcDate(booking.end_datetime);
   rescheduleStops.value = booking.stops && booking.stops.length >= 2 ? [...booking.stops] : ['', ''];
+  rescheduleNotes.value = booking.notes ?? '';
   rescheduleDistanceKm.value = null;
   rescheduleRouteError.value = null;
   rescheduleError.value = null;
@@ -190,6 +193,7 @@ async function submitReschedule() {
       end_datetime: rescheduleEnd.value.toISOString(),
       distance_km: rescheduleDistanceKm.value,
       stops: rescheduleTrimmedStops.value.length >= 2 ? rescheduleTrimmedStops.value : null,
+      notes: rescheduleNotes.value || null,
     });
     rescheduleVisible.value = false;
     await fetchBookings();
@@ -320,6 +324,12 @@ onMounted(fetchBookings);
         </div>
         <p v-if="rescheduleRouteError" class="text-sm text-red-500">{{ rescheduleRouteError }}</p>
         <p class="text-xs text-surface-400">Leave route empty to keep the existing distance and price.</p>
+      </div>
+
+      <!-- Notes -->
+      <div class="space-y-2">
+        <span class="block text-sm font-medium">Notes for the owner</span>
+        <Textarea v-model="rescheduleNotes" rows="3" placeholder="Optional message to the owner" class="w-full" fluid />
       </div>
 
       <p class="text-xs text-surface-400">Rescheduling will reset the booking status to pending — the owner will need to re-approve.</p>

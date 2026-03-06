@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 import schemas
 from auth import get_current_user, get_session
 from models import Booking, BookingStatus, Car, User
+from routers.notifications import create_notification
 from schemas import (
     BookingReschedule,
     CarRead,
@@ -66,6 +67,15 @@ def create_booking(
     session.refresh(booking)
 
     owner = car.owner or session.get(User, car.owner_id)
+    if owner:
+        create_notification(
+            session,
+            owner.id,
+            f"New booking request for {car.name} from {current_user.full_name}",
+            booking.id,
+        )
+        session.commit()
+
     if owner and owner.email:
         background_tasks.add_task(
             emailer.owner_booking_request_email,
@@ -113,7 +123,15 @@ def cancel_booking(
         raise HTTPException(status_code=404, detail="Car not found")
 
     booking.status = BookingStatus.CANCELLED.value
+    owner = car.owner or session.get(User, car.owner_id)
     session.add(booking)
+    if owner:
+        create_notification(
+            session,
+            owner.id,
+            f"{current_user.full_name} cancelled their booking for {car.name}",
+            booking.id,
+        )
     session.commit()
     session.refresh(booking)
 
@@ -164,15 +182,25 @@ def reschedule_booking(
         booking.total_price = round(body.distance_km * booking.price_per_km, 2)
     if body.stops is not None:
         booking.stops_json = json.dumps(body.stops)
-    session.add(booking)
-    session.commit()
-    session.refresh(booking)
+    if body.notes is not None:
+        booking.notes = body.notes
 
     car = booking.car or session.get(Car, booking.car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
 
     owner = car.owner or session.get(User, car.owner_id)
+    session.add(booking)
+    if owner:
+        create_notification(
+            session,
+            owner.id,
+            f"{current_user.full_name} rescheduled their booking for {car.name}",
+            booking.id,
+        )
+    session.commit()
+    session.refresh(booking)
+
     if owner and owner.email:
         background_tasks.add_task(
             emailer.owner_booking_reschedule_email,
@@ -309,11 +337,18 @@ def accept_booking(
         raise HTTPException(status_code=400, detail="Only pending bookings can be accepted")
 
     booking.status = BookingStatus.ACCEPTED.value
+    borrower = booking.borrower or session.get(User, booking.borrower_id)
     session.add(booking)
+    if borrower:
+        create_notification(
+            session,
+            borrower.id,
+            f"Your booking for {car.name} was accepted",
+            booking.id,
+        )
     session.commit()
     session.refresh(booking)
 
-    borrower = booking.borrower or session.get(User, booking.borrower_id)
     if borrower and borrower.email:
         background_tasks.add_task(
             emailer.borrower_booking_response_email,
@@ -363,11 +398,18 @@ def decline_booking(
         raise HTTPException(status_code=400, detail="Only pending bookings can be declined")
 
     booking.status = BookingStatus.DECLINED.value
+    borrower = booking.borrower or session.get(User, booking.borrower_id)
     session.add(booking)
+    if borrower:
+        create_notification(
+            session,
+            borrower.id,
+            f"Your booking for {car.name} was declined",
+            booking.id,
+        )
     session.commit()
     session.refresh(booking)
 
-    borrower = booking.borrower or session.get(User, booking.borrower_id)
     if borrower and borrower.email:
         background_tasks.add_task(
             emailer.borrower_booking_response_email,

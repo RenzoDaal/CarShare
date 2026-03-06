@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from routing import router as routing_router
 from routers.bookings import router as bookings_router
 from routers.cars import router as cars_router
+from routers.notifications import router as notifications_router
 from routers.users import router as users_router
 
 app = FastAPI()
@@ -30,6 +31,7 @@ app.add_middleware(
 app.include_router(users_router)
 app.include_router(cars_router)
 app.include_router(bookings_router)
+app.include_router(notifications_router)
 app.include_router(routing_router)
 
 

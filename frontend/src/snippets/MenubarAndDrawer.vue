@@ -3,12 +3,21 @@
   import Button from 'primevue/button';
   import Menu from 'primevue/menu';
   import Drawer from 'primevue/drawer';
+  import Popover from 'primevue/popover';
   import Logo from '@/assets/logo.svg';
 
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '../stores/auth';
   import http from '@/api/http';
+
+  type Notification = {
+    id: number;
+    message: string;
+    is_read: boolean;
+    created_at: string;
+    booking_id?: number | null;
+  };
 
   const auth = useAuthStore();
   const router = useRouter()
@@ -34,6 +43,29 @@
 
   const pendingBookingsCount = ref(0);
 
+  const notifPopover = ref();
+  const notifications = ref<Notification[]>([]);
+  const unreadCount = computed(() => notifications.value.filter(n => !n.is_read).length);
+
+  async function loadNotifications() {
+    try {
+      const { data } = await http.get<Notification[]>('/notifications');
+      notifications.value = data;
+    } catch {
+      // silently ignore
+    }
+  }
+
+  async function toggleNotifPopover(event: Event) {
+    notifPopover.value.toggle(event);
+    if (unreadCount.value > 0) {
+      await http.post('/notifications/read-all');
+      notifications.value = notifications.value.map(n => ({ ...n, is_read: true }));
+    }
+  }
+
+  let notifInterval: ReturnType<typeof setInterval> | null = null;
+
   onMounted(async () => {
     if (isCarOwner.value) {
       try {
@@ -43,6 +75,12 @@
         // silently ignore
       }
     }
+    loadNotifications();
+    notifInterval = setInterval(loadNotifications, 30_000);
+  });
+
+  onUnmounted(() => {
+    if (notifInterval) clearInterval(notifInterval);
   });
   const homeDrawerItems = ref([
     {
@@ -159,6 +197,35 @@
   <div>
     <Toolbar class="!border-none !rounded-none">
       <template #end>
+        <Popover ref="notifPopover">
+          <div class="w-80 flex flex-col">
+            <div class="px-1 pb-2">
+              <span class="font-semibold text-sm">Notifications</span>
+            </div>
+            <div v-if="notifications.length === 0" class="text-sm text-surface-500 py-4 text-center">
+              No notifications yet
+            </div>
+            <ul v-else class="flex flex-col gap-1 max-h-80 overflow-y-auto">
+              <li
+                v-for="notif in notifications"
+                :key="notif.id"
+                class="text-sm px-2 py-2 rounded"
+                :class="notif.is_read ? 'text-surface-500' : 'font-medium bg-surface-100 dark:bg-surface-800'"
+              >
+                {{ notif.message }}
+              </li>
+            </ul>
+          </div>
+        </Popover>
+        <Button
+          icon="pi pi-bell"
+          variant="text"
+          severity="secondary"
+          rounded
+          :badge="unreadCount > 0 ? String(unreadCount) : undefined"
+          badgeSeverity="danger"
+          @click="toggleNotifPopover"
+        />
         <Button
           :icon="isDark ? 'pi pi-sun' : 'pi pi-moon'"
           variant="text"

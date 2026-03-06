@@ -75,6 +75,7 @@ class BookingReschedule(SQLModel):
     end_datetime: str
     distance_km: Optional[float] = None
     stops: Optional[List[str]] = None
+    notes: Optional[str] = None
 
 
 class DashboardResponse(SQLModel):
@@ -136,3 +137,11 @@ class CarUnavailabilityRead(SQLModel):
 class CalendarDateRange(SQLModel):
     start: date
     end: date
+
+
+class NotificationRead(SQLModel):
+    id: int
+    message: str
+    is_read: bool
+    created_at: datetime
+    booking_id: Optional[int] = None
