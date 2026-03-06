@@ -2,7 +2,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, Column, String
 
 
 class User(SQLModel, table=True):
@@ -47,6 +47,13 @@ class CarUnavailability(SQLModel, table=True):
     end_date: date
 
     car: Optional[Car] = Relationship(back_populates="unavailabilities")
+
+
+class PasswordResetToken(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    token: str = Field(sa_column=Column(String, unique=True, index=True))
+    expires_at: datetime
 
 
 class Booking(SQLModel, table=True):

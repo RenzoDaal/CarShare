@@ -54,6 +54,23 @@ def send_email(to_email: str, subject: str, body_text: str) -> None:
         server.send_message(msg)
 
 
+def password_reset_email(
+    *,
+    to_email: str,
+    full_name: str,
+    reset_url: str,
+) -> None:
+    subject = "Reset your CarShare password"
+    body = (
+        f"Hi {full_name},\n\n"
+        f"Someone requested a password reset for your CarShare account.\n\n"
+        f"Click the link below to set a new password (valid for 1 hour):\n"
+        f"{reset_url}\n\n"
+        f"If you did not request this, you can safely ignore this email.\n"
+    )
+    send_email(to_email, subject, body)
+
+
 def owner_booking_request_email(
     *,
     owner_email: str,

@@ -88,7 +88,13 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
 
             <Button type="submit" label="Login" icon="pi pi-sign-in" iconPos="right" :loading="auth.loading" />
 
-            <p class="mt-4 text-sm text-center">
+            <p class="mt-3 text-sm text-center">
+              <RouterLink :to="{ name: 'forgot-password' }" class="text-blue-500 hover:underline">
+                Forgot your password?
+              </RouterLink>
+            </p>
+
+            <p class="mt-2 text-sm text-center">
               Don't have an account yet?
               <RouterLink :to="{ name: 'register' }" class="text-blue-500 hover:underline">
                 Create one

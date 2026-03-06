@@ -10,6 +10,8 @@ import CarAvailabilityPage from "@/pages/CarAvailabilityPage.vue";
 import RegisterPage from "@/pages/RegisterPage.vue";
 import AdminPage from "@/pages/AdminPage.vue";
 import ProfilePage from "@/pages/ProfilePage.vue";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage.vue";
+import ResetPasswordPage from "@/pages/ResetPasswordPage.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const routes: RouteRecordRaw[] = [
@@ -23,6 +25,18 @@ const routes: RouteRecordRaw[] = [
     path: "/register",
     name: "register",
     component: RegisterPage,
+    meta: { hideLayout: true },
+  },
+  {
+    path: "/forgot-password",
+    name: "forgot-password",
+    component: ForgotPasswordPage,
+    meta: { hideLayout: true },
+  },
+  {
+    path: "/reset-password",
+    name: "reset-password",
+    component: ResetPasswordPage,
     meta: { hideLayout: true },
   },
   { path: "/", name: "home", component: HomePage },
@@ -80,7 +94,9 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore();
 
-  if (!auth.isAuthenticated && to.name !== "login" && to.name !== "register") {
+  const publicRoutes = ["login", "register", "forgot-password", "reset-password"];
+
+  if (!auth.isAuthenticated && !publicRoutes.includes(String(to.name))) {
     return { name: "login" };
   }
 

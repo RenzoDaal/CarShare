@@ -1,6 +1,9 @@
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import emailer
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from auth import (
@@ -11,8 +14,8 @@ from auth import (
     user_to_read,
     verify_password,
 )
-from models import User
-from schemas import ChangePassword, LoginRequest, TokenResponse, UserCreate, UserRead, UserUpdate
+from models import PasswordResetToken, User
+from schemas import ChangePassword, LoginRequest, RequestPasswordReset, ResetPassword, TokenResponse, UserCreate, UserRead, UserUpdate
 
 router = APIRouter()
 
@@ -99,6 +102,68 @@ def change_password(
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
     current_user.password_hash = get_password_hash(data.new_password)
     session.add(current_user)
+    session.commit()
+    return {"ok": True}
+
+
+@router.post("/auth/request-reset")
+def request_password_reset(
+    data: RequestPasswordReset,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    user = session.exec(select(User).where(User.email == data.email)).first()
+    if user:
+        # Delete any existing tokens for this user
+        existing = session.exec(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        ).all()
+        for t in existing:
+            session.delete(t)
+
+        token = secrets.token_urlsafe(32)
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token=token,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        session.add(reset_token)
+        session.commit()
+
+        reset_url = f"{emailer.APP_BASE_URL}/reset-password?token={token}"
+        background_tasks.add_task(
+            emailer.password_reset_email,
+            to_email=user.email,
+            full_name=user.full_name,
+            reset_url=reset_url,
+        )
+
+    # Always return 200 to avoid email enumeration
+    return {"ok": True}
+
+
+@router.post("/auth/reset-password")
+def reset_password(
+    data: ResetPassword,
+    session: Session = Depends(get_session),
+):
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    reset_token = session.exec(
+        select(PasswordResetToken).where(PasswordResetToken.token == data.token)
+    ).first()
+
+    if reset_token is None or reset_token.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    user = session.get(User, reset_token.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = get_password_hash(data.new_password)
+    session.add(user)
+    session.delete(reset_token)
     session.commit()
     return {"ok": True}
 

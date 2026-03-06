@@ -87,6 +87,15 @@ class BookingRead(SQLModel):
     total_price: Optional[float] = None
 
 
+class RequestPasswordReset(SQLModel):
+    email: str
+
+
+class ResetPassword(SQLModel):
+    token: str
+    new_password: str
+
+
 class UserUpdate(SQLModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
