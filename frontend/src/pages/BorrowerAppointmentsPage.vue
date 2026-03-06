@@ -28,6 +28,7 @@ type BorrowerBooking = {
   end_datetime: string;
   status: BookingStatus;
   total_price?: number | null;
+  stops?: string[] | null;
 };
 
 const confirm = useConfirm();
@@ -167,7 +168,7 @@ function openReschedule(booking: BorrowerBooking) {
   rescheduleBooking.value = booking;
   rescheduleStart.value = toUtcDate(booking.start_datetime);
   rescheduleEnd.value = toUtcDate(booking.end_datetime);
-  rescheduleStops.value = ['', ''];
+  rescheduleStops.value = booking.stops && booking.stops.length >= 2 ? [...booking.stops] : ['', ''];
   rescheduleDistanceKm.value = null;
   rescheduleRouteError.value = null;
   rescheduleError.value = null;
@@ -187,6 +188,7 @@ async function submitReschedule() {
       start_datetime: rescheduleStart.value.toISOString(),
       end_datetime: rescheduleEnd.value.toISOString(),
       distance_km: rescheduleDistanceKm.value,
+      stops: rescheduleTrimmedStops.value.length >= 2 ? rescheduleTrimmedStops.value : null,
     });
     rescheduleVisible.value = false;
     await fetchBookings();

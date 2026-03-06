@@ -66,12 +66,14 @@ class DashboardBookingRead(SQLModel):
     total_price: Optional[float] = None
     borrower_name: Optional[str] = None
     borrower_email: Optional[str] = None
+    stops: Optional[List[str]] = None
 
 
 class BookingReschedule(SQLModel):
     start_datetime: str
     end_datetime: str
     distance_km: Optional[float] = None
+    stops: Optional[List[str]] = None
 
 
 class DashboardResponse(SQLModel):

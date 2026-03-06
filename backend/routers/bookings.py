@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -19,6 +20,15 @@ from utils import parse_iso
 router = APIRouter()
 
 
+def _parse_stops(stops_json: Optional[str]) -> Optional[List[str]]:
+    if not stops_json:
+        return None
+    try:
+        return json.loads(stops_json)
+    except Exception:
+        return None
+
+
 @router.post("/bookings")
 def create_booking(
     car_id: int,
@@ -26,6 +36,7 @@ def create_booking(
     end_datetime: str,
     background_tasks: BackgroundTasks,
     distance_km: Optional[float] = None,
+    stops: Optional[str] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -45,6 +56,7 @@ def create_booking(
         price_per_km=car.price_per_km,
         total_km=distance_km,
         total_price=total_price,
+        stops_json=stops,
         status=BookingStatus.PENDING.value,
     )
     session.add(booking)
@@ -147,6 +159,8 @@ def reschedule_booking(
     if body.distance_km is not None:
         booking.total_km = body.distance_km
         booking.total_price = round(body.distance_km * booking.price_per_km, 2)
+    if body.stops is not None:
+        booking.stops_json = json.dumps(body.stops)
     session.add(booking)
     session.commit()
     session.refresh(booking)
@@ -225,6 +239,7 @@ def list_owner_bookings(
                 total_price=booking.total_price,
                 borrower_name=borrower.full_name if borrower else None,
                 borrower_email=borrower.email if borrower else None,
+                stops=_parse_stops(booking.stops_json),
             )
         )
     return result
@@ -265,6 +280,7 @@ def list_borrower_bookings(
                 end_datetime=booking.end_datetime,
                 status=booking.status,
                 total_price=booking.total_price,
+                stops=_parse_stops(booking.stops_json),
             )
         )
     return result

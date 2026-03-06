@@ -24,6 +24,7 @@ def init_db():
 def _run_migrations():
     migrations = [
         "ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE booking ADD COLUMN stops_json TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

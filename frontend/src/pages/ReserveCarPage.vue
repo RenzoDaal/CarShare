@@ -225,6 +225,7 @@ const submitBooking = async () => {
         start_datetime: start.value.toISOString(),
         end_datetime: end.value.toISOString(),
         distance_km: distanceKm.value,
+        stops: JSON.stringify(trimmedStops.value),
       }
     });
 
