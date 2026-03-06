@@ -68,6 +68,7 @@ class Booking(SQLModel, table=True):
     price_per_km: float
     total_price: Optional[float] = None
     stops_json: Optional[str] = None  # JSON-encoded list of stop strings
+    notes: Optional[str] = None
 
     status: str = Field(default=BookingStatus.PENDING.value)
 

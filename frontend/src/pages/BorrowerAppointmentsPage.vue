@@ -29,6 +29,7 @@ type BorrowerBooking = {
   status: BookingStatus;
   total_price?: number | null;
   stops?: string[] | null;
+  notes?: string | null;
 };
 
 const confirm = useConfirm();
@@ -237,6 +238,9 @@ onMounted(fetchBookings);
                 </p>
                 <p v-if="booking.total_price != null" class="text-sm font-medium mt-1">
                   Total price: €{{ booking.total_price.toFixed(2) }}
+                </p>
+                <p v-if="booking.notes" class="text-sm mt-2 p-2 rounded bg-surface-100 dark:bg-surface-800 italic text-surface-500">
+                  "{{ booking.notes }}"
                 </p>
                 <div class="mt-3 flex gap-2 flex-wrap">
                   <Button label="Reschedule" icon="pi pi-calendar-clock" severity="secondary" outlined size="small"

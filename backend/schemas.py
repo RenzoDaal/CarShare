@@ -67,6 +67,7 @@ class DashboardBookingRead(SQLModel):
     borrower_name: Optional[str] = None
     borrower_email: Optional[str] = None
     stops: Optional[List[str]] = None
+    notes: Optional[str] = None
 
 
 class BookingReschedule(SQLModel):

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Card from 'primevue/card';
+import Textarea from 'primevue/textarea';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 import AutoComplete from 'primevue/autocomplete';
@@ -153,6 +154,7 @@ const estimateRoute = async () => {
 // Step 4: confirmation
 const fullName = ref(auth.user?.full_name ?? '');
 const email = ref(auth.user?.email ?? '');
+const bookingNotes = ref('');
 
 const resetFlow = () => {
   start.value = null;
@@ -168,6 +170,7 @@ const resetFlow = () => {
   distanceKm.value = null;
   routeError.value = null;
   routeCoordinates.value = [];
+  bookingNotes.value = '';
 };
 
 const loadAvailableCars = async () => {
@@ -226,6 +229,7 @@ const submitBooking = async () => {
         end_datetime: end.value.toISOString(),
         distance_km: distanceKm.value,
         stops: JSON.stringify(trimmedStops.value),
+        notes: bookingNotes.value.trim() || undefined,
       }
     });
 
@@ -452,6 +456,11 @@ const submitBooking = async () => {
                 </div>
 
                 <div v-if="!bookingCompleted" class="space-y-4">
+                  <div class="space-y-2">
+                    <h2 class="font-semibold text-base">Notes for the owner <span class="font-normal text-surface-400 text-sm">(optional)</span></h2>
+                    <Textarea v-model="bookingNotes" rows="3" class="w-full" placeholder="e.g. I'll pick up from the airport, might be 15 min late." autoResize />
+                  </div>
+
                   <h2 class="font-semibold text-base">Your details</h2>
                   <div class="text-sm space-y-1">
                     <div>

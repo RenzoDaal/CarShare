@@ -2,6 +2,7 @@ import os
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
+from typing import Optional
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -80,13 +81,16 @@ def owner_booking_request_email(
     start_iso: str,
     end_iso: str,
     booking_id: int,
+    notes: Optional[str] = None,
 ) -> None:
     subject = f"New booking request for {car_name}"
+    notes_line = f"Note from borrower: {notes}\n" if notes else ""
     body = (
         f"Hi {owner_name},\n\n"
         f"{borrower_name} requested to book your car: {car_name}.\n\n"
         f"Start: {_format_dt(start_iso)}\n"
         f"End:   {_format_dt(end_iso)}\n"
+        f"{notes_line}"
         f"Booking ID: {booking_id}\n\n"
         f"Respond here: {APP_BASE_URL}/ownerappointments\n"
     )

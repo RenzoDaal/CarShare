@@ -26,6 +26,7 @@ type OwnerBooking = {
   total_price?: number | null;
   borrower_name?: string | null;
   borrower_email?: string | null;
+  notes?: string | null;
 };
 
 const bookings = ref<OwnerBooking[]>([]);
@@ -121,6 +122,9 @@ onMounted(fetchBookings);
                 <div v-if="booking.borrower_name" class="text-sm mt-1 text-surface-500">
                   Borrower: <span class="font-medium text-surface-700 dark:text-surface-200">{{ booking.borrower_name }}</span>
                   <span v-if="booking.borrower_email"> — {{ booking.borrower_email }}</span>
+                </div>
+                <div v-if="booking.notes" class="text-sm mt-2 p-2 rounded bg-surface-100 dark:bg-surface-800 italic text-surface-600 dark:text-surface-300">
+                  "{{ booking.notes }}"
                 </div>
               </div>
               <div class="flex gap-2 mt-2 md:mt-0">

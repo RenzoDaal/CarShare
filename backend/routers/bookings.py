@@ -37,6 +37,7 @@ def create_booking(
     background_tasks: BackgroundTasks,
     distance_km: Optional[float] = None,
     stops: Optional[str] = None,
+    notes: Optional[str] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -57,6 +58,7 @@ def create_booking(
         total_km=distance_km,
         total_price=total_price,
         stops_json=stops,
+        notes=notes,
         status=BookingStatus.PENDING.value,
     )
     session.add(booking)
@@ -74,6 +76,7 @@ def create_booking(
             start_iso=booking.start_datetime.isoformat(),
             end_iso=booking.end_datetime.isoformat(),
             booking_id=booking.id,
+            notes=booking.notes,
         )
 
     if current_user.email:
@@ -240,6 +243,7 @@ def list_owner_bookings(
                 borrower_name=borrower.full_name if borrower else None,
                 borrower_email=borrower.email if borrower else None,
                 stops=_parse_stops(booking.stops_json),
+                notes=booking.notes,
             )
         )
     return result
@@ -281,6 +285,7 @@ def list_borrower_bookings(
                 status=booking.status,
                 total_price=booking.total_price,
                 stops=_parse_stops(booking.stops_json),
+                notes=booking.notes,
             )
         )
     return result
