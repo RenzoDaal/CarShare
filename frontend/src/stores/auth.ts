@@ -48,7 +48,7 @@ export const useAuthStore = defineStore("auth", {
         this.token = token;
         const parsed = JSON.parse(userJson) as User;
         // Ensure timezone is always set — old cached users may not have it
-        this.user = { timezone: "Europe/Amsterdam", ...parsed };
+        this.user = { ...parsed, timezone: parsed.timezone || "Europe/Amsterdam" };
       }
     },
 
