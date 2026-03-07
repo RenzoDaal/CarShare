@@ -12,6 +12,7 @@ import AdminPage from "@/pages/AdminPage.vue";
 import ProfilePage from "@/pages/ProfilePage.vue";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage.vue";
 import ResetPasswordPage from "@/pages/ResetPasswordPage.vue";
+import BookingDetailPage from "@/pages/BookingDetailPage.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const routes: RouteRecordRaw[] = [
@@ -81,6 +82,12 @@ const routes: RouteRecordRaw[] = [
     name: "profile",
     component: ProfilePage,
     meta: { title: "My Profile" },
+  },
+  {
+    path: "/bookings/:id",
+    name: "booking-detail",
+    component: BookingDetailPage,
+    meta: { title: "Booking Summary" },
   },
 ];
 

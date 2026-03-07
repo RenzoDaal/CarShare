@@ -231,6 +231,46 @@ def reschedule_booking(
     )
 
 
+@router.get("/bookings/{booking_id}/detail", response_model=DashboardBookingRead)
+def get_booking_detail(
+    booking_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    car = booking.car or session.get(Car, booking.car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    if booking.borrower_id != current_user.id and car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to view this booking")
+
+    borrower = booking.borrower or session.get(User, booking.borrower_id)
+    return DashboardBookingRead(
+        id=booking.id,
+        car=CarRead(
+            id=car.id,
+            owner_id=car.owner_id,
+            name=car.name,
+            description=car.description,
+            price_per_km=car.price_per_km,
+            is_active=car.is_active,
+            image_url=getattr(car, "image_url", None),
+        ),
+        start_datetime=booking.start_datetime,
+        end_datetime=booking.end_datetime,
+        status=booking.status,
+        total_price=booking.total_price,
+        borrower_name=borrower.full_name if borrower else None,
+        borrower_email=borrower.email if borrower else None,
+        stops=_parse_stops(booking.stops_json),
+        notes=booking.notes,
+    )
+
+
 @router.get("/bookings/owner", response_model=List[DashboardBookingRead])
 def list_owner_bookings(
     session: Session = Depends(get_session),

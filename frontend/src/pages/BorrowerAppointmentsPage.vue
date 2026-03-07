@@ -11,6 +11,7 @@ import AutoComplete from 'primevue/autocomplete';
 import Textarea from 'primevue/textarea';
 import http from '@/api/http';
 import { useConfirm } from 'primevue/useconfirm';
+import { useRouter } from 'vue-router';
 
 type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
@@ -34,6 +35,7 @@ type BorrowerBooking = {
 };
 
 const confirm = useConfirm();
+const router = useRouter();
 const bookings = ref<BorrowerBooking[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -247,9 +249,11 @@ onMounted(fetchBookings);
                   "{{ booking.notes }}"
                 </p>
                 <div class="mt-3 flex gap-2 flex-wrap">
+                  <Button label="Summary" icon="pi pi-file" severity="secondary" outlined size="small"
+                    @click="router.push({ name: 'booking-detail', params: { id: booking.id } })" />
                   <Button label="Reschedule" icon="pi pi-calendar-clock" severity="secondary" outlined size="small"
                     @click="openReschedule(booking)" />
-                  <Button label="Cancel booking" icon="pi pi-times" severity="danger" outlined size="small"
+                  <Button label="Cancel" icon="pi pi-times" severity="danger" outlined size="small"
                     @click="confirmCancel(booking.id)" />
                 </div>
               </template>

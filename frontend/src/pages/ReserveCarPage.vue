@@ -224,7 +224,7 @@ const submitBooking = async () => {
   bookingCompleted.value = false;
 
   try {
-    await http.post('/bookings', null, {
+    const res = await http.post<{ id: number }>('/bookings', null, {
       params: {
         car_id: selectedCar.value.id,
         start_datetime: start.value.toISOString(),
@@ -235,7 +235,7 @@ const submitBooking = async () => {
       }
     });
 
-    bookingCompleted.value = true;
+    router.push({ name: 'booking-detail', params: { id: res.data.id } });
   } catch (err: any) {
     bookingError.value = err?.response?.data?.detail ?? 'Failed to complete booking.';
   } finally {

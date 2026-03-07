@@ -6,6 +6,7 @@ import Tag from 'primevue/tag';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import http from '@/api/http';
+import { useRouter } from 'vue-router';
 
 type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
@@ -29,6 +30,7 @@ type OwnerBooking = {
   notes?: string | null;
 };
 
+const router = useRouter();
 const bookings = ref<OwnerBooking[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -127,7 +129,9 @@ onMounted(fetchBookings);
                   "{{ booking.notes }}"
                 </div>
               </div>
-              <div class="flex gap-2 mt-2 md:mt-0">
+              <div class="flex gap-2 mt-2 md:mt-0 flex-wrap">
+                <Button label="Summary" icon="pi pi-file" severity="secondary" outlined
+                  @click="router.push({ name: 'booking-detail', params: { id: booking.id } })" />
                 <Button label="Accept" icon="pi pi-check" severity="success" @click="acceptBooking(booking.id)" />
                 <Button label="Decline" icon="pi pi-times" severity="danger" outlined
                   @click="declineBooking(booking.id)" />
