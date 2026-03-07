@@ -46,7 +46,9 @@ export const useAuthStore = defineStore("auth", {
         sessionStorage.getItem("auth_user");
       if (token && userJson) {
         this.token = token;
-        this.user = JSON.parse(userJson) as User;
+        const parsed = JSON.parse(userJson) as User;
+        // Ensure timezone is always set — old cached users may not have it
+        this.user = { timezone: "Europe/Amsterdam", ...parsed };
       }
     },
 

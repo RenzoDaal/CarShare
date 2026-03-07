@@ -11,19 +11,48 @@ import { useAuthStore } from '@/stores/auth';
 import http from '@/api/http';
 import type { User } from '@/stores/auth';
 
-const TIMEZONE_OPTIONS = [
-  { label: 'UTC', value: 'UTC' },
-  { label: 'London (GMT/BST)', value: 'Europe/London' },
-  { label: 'Lisbon (WET/WEST)', value: 'Europe/Lisbon' },
-  { label: 'Amsterdam / Paris / Brussels (CET/CEST)', value: 'Europe/Amsterdam' },
-  { label: 'Madrid / Rome / Vienna', value: 'Europe/Madrid' },
-  { label: 'Berlin / Zurich / Stockholm', value: 'Europe/Berlin' },
-  { label: 'Oslo / Copenhagen', value: 'Europe/Oslo' },
-  { label: 'Helsinki / Athens', value: 'Europe/Helsinki' },
-  { label: 'Warsaw / Prague / Budapest', value: 'Europe/Warsaw' },
-  { label: 'Bucharest / Kyiv', value: 'Europe/Bucharest' },
-  { label: 'Moscow', value: 'Europe/Moscow' },
+// Compute the current UTC offset string for a given IANA timezone, e.g. "+1" or "-5"
+function getOffset(tz: string): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: tz,
+    timeZoneName: 'shortOffset',
+  }).formatToParts(new Date());
+  const raw = parts.find(p => p.type === 'timeZoneName')?.value ?? 'GMT';
+  return raw.replace('GMT', '') || '+0';
+}
+
+// Only one entry per distinct IANA timezone group (cities sharing the same zone are listed together)
+const TIMEZONE_ZONES: { value: string; cities: string }[] = [
+  { value: 'Pacific/Midway',       cities: 'Midway Island, Samoa' },
+  { value: 'Pacific/Honolulu',     cities: 'Hawaii' },
+  { value: 'America/Anchorage',    cities: 'Alaska' },
+  { value: 'America/Los_Angeles',  cities: 'Los Angeles, Seattle, Vancouver' },
+  { value: 'America/Denver',       cities: 'Denver, Phoenix' },
+  { value: 'America/Chicago',      cities: 'Chicago, Dallas, Mexico City' },
+  { value: 'America/New_York',     cities: 'New York, Miami, Toronto' },
+  { value: 'America/Halifax',      cities: 'Halifax, Atlantic Canada' },
+  { value: 'America/Sao_Paulo',    cities: 'São Paulo, Brasília, Buenos Aires' },
+  { value: 'Atlantic/Azores',      cities: 'Azores' },
+  { value: 'UTC',                  cities: 'UTC / Reykjavik' },
+  { value: 'Europe/London',        cities: 'London, Dublin, Lisbon' },
+  { value: 'Europe/Amsterdam',     cities: 'Amsterdam, Paris, Brussels, Berlin, Rome, Madrid, Oslo, Stockholm, Warsaw, Vienna, Prague, Budapest, Copenhagen, Zurich' },
+  { value: 'Europe/Helsinki',      cities: 'Helsinki, Athens, Kyiv, Bucharest, Sofia, Tallinn, Riga, Vilnius' },
+  { value: 'Europe/Moscow',        cities: 'Moscow, Istanbul' },
+  { value: 'Asia/Dubai',           cities: 'Dubai, Abu Dhabi' },
+  { value: 'Asia/Karachi',         cities: 'Karachi, Islamabad, Tashkent' },
+  { value: 'Asia/Kolkata',         cities: 'Mumbai, Delhi, Kolkata' },
+  { value: 'Asia/Dhaka',           cities: 'Dhaka, Almaty' },
+  { value: 'Asia/Bangkok',         cities: 'Bangkok, Jakarta, Hanoi' },
+  { value: 'Asia/Shanghai',        cities: 'Beijing, Shanghai, Singapore, Hong Kong, Taipei, Perth' },
+  { value: 'Asia/Tokyo',           cities: 'Tokyo, Seoul, Osaka' },
+  { value: 'Australia/Sydney',     cities: 'Sydney, Melbourne, Brisbane' },
+  { value: 'Pacific/Auckland',     cities: 'Auckland, Wellington' },
 ];
+
+const TIMEZONE_OPTIONS = TIMEZONE_ZONES.map(({ value, cities }) => ({
+  value,
+  label: `(${getOffset(value)}) ${cities}`,
+}));
 
 const auth = useAuthStore();
 
