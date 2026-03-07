@@ -107,6 +107,7 @@ def create_booking(
 @router.post("/bookings/{booking_id}/cancel", response_model=schemas.BookingRead)
 def cancel_booking(
     booking_id: int,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -142,11 +143,20 @@ def cancel_booking(
         )
     ).all()
     for entry in waitlist_entries:
-        if entry.user_id != current_user.id:
-            create_notification(
-                session,
-                entry.user_id,
-                f"{car.name} may now be available for your requested dates",
+        create_notification(
+            session,
+            entry.user_id,
+            f"{car.name} may now be available for your requested dates",
+        )
+        waitlist_user = session.get(User, entry.user_id)
+        if waitlist_user:
+            background_tasks.add_task(
+                emailer.waitlist_availability_email,
+                to_email=waitlist_user.email,
+                full_name=waitlist_user.full_name,
+                car_name=car.name,
+                start_iso=entry.start_datetime.isoformat(),
+                end_iso=entry.end_datetime.isoformat(),
             )
 
     session.commit()

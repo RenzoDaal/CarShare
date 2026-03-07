@@ -164,3 +164,23 @@ def borrower_booking_response_email(
         f"View your bookings: {APP_BASE_URL}/borrowerappointments\n"
     )
     send_email(borrower_email, subject, body)
+
+
+def waitlist_availability_email(
+    *,
+    to_email: str,
+    full_name: str,
+    car_name: str,
+    start_iso: str,
+    end_iso: str,
+) -> None:
+    subject = f"{car_name} may now be available"
+    body = (
+        f"Hi {full_name},\n\n"
+        f"Good news! A booking for {car_name} was cancelled, and it may now be available "
+        f"for your requested dates:\n\n"
+        f"Start: {_format_dt(start_iso)}\n"
+        f"End:   {_format_dt(end_iso)}\n\n"
+        f"Book it before someone else does: {APP_BASE_URL}/reserve\n"
+    )
+    send_email(to_email, subject, body)
