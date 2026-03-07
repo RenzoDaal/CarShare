@@ -30,10 +30,8 @@ const unavailableRanges = ref<DateRange[]>([]);
 const calendarLoading = ref(false);
 
 const monthName = computed(() =>
-  new Date(currentYear.value, currentMonth.value, 1).toLocaleString(undefined, {
-    month: 'long',
-    year: 'numeric',
-  })
+  new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' })
+    .format(new Date(currentYear.value, currentMonth.value, 1))
 );
 
 const calendarDays = computed(() => {
