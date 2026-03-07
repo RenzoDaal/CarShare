@@ -37,6 +37,30 @@ type BorrowerBooking = {
 const confirm = useConfirm();
 const router = useRouter();
 const bookings = ref<BorrowerBooking[]>([]);
+
+type WaitlistEntry = {
+  id: number;
+  car_id: number;
+  car_name: string;
+  start_datetime: string;
+  end_datetime: string;
+};
+
+const waitlist = ref<WaitlistEntry[]>([]);
+
+async function fetchWaitlist() {
+  try {
+    const { data } = await http.get<WaitlistEntry[]>('/waitlist/mine');
+    waitlist.value = data;
+  } catch {
+    waitlist.value = [];
+  }
+}
+
+async function leaveWaitlist(id: number) {
+  await http.delete(`/waitlist/${id}`);
+  waitlist.value = waitlist.value.filter(e => e.id !== id);
+}
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -206,7 +230,10 @@ async function submitReschedule() {
   }
 }
 
-onMounted(fetchBookings);
+onMounted(() => {
+  fetchBookings();
+  fetchWaitlist();
+});
 </script>
 
 <template>
@@ -259,6 +286,30 @@ onMounted(fetchBookings);
               </template>
             </Card>
           </div>
+        </template>
+      </Card>
+
+      <Card v-if="waitlist.length > 0">
+        <template #title>
+          <div class="flex items-center gap-2">
+            <span>Waitlist</span>
+            <span class="text-xs text-surface-400 font-normal">You'll be notified when a spot opens up</span>
+          </div>
+        </template>
+        <template #content>
+          <ul class="flex flex-col gap-2 text-sm">
+            <li v-for="entry in waitlist" :key="entry.id"
+              class="flex items-center justify-between border rounded-md px-3 py-2">
+              <div>
+                <p class="font-medium">{{ entry.car_name }}</p>
+                <p class="text-xs text-surface-500">
+                  {{ formatDateTime(entry.start_datetime) }} – {{ formatDateTime(entry.end_datetime) }}
+                </p>
+              </div>
+              <Button icon="pi pi-times" severity="danger" text rounded size="small"
+                title="Leave waitlist" @click="leaveWaitlist(entry.id)" />
+            </li>
+          </ul>
         </template>
       </Card>
 

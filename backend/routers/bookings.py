@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 import schemas
 from auth import get_current_user, get_session
-from models import Booking, BookingStatus, Car, User
+from models import Booking, BookingStatus, Car, User, Waitlist
 from routers.notifications import create_notification
 from schemas import (
     BookingReschedule,
@@ -132,6 +132,23 @@ def cancel_booking(
             f"{current_user.full_name} cancelled their booking for {car.name}",
             booking.id,
         )
+
+    # Notify waitlist users whose requested period overlaps with the now-free slot
+    waitlist_entries = session.exec(
+        select(Waitlist).where(
+            Waitlist.car_id == booking.car_id,
+            Waitlist.start_datetime < booking.end_datetime,
+            Waitlist.end_datetime > booking.start_datetime,
+        )
+    ).all()
+    for entry in waitlist_entries:
+        if entry.user_id != current_user.id:
+            create_notification(
+                session,
+                entry.user_id,
+                f"{car.name} may now be available for your requested dates",
+            )
+
     session.commit()
     session.refresh(booking)
 

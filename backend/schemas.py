@@ -139,6 +139,21 @@ class CalendarDateRange(SQLModel):
     end: date
 
 
+class WaitlistCreate(SQLModel):
+    car_id: int
+    start_datetime: str
+    end_datetime: str
+
+
+class WaitlistRead(SQLModel):
+    id: int
+    car_id: int
+    car_name: str
+    start_datetime: datetime
+    end_datetime: datetime
+    created_at: datetime
+
+
 class NotificationRead(SQLModel):
     id: int
     message: str

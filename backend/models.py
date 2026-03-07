@@ -63,6 +63,15 @@ class CarImage(SQLModel, table=True):
     order: int = 0
 
 
+class Waitlist(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    car_id: int = Field(foreign_key="car.id")
+    user_id: int = Field(foreign_key="user.id")
+    start_datetime: datetime
+    end_datetime: datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class Notification(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")

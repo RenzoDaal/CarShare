@@ -53,7 +53,34 @@ const handleDatesNext = async (activateCallback: (step: number) => void) => {
 
 // Step 2: available cars
 const availableCars = ref<Car[]>([]);
+const allCars = ref<Car[]>([]);
 const selectedCar = ref<Car | null>(null);
+
+const unavailableCars = computed(() => {
+  const availableIds = new Set(availableCars.value.map(c => c.id));
+  return allCars.value.filter(c => !availableIds.has(c.id));
+});
+
+const waitlistJoined = ref<Set<number>>(new Set());
+const waitlistLoading = ref<Set<number>>(new Set());
+
+const joinWaitlist = async (car: Car) => {
+  if (!start.value || !end.value) return;
+  waitlistLoading.value = new Set([...waitlistLoading.value, car.id]);
+  try {
+    await http.post('/waitlist', {
+      car_id: car.id,
+      start_datetime: start.value.toISOString(),
+      end_datetime: end.value.toISOString(),
+    });
+    waitlistJoined.value = new Set([...waitlistJoined.value, car.id]);
+  } catch {
+    // silently ignore duplicate joins
+    waitlistJoined.value = new Set([...waitlistJoined.value, car.id]);
+  } finally {
+    waitlistLoading.value = new Set([...waitlistLoading.value].filter(id => id !== car.id));
+  }
+};
 
 const handleSelectCar = (car: Car, activateCallback: (step: number) => void) => {
   selectedCar.value = car;
@@ -181,18 +208,24 @@ const loadAvailableCars = async () => {
   }
   loadingCars.value = true;
   datesError.value = null;
+  waitlistJoined.value = new Set();
 
   try {
-    const res = await http.get<Car[]>('/cars/available', {
-      params: {
-        start_datetime: start.value.toISOString(),
-        end_datetime: end.value.toISOString()
-      }
-    });
-    availableCars.value = res.data;
+    const [availableRes, allRes] = await Promise.all([
+      http.get<Car[]>('/cars/available', {
+        params: {
+          start_datetime: start.value.toISOString(),
+          end_datetime: end.value.toISOString(),
+        }
+      }),
+      http.get<Car[]>('/cars'),
+    ]);
+    availableCars.value = availableRes.data;
+    allCars.value = allRes.data;
   } catch (err: any) {
     datesError.value = err?.response?.data?.detail ?? 'Failed to load available cars.';
     availableCars.value = [];
+    allCars.value = [];
   } finally {
     loadingCars.value = false;
   }
@@ -324,6 +357,44 @@ const submitBooking = async () => {
                       </div>
                     </template>
                   </Card>
+                </div>
+
+                <!-- Unavailable cars with waitlist option -->
+                <div v-if="unavailableCars.length > 0" class="space-y-3">
+                  <p class="text-sm font-medium text-surface-500">Unavailable for your dates</p>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <Card v-for="car in unavailableCars" :key="car.id"
+                      class="flex flex-col justify-between overflow-hidden opacity-70">
+                      <template #header>
+                        <div class="h-48 w-full">
+                          <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
+                        </div>
+                      </template>
+                      <template #title>
+                        <div class="flex flex-col gap-1">
+                          <span class="font-semibold">{{ car.name }}</span>
+                          <span class="text-sm text-surface-500">{{ car.price_per_km }} € / km</span>
+                        </div>
+                      </template>
+                      <template #content>
+                        <p class="text-sm text-surface-500 mb-3">{{ car.description || 'No description provided.' }}</p>
+                        <Button
+                          v-if="!waitlistJoined.has(car.id)"
+                          label="Notify me when available"
+                          icon="pi pi-bell"
+                          size="small"
+                          severity="secondary"
+                          outlined
+                          :loading="waitlistLoading.has(car.id)"
+                          @click="joinWaitlist(car)"
+                        />
+                        <div v-else class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                          <i class="pi pi-check-circle" />
+                          <span>You're on the waitlist</span>
+                        </div>
+                      </template>
+                    </Card>
+                  </div>
                 </div>
 
                 <div class="flex justify-between">
