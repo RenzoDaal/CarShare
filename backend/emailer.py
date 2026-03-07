@@ -1,8 +1,9 @@
 import os
 import smtplib
-from datetime import datetime
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -22,10 +23,17 @@ SMTP_FROM = os.getenv("SMTP_FROM", "CarShare <no-reply@localhost>")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5173")
 
 
-def _format_dt(iso: str) -> str:
-    """Format a naive UTC ISO datetime string for display in emails."""
+def _format_dt(iso: str, tz: str = "Europe/Amsterdam") -> str:
+    """Format a UTC ISO datetime string for display in the recipient's timezone."""
     dt = datetime.fromisoformat(iso)
-    return dt.strftime("%d %B %Y at %H:%M UTC")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    try:
+        zone = ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, KeyError):
+        zone = ZoneInfo("Europe/Amsterdam")
+    dt_local = dt.astimezone(zone)
+    return dt_local.strftime("%d/%m/%Y at %H:%M")
 
 
 def send_email(to_email: str, subject: str, body_text: str) -> None:
@@ -82,14 +90,15 @@ def owner_booking_request_email(
     end_iso: str,
     booking_id: int,
     notes: Optional[str] = None,
+    tz: str = "Europe/Amsterdam",
 ) -> None:
     subject = f"New booking request for {car_name}"
     notes_line = f"Note from borrower: {notes}\n" if notes else ""
     body = (
         f"Hi {owner_name},\n\n"
         f"{borrower_name} requested to book your car: {car_name}.\n\n"
-        f"Start: {_format_dt(start_iso)}\n"
-        f"End:   {_format_dt(end_iso)}\n"
+        f"Start: {_format_dt(start_iso, tz)}\n"
+        f"End:   {_format_dt(end_iso, tz)}\n"
         f"{notes_line}"
         f"Booking ID: {booking_id}\n\n"
         f"Respond here: {APP_BASE_URL}/ownerappointments\n"
@@ -106,13 +115,14 @@ def borrower_booking_confirmation_email(
     start_iso: str,
     end_iso: str,
     booking_id: int,
+    tz: str = "Europe/Amsterdam",
 ) -> None:
     subject = f"Booking request sent: {car_name}"
     body = (
         f"Hi {borrower_name},\n\n"
         f"Your booking request for {car_name} has been sent to {owner_name}.\n\n"
-        f"Start: {_format_dt(start_iso)}\n"
-        f"End:   {_format_dt(end_iso)}\n"
+        f"Start: {_format_dt(start_iso, tz)}\n"
+        f"End:   {_format_dt(end_iso, tz)}\n"
         f"Booking ID: {booking_id}\n\n"
         f"You will receive an email once the owner responds.\n"
         f"View your bookings: {APP_BASE_URL}/borrowerappointments\n"
@@ -129,13 +139,14 @@ def owner_booking_reschedule_email(
     start_iso: str,
     end_iso: str,
     booking_id: int,
+    tz: str = "Europe/Amsterdam",
 ) -> None:
     subject = f"Booking rescheduled: {car_name}"
     body = (
         f"Hi {owner_name},\n\n"
         f"{borrower_name} has rescheduled their booking for {car_name}.\n\n"
-        f"New start: {_format_dt(start_iso)}\n"
-        f"New end:   {_format_dt(end_iso)}\n"
+        f"New start: {_format_dt(start_iso, tz)}\n"
+        f"New end:   {_format_dt(end_iso, tz)}\n"
         f"Booking ID: {booking_id}\n\n"
         f"The booking is now pending your approval again.\n"
         f"Respond here: {APP_BASE_URL}/ownerappointments\n"
@@ -153,13 +164,14 @@ def borrower_booking_response_email(
     end_iso: str,
     booking_id: int,
     status: str,
+    tz: str = "Europe/Amsterdam",
 ) -> None:
     subject = f"Your booking was {status}: {car_name}"
     body = (
         f"Hi {borrower_name},\n\n"
         f"{owner_name} has {status} your booking request for: {car_name}.\n\n"
-        f"Start: {_format_dt(start_iso)}\n"
-        f"End:   {_format_dt(end_iso)}\n"
+        f"Start: {_format_dt(start_iso, tz)}\n"
+        f"End:   {_format_dt(end_iso, tz)}\n"
         f"Booking ID: {booking_id}\n\n"
         f"View your bookings: {APP_BASE_URL}/borrowerappointments\n"
     )
@@ -173,14 +185,15 @@ def waitlist_availability_email(
     car_name: str,
     start_iso: str,
     end_iso: str,
+    tz: str = "Europe/Amsterdam",
 ) -> None:
     subject = f"{car_name} may now be available"
     body = (
         f"Hi {full_name},\n\n"
         f"Good news! A booking for {car_name} was cancelled, and it may now be available "
         f"for your requested dates:\n\n"
-        f"Start: {_format_dt(start_iso)}\n"
-        f"End:   {_format_dt(end_iso)}\n\n"
+        f"Start: {_format_dt(start_iso, tz)}\n"
+        f"End:   {_format_dt(end_iso, tz)}\n\n"
         f"Book it before someone else does: {APP_BASE_URL}/reserve\n"
     )
     send_email(to_email, subject, body)

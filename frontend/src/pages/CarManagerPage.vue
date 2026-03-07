@@ -9,6 +9,7 @@ import InputNumber from 'primevue/inputnumber';
 import DatePicker from 'primevue/datepicker';
 
 import { useCarStore, type NewCarPayload, type UpdateCarPayload, type Car } from '@/stores/cars';
+import { formatDateOnly } from '@/utils/formatDate';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
@@ -227,8 +228,7 @@ const deleteBlock = async (blockId: number) => {
   }
 };
 
-const formatDate = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'medium' });
+const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
 </script>
 
 

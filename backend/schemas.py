@@ -20,6 +20,7 @@ class UserRead(SQLModel):
     role_borrower: bool
     is_approved: bool
     is_admin: bool
+    timezone: str = "Europe/Amsterdam"
 
 
 class LoginRequest(SQLModel):
@@ -107,6 +108,7 @@ class UserUpdate(SQLModel):
     email: Optional[str] = None
     role_owner: Optional[bool] = None
     role_borrower: Optional[bool] = None
+    timezone: Optional[str] = None
 
 
 class ChangePassword(SQLModel):

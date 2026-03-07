@@ -9,6 +9,7 @@ import http from '@/api/http';
 import type { Car } from '@/stores/cars';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirm } from 'primevue/useconfirm';
+import { formatDateTime } from '@/utils/formatDate';
 
 type CarStats = {
   car_id: number;
@@ -78,21 +79,6 @@ const otherBookings = computed<DashboardBooking[]>(() => {
   }
   return value.upcoming_bookings.slice(1);
 });
-
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '';
-  // Backend returns naive UTC datetimes without a timezone suffix.
-  // Appending 'Z' tells JavaScript to treat them as UTC so local conversion is correct.
-  const normalized = iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z';
-  const d = new Date(normalized);
-  return d.toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 const carStats = ref<CarStats[]>([]);
 

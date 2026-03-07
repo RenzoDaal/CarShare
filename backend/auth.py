@@ -86,4 +86,5 @@ def user_to_read(user: User) -> UserRead:
         role_borrower=user.role_borrower,
         is_approved=user.is_approved,
         is_admin=user.is_admin,
+        timezone=getattr(user, "timezone", "Europe/Amsterdam"),
     )

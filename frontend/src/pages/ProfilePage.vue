@@ -5,10 +5,25 @@ import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
 import Checkbox from 'primevue/checkbox';
+import Select from 'primevue/select';
 import Message from 'primevue/message';
 import { useAuthStore } from '@/stores/auth';
 import http from '@/api/http';
 import type { User } from '@/stores/auth';
+
+const TIMEZONE_OPTIONS = [
+  { label: 'UTC', value: 'UTC' },
+  { label: 'London (GMT/BST)', value: 'Europe/London' },
+  { label: 'Lisbon (WET/WEST)', value: 'Europe/Lisbon' },
+  { label: 'Amsterdam / Paris / Brussels (CET/CEST)', value: 'Europe/Amsterdam' },
+  { label: 'Madrid / Rome / Vienna', value: 'Europe/Madrid' },
+  { label: 'Berlin / Zurich / Stockholm', value: 'Europe/Berlin' },
+  { label: 'Oslo / Copenhagen', value: 'Europe/Oslo' },
+  { label: 'Helsinki / Athens', value: 'Europe/Helsinki' },
+  { label: 'Warsaw / Prague / Budapest', value: 'Europe/Warsaw' },
+  { label: 'Bucharest / Kyiv', value: 'Europe/Bucharest' },
+  { label: 'Moscow', value: 'Europe/Moscow' },
+];
 
 const auth = useAuthStore();
 
@@ -18,6 +33,7 @@ const profile = reactive({
   email: auth.user?.email ?? '',
   role_owner: auth.user?.role_owner ?? false,
   role_borrower: auth.user?.role_borrower ?? true,
+  timezone: auth.user?.timezone ?? 'Europe/Amsterdam',
 });
 const profileSaving = ref(false);
 const profileSuccess = ref(false);
@@ -33,6 +49,7 @@ async function saveProfile() {
       email: profile.email,
       role_owner: profile.role_owner,
       role_borrower: profile.role_borrower,
+      timezone: profile.timezone,
     });
     auth.updateUser(data);
     profileSuccess.value = true;
@@ -98,6 +115,10 @@ async function changePassword() {
           <div class="flex flex-col gap-1">
             <label class="text-sm font-medium">Email</label>
             <InputText v-model="profile.email" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium">Timezone</label>
+            <Select v-model="profile.timezone" :options="TIMEZONE_OPTIONS" optionLabel="label" optionValue="value" fluid />
           </div>
           <div class="flex flex-col gap-2">
             <span class="text-sm font-medium">Roles</span>

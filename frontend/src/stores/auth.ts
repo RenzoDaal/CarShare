@@ -9,6 +9,7 @@ export type User = {
   role_borrower: boolean;
   is_approved: boolean;
   is_admin: boolean;
+  timezone: string;
 };
 
 type TokenResponse = {

@@ -14,6 +14,7 @@ class User(SQLModel, table=True):
     role_borrower: bool = True
     is_approved: bool = False
     is_admin: bool = False
+    timezone: str = Field(default="Europe/Amsterdam")
 
     cars: List["Car"] = Relationship(back_populates="owner")
     bookings: List["Booking"] = Relationship(back_populates="borrower")

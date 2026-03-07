@@ -7,6 +7,7 @@ import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import http from '@/api/http';
 import { useRouter } from 'vue-router';
+import { formatDateTime } from '@/utils/formatDate';
 
 type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
@@ -47,11 +48,6 @@ const declinedBookings = computed(() =>
 const cancelledBookings = computed(() =>
   bookings.value.filter((b) => b.status === 'cancelled'),
 );
-
-function formatDateTime(value: string) {
-  const normalized = value.endsWith('Z') || value.includes('+') ? value : value + 'Z';
-  return new Date(normalized).toLocaleString();
-}
 
 async function fetchBookings() {
   loading.value = true;

@@ -12,6 +12,7 @@ import Textarea from 'primevue/textarea';
 import http from '@/api/http';
 import { useConfirm } from 'primevue/useconfirm';
 import { useRouter } from 'vue-router';
+import { formatDateTime } from '@/utils/formatDate';
 
 type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
@@ -79,10 +80,6 @@ const history = computed(() =>
 function toUtcDate(value: string): Date {
   const normalized = value.endsWith('Z') || value.includes('+') ? value : value + 'Z';
   return new Date(normalized);
-}
-
-function formatDateTime(value: string) {
-  return toUtcDate(value).toLocaleString();
 }
 
 function statusSeverity(status: BookingStatus) {

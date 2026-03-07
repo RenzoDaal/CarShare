@@ -87,6 +87,7 @@ def create_booking(
             end_iso=booking.end_datetime.isoformat(),
             booking_id=booking.id,
             notes=booking.notes,
+            tz=getattr(owner, "timezone", "Europe/Amsterdam"),
         )
 
     if current_user.email:
@@ -99,6 +100,7 @@ def create_booking(
             start_iso=booking.start_datetime.isoformat(),
             end_iso=booking.end_datetime.isoformat(),
             booking_id=booking.id,
+            tz=getattr(current_user, "timezone", "Europe/Amsterdam"),
         )
 
     return booking
@@ -157,6 +159,7 @@ def cancel_booking(
                 car_name=car.name,
                 start_iso=entry.start_datetime.isoformat(),
                 end_iso=entry.end_datetime.isoformat(),
+                tz=getattr(waitlist_user, "timezone", "Europe/Amsterdam"),
             )
 
     session.commit()
@@ -238,6 +241,7 @@ def reschedule_booking(
             start_iso=booking.start_datetime.isoformat(),
             end_iso=booking.end_datetime.isoformat(),
             booking_id=booking.id,
+            tz=getattr(owner, "timezone", "Europe/Amsterdam"),
         )
 
     return schemas.BookingRead(
@@ -427,6 +431,7 @@ def accept_booking(
             end_iso=booking.end_datetime.isoformat(),
             booking_id=booking.id,
             status=booking.status,
+            tz=getattr(borrower, "timezone", "Europe/Amsterdam"),
         )
 
     return schemas.BookingRead(
@@ -488,6 +493,7 @@ def decline_booking(
             end_iso=booking.end_datetime.isoformat(),
             booking_id=booking.id,
             status=booking.status,
+            tz=getattr(borrower, "timezone", "Europe/Amsterdam"),
         )
 
     return schemas.BookingRead(

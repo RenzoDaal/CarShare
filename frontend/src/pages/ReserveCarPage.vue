@@ -18,6 +18,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
 import http from '@/api/http';
+import { formatDateTime } from '@/utils/formatDate';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -497,11 +498,11 @@ const submitBooking = async () => {
                   <div v-if="start && end" class="text-sm space-y-1">
                     <div>
                       <span class="font-medium">Start:</span>
-                      <span class="ml-2">{{ start.toLocaleString() }}</span>
+                      <span class="ml-2">{{ formatDateTime(start!) }}</span>
                     </div>
                     <div>
                       <span class="font-medium">End:</span>
-                      <span class="ml-2">{{ end.toLocaleString() }}</span>
+                      <span class="ml-2">{{ formatDateTime(end!) }}</span>
                     </div>
                   </div>
 

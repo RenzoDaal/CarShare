@@ -9,6 +9,7 @@ import { useConfirm } from 'primevue/useconfirm';
 import { useAuthStore } from '@/stores/auth';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
 import http from '@/api/http';
+import { formatDateTime } from '@/utils/formatDate';
 
 type Booking = {
   id: number;
@@ -56,13 +57,6 @@ onMounted(async () => {
 function toUtcDate(iso: string): Date {
   const normalized = iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z';
   return new Date(normalized);
-}
-
-function formatDateTime(iso: string): string {
-  return toUtcDate(iso).toLocaleString(undefined, {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
 }
 
 function formatDuration(start: string, end: string): string {
