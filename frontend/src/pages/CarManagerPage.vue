@@ -9,6 +9,7 @@ import InputNumber from 'primevue/inputnumber';
 import DatePicker from 'primevue/datepicker';
 
 import { useCarStore, type NewCarPayload, type UpdateCarPayload, type Car } from '@/stores/cars';
+import CarImageCarousel from '@/components/CarImageCarousel.vue';
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
@@ -33,7 +34,6 @@ const createCarDialogVisible = ref(false);
 const editCarDialogVisible = ref(false);
 const editingCarId = ref<number | null>(null);
 const newCarImage = ref<File | null>(null);
-const editCarImage = ref<File | null>(null);
 
 const onNewCarImageSelected = (event: Event) => {
   const target = event.target as HTMLInputElement;
@@ -42,11 +42,43 @@ const onNewCarImageSelected = (event: Event) => {
   }
 };
 
-const onEditCarImageSelected = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    editCarImage.value = target.files[0];
+type CarImage = { id: number; url: string; order: number };
+const editCarImages = ref<CarImage[]>([]);
+const editImagesLoading = ref(false);
+const galleryFileInput = ref<HTMLInputElement | null>(null);
+
+const loadEditImages = async (carId: number) => {
+  editImagesLoading.value = true;
+  try {
+    const res = await http.get<CarImage[]>(`/cars/${carId}/images`);
+    editCarImages.value = res.data;
+  } catch {
+    editCarImages.value = [];
+  } finally {
+    editImagesLoading.value = false;
   }
+};
+
+const onGalleryFileSelected = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (!target.files?.[0] || editingCarId.value == null) return;
+  const formData = new FormData();
+  formData.append('file', target.files[0]);
+  try {
+    const res = await http.post<CarImage>(`/cars/${editingCarId.value}/images`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    editCarImages.value.push(res.data);
+    await carStore.fetchMyCars();
+  } catch { /* ignore */ }
+  target.value = '';
+};
+
+const deleteGalleryImage = async (imageId: number) => {
+  if (editingCarId.value == null) return;
+  await http.delete(`/cars/${editingCarId.value}/images/${imageId}`);
+  editCarImages.value = editCarImages.value.filter(i => i.id !== imageId);
+  await carStore.fetchMyCars();
 };
 
 const newCar = ref<NewCarPayload>({
@@ -88,17 +120,12 @@ const openEditDialog = (car: Car) => {
     is_active: car.is_active,
   };
   editCarDialogVisible.value = true;
-}
+  loadEditImages(car.id);
+};
 
 const submitEditCar = async () => {
   if (editingCarId.value == null) return;
   await carStore.updateCar(editingCarId.value, editCar.value);
-
-  if (editCarImage.value) {
-    await carStore.uploadCarImage(editingCarId.value, editCarImage.value);
-    editCarImage.value = null;
-  }
-
   editCarDialogVisible.value = false;
 };
 
@@ -220,13 +247,35 @@ const formatDate = (iso: string) =>
     </template>
   </Dialog>
 
-  <Dialog v-model:visible="editCarDialogVisible" header="Edit car" modal>
+  <Dialog v-model:visible="editCarDialogVisible" header="Edit car" modal :style="{ width: '36rem' }">
     <div class="flex flex-col gap-4">
       <InputText v-model="editCar.name" placeholder="Car name" />
       <Textarea v-model="editCar.description" placeholder="Description" rows="3" />
       <InputNumber v-model="editCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
         :maxFractionDigits="2" locale="en-US" placeholder="Price per km" />
-      <input type="file" accept="image/*" @change="onEditCarImageSelected" />
+
+      <div>
+        <p class="text-sm font-medium mb-2">Photos</p>
+        <p v-if="editImagesLoading" class="text-xs text-surface-400">Loading…</p>
+        <div v-else class="flex flex-wrap gap-2">
+          <div v-for="img in editCarImages" :key="img.id" class="relative group w-20 h-20">
+            <img :src="img.url" class="w-20 h-20 object-cover rounded" />
+            <button
+              class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded transition-opacity"
+              @click="deleteGalleryImage(img.id)"
+            >
+              <i class="pi pi-trash text-white text-sm" />
+            </button>
+          </div>
+          <button
+            class="w-20 h-20 border-2 border-dashed border-surface-300 rounded flex items-center justify-center text-surface-400 hover:border-primary hover:text-primary transition-colors"
+            @click="galleryFileInput?.click()"
+          >
+            <i class="pi pi-plus text-lg" />
+          </button>
+        </div>
+        <input ref="galleryFileInput" type="file" accept="image/*" class="hidden" @change="onGalleryFileSelected" />
+      </div>
     </div>
     <template #footer>
       <Button label="Cancel" severity="secondary" outlined @click="editCarDialogVisible = false" />
@@ -278,8 +327,8 @@ const formatDate = (iso: string) =>
     <div class="w-full max-w-[95%] mx-auto mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <Card v-for="car in cars" :key="car.id" class="overflow-hidden">
         <template #header>
-          <div v-if="car.image_url" class="h-80 w-full overflow-hidden bg-surface-900">
-            <img :src="car.image_url" :alt="car.name" class="!w-full !h-full object-cover block" />
+          <div class="h-80 w-full">
+            <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
           </div>
         </template>
         <template #title>

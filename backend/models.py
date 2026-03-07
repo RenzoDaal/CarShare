@@ -56,6 +56,13 @@ class PasswordResetToken(SQLModel, table=True):
     expires_at: datetime
 
 
+class CarImage(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    car_id: int = Field(foreign_key="car.id")
+    url: str
+    order: int = 0
+
+
 class Notification(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")

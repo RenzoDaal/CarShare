@@ -145,3 +145,10 @@ class NotificationRead(SQLModel):
     is_read: bool
     created_at: datetime
     booking_id: Optional[int] = None
+
+
+class CarImageRead(SQLModel):
+    id: int
+    car_id: int
+    url: str
+    order: int

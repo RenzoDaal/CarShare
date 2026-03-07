@@ -4,6 +4,7 @@ import Textarea from 'primevue/textarea';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 import AutoComplete from 'primevue/autocomplete';
+import CarImageCarousel from '@/components/CarImageCarousel.vue';
 import Step from 'primevue/step';
 import Stepper from 'primevue/stepper';
 import StepList from 'primevue/steplist';
@@ -24,6 +25,7 @@ const auth = useAuthStore();
 const bookingError = ref<string | null>(null);
 const bookingCompleted = ref(false);
 const bookingSubmitting = ref(false);
+
 
 // Step 1: Dates & Times
 const start = ref<Date | null>(null);
@@ -300,8 +302,8 @@ const submitBooking = async () => {
                   <Card v-for="car in availableCars" :key="car.id"
                     class="flex flex-col justify-between overflow-hidden">
                     <template #header>
-                      <div v-if="car.image_url" class="h-80 w-full overflow-hidden bg-surface-900">
-                        <img :src="car.image_url" :alt="car.name" class="!w-full !h-full object-cover block" />
+                      <div class="h-80 w-full">
+                        <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
                       </div>
                     </template>
                     <template #title>
@@ -505,4 +507,5 @@ const submitBooking = async () => {
       </template>
     </Card>
   </div>
+
 </template>

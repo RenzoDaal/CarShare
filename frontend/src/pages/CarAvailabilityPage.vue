@@ -4,6 +4,7 @@ import Button from 'primevue/button';
 import { ref, computed, onMounted } from 'vue';
 import http from '@/api/http';
 import type { Car } from '@/stores/cars';
+import CarImageCarousel from '@/components/CarImageCarousel.vue';
 
 type DateRange = { start: string; end: string };
 
@@ -118,8 +119,8 @@ const nextMonth = async () => {
             class="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
             @click="selectCar(car)">
             <template #header>
-              <div v-if="car.image_url" class="h-48 w-full overflow-hidden bg-surface-900">
-                <img :src="car.image_url" :alt="car.name" class="!w-full !h-full object-cover block" />
+              <div class="h-48 w-full">
+                <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
               </div>
             </template>
             <template #title>{{ car.name }}</template>

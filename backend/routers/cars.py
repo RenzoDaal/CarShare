@@ -9,10 +9,11 @@ from sqlmodel import Session, select
 
 from auth import get_current_user, get_session
 from config import BASE_DATA_DIR, CAR_IMAGE_DIR, MAX_IMAGE_SIZE
-from models import Booking, BookingStatus, Car, CarUnavailability, User
+from models import Booking, BookingStatus, Car, CarImage, CarUnavailability, User
 from schemas import (
     CalendarDateRange,
     CarCreate,
+    CarImageRead,
     CarRead,
     CarStatsRead,
     CarUnavailabilityCreate,
@@ -216,6 +217,95 @@ def delete_car(
         session.delete(b)
 
     session.delete(car)
+    session.commit()
+
+
+# --- Gallery images ---
+
+@router.get("/cars/{car_id}/images", response_model=List[CarImageRead])
+def list_car_images(
+    car_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    return session.exec(
+        select(CarImage).where(CarImage.car_id == car_id).order_by(CarImage.order)
+    ).all()
+
+
+@router.post("/cars/{car_id}/images", response_model=CarImageRead, status_code=status.HTTP_201_CREATED)
+async def add_car_image(
+    car_id: int,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to update this car")
+
+    _, ext = os.path.splitext(file.filename or "")
+    ext = ext.lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        raise HTTPException(status_code=400, detail="Unsupported image type")
+
+    contents = await file.read()
+    if len(contents) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail="Image file too large (max 5 MB)")
+
+    existing = session.exec(select(CarImage).where(CarImage.car_id == car_id)).all()
+    order = len(existing)
+
+    filename = f"{car_id}_{uuid4().hex}{ext}"
+    filepath = os.path.join(CAR_IMAGE_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    url = f"/static/car_images/{filename}"
+    image = CarImage(car_id=car_id, url=url, order=order)
+    session.add(image)
+
+    # Keep car.image_url in sync with the first gallery image
+    if not car.image_url or order == 0:
+        car.image_url = url
+        session.add(car)
+
+    session.commit()
+    session.refresh(image)
+    return image
+
+
+@router.delete("/cars/{car_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_car_image(
+    car_id: int,
+    image_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to update this car")
+
+    image = session.get(CarImage, image_id)
+    if image is None or image.car_id != car_id:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    file_path = os.path.join(BASE_DATA_DIR, image.url[len("/static/"):])
+    if os.path.isfile(file_path):
+        os.remove(file_path)
+
+    session.delete(image)
+
+    # Re-assign car.image_url to the next remaining image
+    remaining = session.exec(
+        select(CarImage).where(CarImage.car_id == car_id).order_by(CarImage.order)
+    ).all()
+    car.image_url = remaining[0].url if remaining else None
+    session.add(car)
     session.commit()
 
 
