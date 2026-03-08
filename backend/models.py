@@ -15,6 +15,7 @@ class User(SQLModel, table=True):
     is_approved: bool = False
     is_admin: bool = False
     timezone: str = Field(default="Europe/Amsterdam")
+    notification_prefs: Optional[str] = Field(default=None)  # JSON
 
     cars: List["Car"] = Relationship(back_populates="owner")
     bookings: List["Booking"] = Relationship(back_populates="borrower")
@@ -80,6 +81,15 @@ class Notification(SQLModel, table=True):
     is_read: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     booking_id: Optional[int] = None
+
+
+class PushSubscription(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    endpoint: str = Field(sa_column=Column(String, unique=True, index=True))
+    p256dh: str
+    auth: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Booking(SQLModel, table=True):

@@ -1,6 +1,22 @@
 import { defineStore } from "pinia";
 import http from "../api/http";
 
+export type NotificationPrefs = {
+  booking_request: { push: boolean; email: boolean };
+  booking_response: { push: boolean; email: boolean };
+  booking_reschedule: { push: boolean; email: boolean };
+  booking_cancelled: { push: boolean; email: boolean };
+  waitlist: { push: boolean; email: boolean };
+};
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  booking_request: { push: true, email: true },
+  booking_response: { push: true, email: true },
+  booking_reschedule: { push: true, email: true },
+  booking_cancelled: { push: true, email: true },
+  waitlist: { push: true, email: true },
+};
+
 export type User = {
   id: number;
   email: string;
@@ -10,6 +26,7 @@ export type User = {
   is_approved: boolean;
   is_admin: boolean;
   timezone: string;
+  notification_prefs: string | null;
 };
 
 type TokenResponse = {

@@ -16,7 +16,7 @@ from schemas import (
     DashboardBookingRead,
     DashboardResponse,
 )
-from utils import parse_iso
+from utils import get_prefs, parse_iso
 
 router = APIRouter()
 
@@ -68,29 +68,33 @@ def create_booking(
 
     owner = car.owner or session.get(User, car.owner_id)
     if owner:
-        create_notification(
-            session,
-            owner.id,
-            f"New booking request for {car.name} from {current_user.full_name}",
-            booking.id,
-        )
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["booking_request"]["push"]:
+            create_notification(
+                session,
+                owner.id,
+                f"New booking request for {car.name} from {current_user.full_name}",
+                booking.id,
+            )
+        session.commit()
+        if owner_prefs["booking_request"]["email"] and owner.email:
+            background_tasks.add_task(
+                emailer.owner_booking_request_email,
+                owner_email=owner.email,
+                owner_name=owner.full_name,
+                car_name=car.name,
+                borrower_name=current_user.full_name,
+                start_iso=booking.start_datetime.isoformat(),
+                end_iso=booking.end_datetime.isoformat(),
+                booking_id=booking.id,
+                notes=booking.notes,
+                tz=getattr(owner, "timezone", "Europe/Amsterdam"),
+            )
+    else:
         session.commit()
 
-    if owner and owner.email:
-        background_tasks.add_task(
-            emailer.owner_booking_request_email,
-            owner_email=owner.email,
-            owner_name=owner.full_name,
-            car_name=car.name,
-            borrower_name=current_user.full_name,
-            start_iso=booking.start_datetime.isoformat(),
-            end_iso=booking.end_datetime.isoformat(),
-            booking_id=booking.id,
-            notes=booking.notes,
-            tz=getattr(owner, "timezone", "Europe/Amsterdam"),
-        )
-
-    if current_user.email:
+    borrower_prefs = get_prefs(current_user)
+    if borrower_prefs["booking_request"]["email"] and current_user.email:
         background_tasks.add_task(
             emailer.borrower_booking_confirmation_email,
             borrower_email=current_user.email,
@@ -129,12 +133,26 @@ def cancel_booking(
     owner = car.owner or session.get(User, car.owner_id)
     session.add(booking)
     if owner:
-        create_notification(
-            session,
-            owner.id,
-            f"{current_user.full_name} cancelled their booking for {car.name}",
-            booking.id,
-        )
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["booking_cancelled"]["push"]:
+            create_notification(
+                session,
+                owner.id,
+                f"{current_user.full_name} cancelled their booking for {car.name}",
+                booking.id,
+            )
+        if owner_prefs["booking_cancelled"]["email"] and owner.email:
+            background_tasks.add_task(
+                emailer.owner_booking_cancelled_email,
+                owner_email=owner.email,
+                owner_name=owner.full_name,
+                car_name=car.name,
+                borrower_name=current_user.full_name,
+                start_iso=booking.start_datetime.isoformat(),
+                end_iso=booking.end_datetime.isoformat(),
+                booking_id=booking.id,
+                tz=getattr(owner, "timezone", "Europe/Amsterdam"),
+            )
 
     # Notify waitlist users whose requested period overlaps with the now-free slot
     waitlist_entries = session.exec(
@@ -145,22 +163,25 @@ def cancel_booking(
         )
     ).all()
     for entry in waitlist_entries:
-        create_notification(
-            session,
-            entry.user_id,
-            f"{car.name} may now be available for your requested dates",
-        )
         waitlist_user = session.get(User, entry.user_id)
         if waitlist_user:
-            background_tasks.add_task(
-                emailer.waitlist_availability_email,
-                to_email=waitlist_user.email,
-                full_name=waitlist_user.full_name,
-                car_name=car.name,
-                start_iso=entry.start_datetime.isoformat(),
-                end_iso=entry.end_datetime.isoformat(),
-                tz=getattr(waitlist_user, "timezone", "Europe/Amsterdam"),
-            )
+            wl_prefs = get_prefs(waitlist_user)
+            if wl_prefs["waitlist"]["push"]:
+                create_notification(
+                    session,
+                    entry.user_id,
+                    f"{car.name} may now be available for your requested dates",
+                )
+            if wl_prefs["waitlist"]["email"]:
+                background_tasks.add_task(
+                    emailer.waitlist_availability_email,
+                    to_email=waitlist_user.email,
+                    full_name=waitlist_user.full_name,
+                    car_name=car.name,
+                    start_iso=entry.start_datetime.isoformat(),
+                    end_iso=entry.end_datetime.isoformat(),
+                    tz=getattr(waitlist_user, "timezone", "Europe/Amsterdam"),
+                )
 
     session.commit()
     session.refresh(booking)
@@ -222,27 +243,31 @@ def reschedule_booking(
     owner = car.owner or session.get(User, car.owner_id)
     session.add(booking)
     if owner:
-        create_notification(
-            session,
-            owner.id,
-            f"{current_user.full_name} rescheduled their booking for {car.name}",
-            booking.id,
-        )
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["booking_reschedule"]["push"]:
+            create_notification(
+                session,
+                owner.id,
+                f"{current_user.full_name} rescheduled their booking for {car.name}",
+                booking.id,
+            )
     session.commit()
     session.refresh(booking)
 
-    if owner and owner.email:
-        background_tasks.add_task(
-            emailer.owner_booking_reschedule_email,
-            owner_email=owner.email,
-            owner_name=owner.full_name,
-            car_name=car.name,
-            borrower_name=current_user.full_name,
-            start_iso=booking.start_datetime.isoformat(),
-            end_iso=booking.end_datetime.isoformat(),
-            booking_id=booking.id,
-            tz=getattr(owner, "timezone", "Europe/Amsterdam"),
-        )
+    if owner:
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["booking_reschedule"]["email"] and owner.email:
+            background_tasks.add_task(
+                emailer.owner_booking_reschedule_email,
+                owner_email=owner.email,
+                owner_name=owner.full_name,
+                car_name=car.name,
+                borrower_name=current_user.full_name,
+                start_iso=booking.start_datetime.isoformat(),
+                end_iso=booking.end_datetime.isoformat(),
+                booking_id=booking.id,
+                tz=getattr(owner, "timezone", "Europe/Amsterdam"),
+            )
 
     return schemas.BookingRead(
         id=booking.id,
@@ -411,28 +436,32 @@ def accept_booking(
     borrower = booking.borrower or session.get(User, booking.borrower_id)
     session.add(booking)
     if borrower:
-        create_notification(
-            session,
-            borrower.id,
-            f"Your booking for {car.name} was accepted",
-            booking.id,
-        )
+        borrower_prefs = get_prefs(borrower)
+        if borrower_prefs["booking_response"]["push"]:
+            create_notification(
+                session,
+                borrower.id,
+                f"Your booking for {car.name} was accepted",
+                booking.id,
+            )
     session.commit()
     session.refresh(booking)
 
-    if borrower and borrower.email:
-        background_tasks.add_task(
-            emailer.borrower_booking_response_email,
-            borrower_email=borrower.email,
-            borrower_name=borrower.full_name,
-            car_name=car.name,
-            owner_name=current_user.full_name,
-            start_iso=booking.start_datetime.isoformat(),
-            end_iso=booking.end_datetime.isoformat(),
-            booking_id=booking.id,
-            status=booking.status,
-            tz=getattr(borrower, "timezone", "Europe/Amsterdam"),
-        )
+    if borrower:
+        borrower_prefs = get_prefs(borrower)
+        if borrower_prefs["booking_response"]["email"] and borrower.email:
+            background_tasks.add_task(
+                emailer.borrower_booking_response_email,
+                borrower_email=borrower.email,
+                borrower_name=borrower.full_name,
+                car_name=car.name,
+                owner_name=current_user.full_name,
+                start_iso=booking.start_datetime.isoformat(),
+                end_iso=booking.end_datetime.isoformat(),
+                booking_id=booking.id,
+                status=booking.status,
+                tz=getattr(borrower, "timezone", "Europe/Amsterdam"),
+            )
 
     return schemas.BookingRead(
         id=booking.id,
@@ -473,28 +502,32 @@ def decline_booking(
     borrower = booking.borrower or session.get(User, booking.borrower_id)
     session.add(booking)
     if borrower:
-        create_notification(
-            session,
-            borrower.id,
-            f"Your booking for {car.name} was declined",
-            booking.id,
-        )
+        borrower_prefs = get_prefs(borrower)
+        if borrower_prefs["booking_response"]["push"]:
+            create_notification(
+                session,
+                borrower.id,
+                f"Your booking for {car.name} was declined",
+                booking.id,
+            )
     session.commit()
     session.refresh(booking)
 
-    if borrower and borrower.email:
-        background_tasks.add_task(
-            emailer.borrower_booking_response_email,
-            borrower_email=borrower.email,
-            borrower_name=borrower.full_name,
-            car_name=car.name,
-            owner_name=current_user.full_name,
-            start_iso=booking.start_datetime.isoformat(),
-            end_iso=booking.end_datetime.isoformat(),
-            booking_id=booking.id,
-            status=booking.status,
-            tz=getattr(borrower, "timezone", "Europe/Amsterdam"),
-        )
+    if borrower:
+        borrower_prefs = get_prefs(borrower)
+        if borrower_prefs["booking_response"]["email"] and borrower.email:
+            background_tasks.add_task(
+                emailer.borrower_booking_response_email,
+                borrower_email=borrower.email,
+                borrower_name=borrower.full_name,
+                car_name=car.name,
+                owner_name=current_user.full_name,
+                start_iso=booking.start_datetime.isoformat(),
+                end_iso=booking.end_datetime.isoformat(),
+                booking_id=booking.id,
+                status=booking.status,
+                tz=getattr(borrower, "timezone", "Europe/Amsterdam"),
+            )
 
     return schemas.BookingRead(
         id=booking.id,

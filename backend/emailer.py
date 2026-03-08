@@ -178,6 +178,29 @@ def borrower_booking_response_email(
     send_email(borrower_email, subject, body)
 
 
+def owner_booking_cancelled_email(
+    *,
+    owner_email: str,
+    owner_name: str,
+    car_name: str,
+    borrower_name: str,
+    start_iso: str,
+    end_iso: str,
+    booking_id: int,
+    tz: str = "Europe/Amsterdam",
+) -> None:
+    subject = f"Booking cancelled: {car_name}"
+    body = (
+        f"Hi {owner_name},\n\n"
+        f"{borrower_name} has cancelled their booking for {car_name}.\n\n"
+        f"Start: {_format_dt(start_iso, tz)}\n"
+        f"End:   {_format_dt(end_iso, tz)}\n"
+        f"Booking ID: {booking_id}\n\n"
+        f"View your appointments: {APP_BASE_URL}/ownerappointments\n"
+    )
+    send_email(owner_email, subject, body)
+
+
 def waitlist_availability_email(
     *,
     to_email: str,

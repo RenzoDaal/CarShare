@@ -86,6 +86,8 @@ def update_me(
         current_user.role_borrower = data.role_borrower
     if data.timezone is not None:
         current_user.timezone = data.timezone
+    if data.notification_prefs is not None:
+        current_user.notification_prefs = data.notification_prefs
     session.add(current_user)
     session.commit()
     session.refresh(current_user)

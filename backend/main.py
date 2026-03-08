@@ -8,6 +8,7 @@ from routing import router as routing_router
 from routers.bookings import router as bookings_router
 from routers.cars import router as cars_router
 from routers.notifications import router as notifications_router
+from routers.push import router as push_router
 from routers.users import router as users_router
 from routers.waitlist import router as waitlist_router
 
@@ -33,13 +34,21 @@ app.include_router(users_router)
 app.include_router(cars_router)
 app.include_router(bookings_router)
 app.include_router(notifications_router)
+app.include_router(push_router)
 app.include_router(waitlist_router)
 app.include_router(routing_router)
 
 
 @app.on_event("startup")
 def on_startup():
+    import config
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
     init_db()
+    logger.info("PUSH_ENABLED=%s", config.PUSH_ENABLED)
+    if not config.PUSH_ENABLED:
+        logger.warning("Web push disabled — set VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY in .env")
 
 
 @app.get("/health")

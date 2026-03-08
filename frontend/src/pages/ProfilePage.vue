@@ -8,8 +8,9 @@ import Checkbox from 'primevue/checkbox';
 import Select from 'primevue/select';
 import Message from 'primevue/message';
 import { useAuthStore } from '@/stores/auth';
+import { DEFAULT_NOTIFICATION_PREFS } from '@/stores/auth';
+import type { NotificationPrefs, User } from '@/stores/auth';
 import http from '@/api/http';
-import type { User } from '@/stores/auth';
 
 // Compute the current UTC offset string for a given IANA timezone, e.g. "+1" or "-5"
 function getOffset(tz: string): string {
@@ -86,6 +87,57 @@ async function saveProfile() {
     profileError.value = err?.response?.data?.detail ?? 'Failed to save profile';
   } finally {
     profileSaving.value = false;
+  }
+}
+
+// Notification preferences
+function parsePrefs(raw: string | null | undefined): NotificationPrefs {
+  if (!raw) return structuredClone(DEFAULT_NOTIFICATION_PREFS);
+  try {
+    const parsed = JSON.parse(raw);
+    const result = structuredClone(DEFAULT_NOTIFICATION_PREFS);
+    for (const key of Object.keys(result) as (keyof NotificationPrefs)[]) {
+      if (parsed[key]) {
+        result[key].push = parsed[key].push ?? true;
+        result[key].email = parsed[key].email ?? true;
+      }
+    }
+    return result;
+  } catch {
+    return structuredClone(DEFAULT_NOTIFICATION_PREFS);
+  }
+}
+
+const notifPrefs = reactive<NotificationPrefs>(parsePrefs(auth.user?.notification_prefs));
+const notifSaving = ref(false);
+const notifSuccess = ref(false);
+const notifError = ref<string | null>(null);
+
+const NOTIF_OWNER_TYPES: { key: keyof NotificationPrefs; label: string }[] = [
+  { key: 'booking_request',    label: 'Nieuwe boekingsaanvraag' },
+  { key: 'booking_reschedule', label: 'Boeking verzet door lener' },
+  { key: 'booking_cancelled',  label: 'Boeking geannuleerd door lener' },
+];
+
+const NOTIF_BORROWER_TYPES: { key: keyof NotificationPrefs; label: string }[] = [
+  { key: 'booking_response', label: 'Boeking geaccepteerd of afgewezen' },
+  { key: 'waitlist',         label: 'Auto beschikbaar via wachtlijst' },
+];
+
+async function saveNotifPrefs() {
+  notifSaving.value = true;
+  notifError.value = null;
+  notifSuccess.value = false;
+  try {
+    const { data } = await http.patch<User>('/users/me', {
+      notification_prefs: JSON.stringify(notifPrefs),
+    });
+    auth.updateUser(data);
+    notifSuccess.value = true;
+  } catch (err: any) {
+    notifError.value = err?.response?.data?.detail ?? 'Failed to save preferences';
+  } finally {
+    notifSaving.value = false;
   }
 }
 
@@ -166,6 +218,68 @@ async function changePassword() {
 
           <div class="flex justify-end">
             <Button label="Save" icon="pi pi-check" :loading="profileSaving" @click="saveProfile" />
+          </div>
+        </div>
+      </template>
+    </Card>
+
+    <!-- Notification preferences -->
+    <Card>
+      <template #title>Notificaties</template>
+      <template #content>
+        <div class="flex flex-col gap-5">
+
+          <!-- Owner section -->
+          <template v-if="profile.role_owner">
+            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">Als eigenaar</p>
+            <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">Type</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">In-app & push</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">E-mail</span>
+            </div>
+            <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
+            <div v-for="type in NOTIF_OWNER_TYPES" :key="type.key"
+              class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+              <span class="text-sm">{{ type.label }}</span>
+              <div class="flex justify-center">
+                <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
+              </div>
+              <div class="flex justify-center">
+                <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
+              </div>
+            </div>
+          </template>
+
+          <!-- Divider between sections -->
+          <div v-if="profile.role_owner && profile.role_borrower"
+            class="border-t border-surface-200 dark:border-surface-700" />
+
+          <!-- Borrower section -->
+          <template v-if="profile.role_borrower">
+            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">Als lener</p>
+            <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">Type</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">In-app & push</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">E-mail</span>
+            </div>
+            <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
+            <div v-for="type in NOTIF_BORROWER_TYPES" :key="type.key"
+              class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+              <span class="text-sm">{{ type.label }}</span>
+              <div class="flex justify-center">
+                <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
+              </div>
+              <div class="flex justify-center">
+                <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
+              </div>
+            </div>
+          </template>
+
+          <Message v-if="notifError" severity="error" :closable="false">{{ notifError }}</Message>
+          <Message v-if="notifSuccess" severity="success" :closable="false">Voorkeuren opgeslagen.</Message>
+
+          <div class="flex justify-end">
+            <Button label="Opslaan" icon="pi pi-check" :loading="notifSaving" @click="saveNotifPrefs" />
           </div>
         </div>
       </template>

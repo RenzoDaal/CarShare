@@ -87,4 +87,5 @@ def user_to_read(user: User) -> UserRead:
         is_approved=user.is_approved,
         is_admin=user.is_admin,
         timezone=getattr(user, "timezone", "Europe/Amsterdam"),
+        notification_prefs=getattr(user, "notification_prefs", None),
     )

@@ -51,6 +51,12 @@
     try {
       const { data } = await http.get<Notification[]>('/notifications');
       notifications.value = data;
+      const count = data.filter((n: Notification) => !n.is_read).length;
+      if ('setAppBadge' in navigator) {
+        count > 0
+          ? navigator.setAppBadge(count).catch(() => {})
+          : navigator.clearAppBadge().catch(() => {});
+      }
     } catch {
       // silently ignore
     }
@@ -61,6 +67,7 @@
     if (unreadCount.value > 0) {
       await http.post('/notifications/read-all');
       notifications.value = notifications.value.map(n => ({ ...n, is_read: true }));
+      if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
     }
   }
 
