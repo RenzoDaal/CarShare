@@ -13,6 +13,9 @@ import http from '@/api/http';
 import { useConfirm } from 'primevue/useconfirm';
 import { useRouter } from 'vue-router';
 import { formatDateTime } from '@/utils/formatDate';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
@@ -95,7 +98,7 @@ async function fetchBookings() {
     const { data } = await http.get<BorrowerBooking[]>('/bookings/borrower');
     bookings.value = data;
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? 'Failed to load bookings';
+    error.value = err?.response?.data?.detail ?? t('borrower_error_load');
   } finally {
     loading.value = false;
   }
@@ -103,17 +106,17 @@ async function fetchBookings() {
 
 function confirmCancel(bookingId: number) {
   confirm.require({
-    message: 'Are you sure you want to cancel this booking?',
-    header: 'Cancel booking',
+    message: t('borrower_confirm_cancel_message'),
+    header: t('borrower_confirm_cancel_header'),
     icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Keep booking', severity: 'secondary', outlined: true },
-    acceptProps: { label: 'Cancel booking', severity: 'danger' },
+    rejectProps: { label: t('borrower_confirm_keep'), severity: 'secondary', outlined: true },
+    acceptProps: { label: t('borrower_confirm_cancel_button'), severity: 'danger' },
     accept: async () => {
       try {
         await http.post(`/bookings/${bookingId}/cancel`);
         await fetchBookings();
       } catch (err: any) {
-        error.value = err?.response?.data?.detail ?? 'Failed to cancel booking';
+        error.value = err?.response?.data?.detail ?? t('borrower_error_cancel');
       }
     },
   });
@@ -175,7 +178,7 @@ async function estimateRescheduleRoute() {
   rescheduleRouteError.value = null;
   rescheduleDistanceKm.value = null;
   if (rescheduleTrimmedStops.value.length < 2) {
-    rescheduleRouteError.value = 'Please enter at least a start and end location.';
+    rescheduleRouteError.value = t('borrower_reschedule_error_route');
     return;
   }
   rescheduleRouteEstimating.value = true;
@@ -183,7 +186,7 @@ async function estimateRescheduleRoute() {
     const res = await http.post('/routes/estimate', { stops: rescheduleTrimmedStops.value });
     rescheduleDistanceKm.value = res.data.distance_km;
   } catch (err: any) {
-    rescheduleRouteError.value = err?.response?.data?.detail ?? 'Failed to estimate route.';
+    rescheduleRouteError.value = err?.response?.data?.detail ?? t('borrower_reschedule_error_estimate');
   } finally {
     rescheduleRouteEstimating.value = false;
   }
@@ -205,7 +208,7 @@ function openReschedule(booking: BorrowerBooking) {
 async function submitReschedule() {
   if (!rescheduleBookingId.value || !rescheduleStart.value || !rescheduleEnd.value) return;
   if (rescheduleEnd.value <= rescheduleStart.value) {
-    rescheduleError.value = 'End time must be after start time.';
+    rescheduleError.value = t('borrower_reschedule_error_end_after_start');
     return;
   }
   rescheduleSubmitting.value = true;
@@ -221,7 +224,7 @@ async function submitReschedule() {
     rescheduleVisible.value = false;
     await fetchBookings();
   } catch (err: any) {
-    rescheduleError.value = err?.response?.data?.detail ?? 'Failed to reschedule booking';
+    rescheduleError.value = err?.response?.data?.detail ?? t('borrower_reschedule_error_submit');
   } finally {
     rescheduleSubmitting.value = false;
   }
@@ -235,7 +238,7 @@ onMounted(() => {
 
 <template>
   <div class="p-4 flex flex-col gap-4 max-w-5xl mx-auto w-full">
-    <h1 class="text-2xl font-semibold mb-2">My appointments</h1>
+    <h1 class="text-2xl font-semibold mb-2">{{ $t('borrower_appointments_title') }}</h1>
 
     <Message v-if="error" severity="error" :closable="false">
       {{ error }}
@@ -247,10 +250,10 @@ onMounted(() => {
 
     <template v-else>
       <Card class="mb-4">
-        <template #title>Upcoming and current</template>
+        <template #title>{{ $t('borrower_upcoming_title') }}</template>
         <template #content>
           <div v-if="upcoming.length === 0" class="text-sm text-surface-500">
-            You don't have any upcoming bookings.
+            {{ $t('borrower_no_upcoming') }}
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <Card v-for="booking in upcoming" :key="booking.id" class="h-full">
@@ -258,7 +261,7 @@ onMounted(() => {
               <template #subtitle>
                 <div class="flex items-center gap-2 flex-wrap">
                   <Tag :value="booking.status" :severity="statusSeverity(booking.status)" />
-                  <span v-if="booking.status === 'pending'" class="text-xs text-surface-400">Awaiting owner approval</span>
+                  <span v-if="booking.status === 'pending'" class="text-xs text-surface-400">{{ $t('borrower_awaiting_owner_approval') }}</span>
                 </div>
               </template>
               <template #content>
@@ -267,17 +270,17 @@ onMounted(() => {
                   {{ formatDateTime(booking.end_datetime) }}
                 </p>
                 <p v-if="booking.total_price != null" class="text-sm font-medium mt-1">
-                  Total price: €{{ booking.total_price.toFixed(2) }}
+                  {{ $t('borrower_total_price') }} €{{ booking.total_price.toFixed(2) }}
                 </p>
                 <p v-if="booking.notes" class="text-sm mt-2 p-2 rounded bg-surface-100 dark:bg-surface-800 italic text-surface-500">
                   "{{ booking.notes }}"
                 </p>
                 <div class="mt-3 flex gap-2 flex-wrap">
-                  <Button label="Summary" icon="pi pi-file" severity="secondary" outlined size="small"
+                  <Button :label="$t('borrower_summary')" icon="pi pi-file" severity="secondary" outlined size="small"
                     @click="router.push({ name: 'booking-detail', params: { id: booking.id } })" />
-                  <Button label="Reschedule" icon="pi pi-calendar-clock" severity="secondary" outlined size="small"
+                  <Button :label="$t('borrower_reschedule')" icon="pi pi-calendar-clock" severity="secondary" outlined size="small"
                     @click="openReschedule(booking)" />
-                  <Button label="Cancel" icon="pi pi-times" severity="danger" outlined size="small"
+                  <Button :label="$t('borrower_cancel')" icon="pi pi-times" severity="danger" outlined size="small"
                     @click="confirmCancel(booking.id)" />
                 </div>
               </template>
@@ -289,8 +292,8 @@ onMounted(() => {
       <Card v-if="waitlist.length > 0">
         <template #title>
           <div class="flex items-center gap-2">
-            <span>Waitlist</span>
-            <span class="text-xs text-surface-400 font-normal">You'll be notified when a spot opens up</span>
+            <span>{{ $t('borrower_waitlist_title') }}</span>
+            <span class="text-xs text-surface-400 font-normal">{{ $t('borrower_waitlist_subtitle') }}</span>
           </div>
         </template>
         <template #content>
@@ -304,17 +307,17 @@ onMounted(() => {
                 </p>
               </div>
               <Button icon="pi pi-times" severity="danger" text rounded size="small"
-                title="Leave waitlist" @click="leaveWaitlist(entry.id)" />
+                :title="$t('borrower_leave_waitlist_title')" @click="leaveWaitlist(entry.id)" />
             </li>
           </ul>
         </template>
       </Card>
 
       <Card>
-        <template #title>Past & cancelled bookings</template>
+        <template #title>{{ $t('borrower_past_cancelled_title') }}</template>
         <template #content>
           <div v-if="history.length === 0" class="text-sm text-surface-500">
-            No past or cancelled bookings.
+            {{ $t('borrower_no_past') }}
           </div>
           <ul v-else class="flex flex-col gap-2 text-sm">
             <li v-for="booking in history" :key="booking.id"
@@ -332,63 +335,63 @@ onMounted(() => {
   </div>
 
   <!-- Reschedule dialog -->
-  <Dialog v-model:visible="rescheduleVisible" header="Reschedule booking" modal :style="{ width: '42rem' }">
+  <Dialog v-model:visible="rescheduleVisible" :header="$t('borrower_reschedule_dialog_title')" modal :style="{ width: '42rem' }">
     <div class="flex flex-col gap-5 mt-2">
 
       <!-- Dates -->
       <div class="grid gap-4 md:grid-cols-2">
         <div class="space-y-2">
-          <span class="block text-sm font-medium">New start</span>
+          <span class="block text-sm font-medium">{{ $t('borrower_reschedule_new_start') }}</span>
           <DatePicker v-model="rescheduleStart" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5" fluid />
         </div>
         <div class="space-y-2">
-          <span class="block text-sm font-medium">New end</span>
+          <span class="block text-sm font-medium">{{ $t('borrower_reschedule_new_end') }}</span>
           <DatePicker v-model="rescheduleEnd" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5" fluid />
         </div>
       </div>
 
       <!-- Route -->
       <div class="space-y-3">
-        <span class="block text-sm font-medium">Route</span>
+        <span class="block text-sm font-medium">{{ $t('borrower_reschedule_route') }}</span>
         <div v-for="(_stop, index) in rescheduleStops" :key="index" class="flex items-center gap-2">
           <div class="flex-1 min-w-0">
             <span class="block text-xs text-surface-400 mb-1">
-              {{ index === 0 ? 'Start location' : index === rescheduleStops.length - 1 ? 'End location' : `Stop ${index}` }}
+              {{ index === 0 ? $t('borrower_start_location') : index === rescheduleStops.length - 1 ? $t('borrower_end_location') : $t('borrower_stop_label').replace('{index}', String(index)) }}
             </span>
             <AutoComplete v-model="rescheduleStops[index]" :suggestions="locationSuggestions" :minLength="3"
-              :delay="300" placeholder="Type an address" class="w-full" inputClass="w-full"
+              :delay="300" :placeholder="$t('borrower_address_placeholder')" class="w-full" inputClass="w-full"
               @complete="searchLocations" />
           </div>
           <Button icon="pi pi-trash" severity="danger" text rounded
             :disabled="rescheduleStops.length <= 2" @click="removeRescheduleStop(index)" />
         </div>
-        <Button label="Add stop" icon="pi pi-plus" text size="small" @click="addRescheduleStop" />
+        <Button :label="$t('borrower_reschedule_add_stop')" icon="pi pi-plus" text size="small" @click="addRescheduleStop" />
 
         <div class="flex items-center gap-4 flex-wrap">
-          <Button label="Calculate distance" icon="pi pi-map" size="small"
+          <Button :label="$t('borrower_reschedule_calculate_distance')" icon="pi pi-map" size="small"
             :loading="rescheduleRouteEstimating"
             :disabled="rescheduleRouteEstimating || rescheduleTrimmedStops.length < 2"
             @click="estimateRescheduleRoute" />
           <div v-if="rescheduleDistanceKm != null" class="text-sm space-y-0.5">
-            <div><span class="font-medium">Distance:</span> {{ rescheduleDistanceKm.toFixed(1) }} km</div>
-            <div v-if="rescheduleEstimatedPrice != null"><span class="font-medium">Estimated cost:</span> €{{ rescheduleEstimatedPrice.toFixed(2) }}</div>
+            <div><span class="font-medium">{{ $t('borrower_reschedule_distance') }}</span> {{ rescheduleDistanceKm.toFixed(1) }} km</div>
+            <div v-if="rescheduleEstimatedPrice != null"><span class="font-medium">{{ $t('borrower_reschedule_estimated_cost') }}</span> €{{ rescheduleEstimatedPrice.toFixed(2) }}</div>
           </div>
         </div>
         <p v-if="rescheduleRouteError" class="text-sm text-red-500">{{ rescheduleRouteError }}</p>
-        <p class="text-xs text-surface-400">Leave route empty to keep the existing distance and price.</p>
+        <p class="text-xs text-surface-400">{{ $t('borrower_reschedule_keep_route') }}</p>
       </div>
 
       <!-- Notes -->
       <div class="space-y-2">
-        <span class="block text-sm font-medium">Notes for the owner</span>
-        <Textarea v-model="rescheduleNotes" rows="3" placeholder="Optional message to the owner" class="w-full" fluid />
+        <span class="block text-sm font-medium">{{ $t('borrower_reschedule_notes_label') }}</span>
+        <Textarea v-model="rescheduleNotes" rows="3" :placeholder="$t('borrower_reschedule_notes_placeholder')" class="w-full" fluid />
       </div>
 
-      <p class="text-xs text-surface-400">Rescheduling will reset the booking status to pending — the owner will need to re-approve.</p>
+      <p class="text-xs text-surface-400">{{ $t('borrower_reschedule_pending_warning') }}</p>
       <p v-if="rescheduleError" class="text-sm text-red-500">{{ rescheduleError }}</p>
       <div class="flex justify-end gap-2">
-        <Button label="Cancel" severity="secondary" outlined @click="rescheduleVisible = false" />
-        <Button label="Confirm reschedule" icon="pi pi-check" :loading="rescheduleSubmitting"
+        <Button :label="$t('borrower_reschedule_cancel')" severity="secondary" outlined @click="rescheduleVisible = false" />
+        <Button :label="$t('borrower_reschedule_confirm')" icon="pi pi-check" :loading="rescheduleSubmitting"
           :disabled="!rescheduleStart || !rescheduleEnd || rescheduleSubmitting"
           @click="submitReschedule" />
       </div>

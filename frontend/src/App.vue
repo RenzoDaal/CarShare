@@ -5,7 +5,9 @@
   import { ref, watch } from 'vue';
   import { useAuthStore } from '@/stores/auth';
   import { registerPush } from '@/utils/push';
+  import { useI18n } from 'vue-i18n';
 
+  const { t } = useI18n();
   const route = useRoute();
   const auth = useAuthStore();
 
@@ -36,7 +38,7 @@
     if (permission !== 'granted') return;
     const error = await registerPush();
     if (error !== null) {
-      pushError.value = error || 'Push subscription failed (unknown error)';
+      pushError.value = error || t('app_push_error_fallback');
       setTimeout(() => { pushError.value = null; }, 10000);
     }
   }
@@ -66,11 +68,11 @@
     <Transition name="slide-down">
       <div v-if="showPushBanner"
         class="flex items-center justify-between gap-3 px-4 py-3 bg-primary text-white text-sm shadow-md">
-        <span>🔔 Zet meldingen aan om op de hoogte te blijven van je boekingen.</span>
+        <span>🔔 {{ $t('app_push_banner') }}</span>
         <div class="flex items-center gap-2 shrink-0">
           <button @click="enableNotifications"
             class="font-semibold underline underline-offset-2 hover:opacity-80">
-            Aanzetten
+            {{ $t('app_push_enable') }}
           </button>
           <button @click="dismissBanner" class="opacity-70 hover:opacity-100 text-lg leading-none">✕</button>
         </div>

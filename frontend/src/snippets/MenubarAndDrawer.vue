@@ -10,6 +10,9 @@
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '../stores/auth';
   import http from '@/api/http';
+  import { useI18n } from 'vue-i18n';
+
+  const { t } = useI18n();
 
   type Notification = {
     id: number;
@@ -89,12 +92,13 @@
   onUnmounted(() => {
     if (notifInterval) clearInterval(notifInterval);
   });
-  const homeDrawerItems = ref([
+
+  const homeDrawerItems = computed(() => [
     {
-      label: 'Home',
+      label: t('nav_home'),
       items: [
         {
-          label: 'Dashboard',
+          label: t('nav_dashboard'),
           icon: 'pi pi-home',
           command: () => {
             router.push({ name: 'home' });
@@ -102,7 +106,7 @@
           },
         },
         {
-          label: 'My profile',
+          label: t('nav_my_profile'),
           icon: 'pi pi-user',
           command: () => {
             router.push({ name: 'profile' });
@@ -111,14 +115,14 @@
         }
       ]
     }
-  ])
+  ]);
 
   const carOwnerDrawerItems = computed(() => [
     {
-      label: 'Owner',
+      label: t('nav_owner'),
       items: [
         {
-          label: 'Manage Cars',
+          label: t('nav_manage_cars'),
           icon: 'pi pi-car',
           command: () => {
             router.push({ name: 'manage cars' });
@@ -126,7 +130,7 @@
           }
         },
         {
-          label: 'Appointments',
+          label: t('nav_appointments'),
           icon: "pi pi-calendar",
           badge: pendingBookingsCount.value > 0 ? String(pendingBookingsCount.value) : undefined,
           badgeSeverity: 'warn',
@@ -139,12 +143,12 @@
     }
   ]);
 
-  const adminDrawerItems = ref([
+  const adminDrawerItems = computed(() => [
     {
-      label: 'Admin',
+      label: t('nav_admin'),
       items: [
         {
-          label: 'User management',
+          label: t('nav_user_management'),
           icon: 'pi pi-users',
           command: () => {
             router.push({ name: 'admin' });
@@ -155,12 +159,12 @@
     }
   ]);
 
-  const carBorrowerDrawerItems = ref([
+  const carBorrowerDrawerItems = computed(() => [
     {
-      label: 'Borrower',
+      label: t('nav_borrower'),
       items: [
         {
-          label: 'Reserve',
+          label: t('nav_reserve'),
           icon: 'pi pi-calendar',
           command: () => {
             router.push({ name: 'reserve car' });
@@ -168,7 +172,7 @@
           }
         },
         {
-          label: 'My appointments',
+          label: t('nav_my_appointments'),
           icon: 'pi pi-calendar',
           command:() => {
             router.push({ name: 'borrowerappointments' });
@@ -176,7 +180,7 @@
           }
         },
         {
-          label: 'Availability',
+          label: t('nav_availability'),
           icon: 'pi pi-calendar-clock',
           command: () => {
             router.push({ name: 'availability' });
@@ -185,7 +189,7 @@
         }
       ]
     }
-  ]); 
+  ]);
 </script>
 
 
@@ -197,7 +201,7 @@
       <Menu class="!border-none" :model="carBorrowerDrawerItems" v-if="isCarBorrower"/>
       <Menu class="!border-none" :model="adminDrawerItems" v-if="isAdmin"/>
       <div class="px-4 py-2">
-        <Button label="Logout" icon="pi pi-sign-out" severity="secondary" variant="text" @click="logout" />
+        <Button :label="$t('nav_logout')" icon="pi pi-sign-out" severity="secondary" variant="text" @click="logout" />
       </div>
     </template>
   </Drawer>
@@ -207,10 +211,10 @@
         <Popover ref="notifPopover">
           <div class="w-80 flex flex-col">
             <div class="px-1 pb-2">
-              <span class="font-semibold text-sm">Notifications</span>
+              <span class="font-semibold text-sm">{{ $t('nav_notifications') }}</span>
             </div>
             <div v-if="notifications.length === 0" class="text-sm text-surface-500 py-4 text-center">
-              No notifications yet
+              {{ $t('nav_no_notifications') }}
             </div>
             <ul v-else class="flex flex-col gap-1 max-h-80 overflow-y-auto">
               <li
@@ -243,10 +247,10 @@
       </template>
       <template #start>
         <div class="flex items-center gap-4 ml-2">
-          <Button 
-            icon="pi pi-bars" 
-            variant="text" 
-            severity="secondary" 
+          <Button
+            icon="pi pi-bars"
+            variant="text"
+            severity="secondary"
             rounded
             @click="drawerVisible = true"
           />

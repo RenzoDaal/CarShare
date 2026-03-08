@@ -10,6 +10,9 @@ import { useAuthStore } from '@/stores/auth';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
 import http from '@/api/http';
 import { formatDateTime } from '@/utils/formatDate';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 type Booking = {
   id: number;
@@ -48,7 +51,7 @@ onMounted(async () => {
     const { data } = await http.get<Booking>(`/bookings/${route.params.id}/detail`);
     booking.value = data;
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? 'Failed to load booking.';
+    error.value = err?.response?.data?.detail ?? t('booking_detail_error_load');
   } finally {
     loading.value = false;
   }
@@ -77,27 +80,27 @@ function statusSeverity(status: string) {
 }
 
 function statusLabel(status: string): string {
-  if (status === 'pending') return 'Awaiting owner approval';
-  if (status === 'accepted') return 'Confirmed';
-  if (status === 'declined') return 'Declined by owner';
-  if (status === 'cancelled') return 'Cancelled';
+  if (status === 'pending') return t('booking_detail_status_awaiting');
+  if (status === 'accepted') return t('booking_detail_status_confirmed');
+  if (status === 'declined') return t('booking_detail_status_declined');
+  if (status === 'cancelled') return t('booking_detail_status_cancelled');
   return '';
 }
 
 function confirmCancel() {
   if (!booking.value) return;
   confirm.require({
-    message: 'Are you sure you want to cancel this booking?',
-    header: 'Cancel booking',
+    message: t('booking_detail_confirm_cancel_message'),
+    header: t('booking_detail_confirm_cancel_header'),
     icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Keep booking', severity: 'secondary', outlined: true },
-    acceptProps: { label: 'Cancel booking', severity: 'danger' },
+    rejectProps: { label: t('booking_detail_keep_booking'), severity: 'secondary', outlined: true },
+    acceptProps: { label: t('booking_detail_confirm_cancel_button'), severity: 'danger' },
     accept: async () => {
       try {
         await http.post(`/bookings/${booking.value!.id}/cancel`);
         booking.value!.status = 'cancelled';
       } catch (err: any) {
-        error.value = err?.response?.data?.detail ?? 'Failed to cancel booking.';
+        error.value = err?.response?.data?.detail ?? t('booking_detail_error_cancel');
       }
     },
   });
@@ -120,7 +123,7 @@ async function declineBooking() {
   <div class="p-4 max-w-2xl mx-auto w-full flex flex-col gap-6">
     <div class="flex items-center gap-3">
       <Button icon="pi pi-arrow-left" severity="secondary" text rounded @click="router.back()" />
-      <h1 class="text-2xl font-semibold">Booking summary</h1>
+      <h1 class="text-2xl font-semibold">{{ $t('booking_detail_title') }}</h1>
     </div>
 
     <div v-if="loading" class="flex justify-center py-12">
@@ -159,23 +162,23 @@ async function declineBooking() {
 
       <!-- Booking details -->
       <Card>
-        <template #title>Details</template>
+        <template #title>{{ $t('booking_detail_details') }}</template>
         <template #content>
           <dl class="space-y-3 text-sm">
             <div class="flex justify-between">
-              <dt class="text-surface-500">Start</dt>
+              <dt class="text-surface-500">{{ $t('booking_detail_start') }}</dt>
               <dd class="font-medium">{{ formatDateTime(booking.start_datetime) }}</dd>
             </div>
             <div class="flex justify-between">
-              <dt class="text-surface-500">End</dt>
+              <dt class="text-surface-500">{{ $t('booking_detail_end') }}</dt>
               <dd class="font-medium">{{ formatDateTime(booking.end_datetime) }}</dd>
             </div>
             <div class="flex justify-between">
-              <dt class="text-surface-500">Duration</dt>
+              <dt class="text-surface-500">{{ $t('booking_detail_duration') }}</dt>
               <dd class="font-medium">{{ formatDuration(booking.start_datetime, booking.end_datetime) }}</dd>
             </div>
             <div v-if="booking.total_price != null" class="flex justify-between border-t pt-3">
-              <dt class="text-surface-500">Estimated cost</dt>
+              <dt class="text-surface-500">{{ $t('booking_detail_estimated_cost') }}</dt>
               <dd class="font-semibold text-base">€{{ booking.total_price.toFixed(2) }}</dd>
             </div>
           </dl>
@@ -184,7 +187,7 @@ async function declineBooking() {
 
       <!-- Route -->
       <Card v-if="booking.stops && booking.stops.length >= 2">
-        <template #title>Route</template>
+        <template #title>{{ $t('booking_detail_route') }}</template>
         <template #content>
           <ol class="space-y-2">
             <li v-for="(stop, i) in booking.stops" :key="i" class="flex items-start gap-2 text-sm">
@@ -200,7 +203,7 @@ async function declineBooking() {
 
       <!-- Notes -->
       <Card v-if="booking.notes">
-        <template #title>Notes</template>
+        <template #title>{{ $t('booking_detail_notes') }}</template>
         <template #content>
           <p class="text-sm italic text-surface-500">"{{ booking.notes }}"</p>
         </template>
@@ -208,7 +211,7 @@ async function declineBooking() {
 
       <!-- Borrower info (owner view only) -->
       <Card v-if="isOwnerView && booking.borrower_name">
-        <template #title>Borrower</template>
+        <template #title>{{ $t('booking_detail_borrower') }}</template>
         <template #content>
           <p class="text-sm font-medium">{{ booking.borrower_name }}</p>
           <p v-if="booking.borrower_email" class="text-sm text-surface-500">{{ booking.borrower_email }}</p>
@@ -221,7 +224,7 @@ async function declineBooking() {
         <template v-if="!isOwnerView">
           <Button
             v-if="booking.status === 'pending' || booking.status === 'accepted'"
-            label="Cancel booking"
+            :label="$t('booking_detail_cancel_booking')"
             icon="pi pi-times"
             severity="danger"
             outlined
@@ -229,7 +232,7 @@ async function declineBooking() {
           />
           <Button
             v-if="booking.status === 'pending' || booking.status === 'accepted'"
-            label="Reschedule"
+            :label="$t('booking_detail_reschedule')"
             icon="pi pi-calendar-clock"
             severity="secondary"
             outlined
@@ -239,8 +242,8 @@ async function declineBooking() {
 
         <!-- Owner actions -->
         <template v-if="isOwnerView && booking.status === 'pending'">
-          <Button label="Accept" icon="pi pi-check" severity="success" @click="acceptBooking" />
-          <Button label="Decline" icon="pi pi-times" severity="danger" outlined @click="declineBooking" />
+          <Button :label="$t('booking_detail_accept')" icon="pi pi-check" severity="success" @click="acceptBooking" />
+          <Button :label="$t('booking_detail_decline')" icon="pi pi-times" severity="danger" outlined @click="declineBooking" />
         </template>
       </div>
     </template>

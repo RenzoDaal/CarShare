@@ -12,7 +12,9 @@ import { Form } from '@primevue/forms';
 import { z } from 'zod';
 import { zodResolver } from '@primevue/forms/resolvers/zod';
 import { stringFromNullish } from '@/utils/zod';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const router = useRouter();
 const auth = useAuthStore();
 
@@ -27,10 +29,10 @@ const resolver = ref(
   zodResolver(
     z.object({
       email: stringFromNullish(
-        z.string().min(1, { message: 'Email is required' })
+        z.string().min(1, { message: t('login_error_email_required') })
       ),
       password: stringFromNullish(
-        z.string().min(1, { message: 'Password is required' })
+        z.string().min(1, { message: t('login_error_password_required') })
       ),
     })
   )
@@ -54,13 +56,13 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
 <template>
   <div class="flex-1 flex justify-center items-center h-screen">
     <Card>
-      <template #title>Login</template>
+      <template #title>{{ $t('login_title') }}</template>
       <template #content>
         <Form :resolver="resolver" @submit="onFormSubmit" v-slot="$form">
           <div class="flex flex-col mt-4 w-96">
             <!-- Email -->
             <div class="flex flex-col gap-1 mb-4">
-              <InputText name="email" v-model="form.email" placeholder="Email" />
+              <InputText name="email" v-model="form.email" :placeholder="$t('login_email_placeholder')" />
               <Message v-if="$form.email?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.email.error?.message }}
               </Message>
@@ -69,7 +71,7 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
             <!-- Password -->
             <div class="flex flex-col gap-1 mb-4">
               <Password name="password" v-model="form.password" :feedback="false" toggleMask class="w-full"
-                inputClass="w-full" :inputProps="{ placeholder: 'Password' }" />
+                inputClass="w-full" :inputProps="{ placeholder: $t('login_password_placeholder') }" />
               <Message v-if="$form.password?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.password.error?.message }}
               </Message>
@@ -78,7 +80,7 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
             <!-- Remember me -->
             <div class="flex items-center gap-2 mb-4">
               <Checkbox v-model="rememberMe" :binary="true" inputId="rememberMe" />
-              <label for="rememberMe" class="text-sm">Remember me</label>
+              <label for="rememberMe" class="text-sm">{{ $t('login_remember_me') }}</label>
             </div>
 
             <!-- Backend auth error -->
@@ -86,18 +88,18 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
               {{ auth.error }}
             </p>
 
-            <Button type="submit" label="Login" icon="pi pi-sign-in" iconPos="right" :loading="auth.loading" />
+            <Button type="submit" :label="$t('login_button')" icon="pi pi-sign-in" iconPos="right" :loading="auth.loading" />
 
             <p class="mt-3 text-sm text-center">
               <RouterLink :to="{ name: 'forgot-password' }" class="text-blue-500 hover:underline">
-                Forgot your password?
+                {{ $t('login_forgot_password') }}
               </RouterLink>
             </p>
 
             <p class="mt-2 text-sm text-center">
-              Don't have an account yet?
+              {{ $t('login_no_account') }}
               <RouterLink :to="{ name: 'register' }" class="text-blue-500 hover:underline">
-                Create one
+                {{ $t('login_create_account') }}
               </RouterLink>
             </p>
           </div>

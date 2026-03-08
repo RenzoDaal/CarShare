@@ -11,6 +11,19 @@ import { useAuthStore } from '@/stores/auth';
 import { DEFAULT_NOTIFICATION_PREFS } from '@/stores/auth';
 import type { NotificationPrefs, User } from '@/stores/auth';
 import http from '@/api/http';
+import { useI18n } from 'vue-i18n';
+
+const { t, locale } = useI18n();
+
+const LANGUAGE_OPTIONS = [
+  { label: 'Nederlands', value: 'nl' },
+  { label: 'English', value: 'en' },
+];
+
+function setLocale(lang: string) {
+  locale.value = lang;
+  localStorage.setItem('locale', lang);
+}
 
 // Compute the current UTC offset string for a given IANA timezone, e.g. "+1" or "-5"
 function getOffset(tz: string): string {
@@ -84,7 +97,7 @@ async function saveProfile() {
     auth.updateUser(data);
     profileSuccess.value = true;
   } catch (err: any) {
-    profileError.value = err?.response?.data?.detail ?? 'Failed to save profile';
+    profileError.value = err?.response?.data?.detail ?? t('profile_error_save');
   } finally {
     profileSaving.value = false;
   }
@@ -113,15 +126,15 @@ const notifSaving = ref(false);
 const notifSuccess = ref(false);
 const notifError = ref<string | null>(null);
 
-const NOTIF_OWNER_TYPES: { key: keyof NotificationPrefs; label: string }[] = [
-  { key: 'booking_request',    label: 'Nieuwe boekingsaanvraag' },
-  { key: 'booking_reschedule', label: 'Boeking verzet door lener' },
-  { key: 'booking_cancelled',  label: 'Boeking geannuleerd door lener' },
+const NOTIF_OWNER_TYPES: { key: keyof NotificationPrefs; labelKey: string }[] = [
+  { key: 'booking_request',    labelKey: 'profile_notif_booking_request' },
+  { key: 'booking_reschedule', labelKey: 'profile_notif_booking_reschedule' },
+  { key: 'booking_cancelled',  labelKey: 'profile_notif_booking_cancelled' },
 ];
 
-const NOTIF_BORROWER_TYPES: { key: keyof NotificationPrefs; label: string }[] = [
-  { key: 'booking_response', label: 'Boeking geaccepteerd of afgewezen' },
-  { key: 'waitlist',         label: 'Auto beschikbaar via wachtlijst' },
+const NOTIF_BORROWER_TYPES: { key: keyof NotificationPrefs; labelKey: string }[] = [
+  { key: 'booking_response', labelKey: 'profile_notif_booking_response' },
+  { key: 'waitlist',         labelKey: 'profile_notif_waitlist' },
 ];
 
 async function saveNotifPrefs() {
@@ -135,7 +148,7 @@ async function saveNotifPrefs() {
     auth.updateUser(data);
     notifSuccess.value = true;
   } catch (err: any) {
-    notifError.value = err?.response?.data?.detail ?? 'Failed to save preferences';
+    notifError.value = err?.response?.data?.detail ?? t('profile_notif_error_save');
   } finally {
     notifSaving.value = false;
   }
@@ -155,11 +168,11 @@ async function changePassword() {
   passwordError.value = null;
   passwordSuccess.value = false;
   if (passwords.next !== passwords.confirm) {
-    passwordError.value = 'New passwords do not match';
+    passwordError.value = t('profile_password_error_no_match');
     return;
   }
   if (passwords.next.length < 6) {
-    passwordError.value = 'New password must be at least 6 characters';
+    passwordError.value = t('profile_password_error_min_length');
     return;
   }
   passwordSaving.value = true;
@@ -173,7 +186,7 @@ async function changePassword() {
     passwords.confirm = '';
     passwordSuccess.value = true;
   } catch (err: any) {
-    passwordError.value = err?.response?.data?.detail ?? 'Failed to change password';
+    passwordError.value = err?.response?.data?.detail ?? t('profile_password_error_save');
   } finally {
     passwordSaving.value = false;
   }
@@ -182,42 +195,46 @@ async function changePassword() {
 
 <template>
   <div class="p-4 flex flex-col gap-4 max-w-xl mx-auto w-full">
-    <h1 class="text-2xl font-semibold mb-2">My profile</h1>
+    <h1 class="text-2xl font-semibold mb-2">{{ $t('profile_title') }}</h1>
 
     <!-- Profile details -->
     <Card>
-      <template #title>Account details</template>
+      <template #title>{{ $t('profile_account_details') }}</template>
       <template #content>
         <div class="flex flex-col gap-4">
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">Full name</label>
+            <label class="text-sm font-medium">{{ $t('profile_full_name_label') }}</label>
             <InputText v-model="profile.full_name" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">Email</label>
+            <label class="text-sm font-medium">{{ $t('profile_email_label') }}</label>
             <InputText v-model="profile.email" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">Timezone</label>
+            <label class="text-sm font-medium">{{ $t('profile_timezone_label') }}</label>
             <Select v-model="profile.timezone" :options="TIMEZONE_OPTIONS" optionLabel="label" optionValue="value" fluid />
           </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium">{{ $t('profile_language_label') }}</label>
+            <Select :modelValue="locale" :options="LANGUAGE_OPTIONS" optionLabel="label" optionValue="value" fluid @update:modelValue="setLocale" />
+          </div>
           <div class="flex flex-col gap-2">
-            <span class="text-sm font-medium">Roles</span>
+            <span class="text-sm font-medium">{{ $t('profile_roles_label') }}</span>
             <div class="flex items-center gap-2">
               <Checkbox v-model="profile.role_owner" :binary="true" inputId="profile_role_owner" />
-              <label for="profile_role_owner" class="text-sm">I want to list my own cars</label>
+              <label for="profile_role_owner" class="text-sm">{{ $t('profile_role_owner_label') }}</label>
             </div>
             <div class="flex items-center gap-2">
               <Checkbox v-model="profile.role_borrower" :binary="true" inputId="profile_role_borrower" />
-              <label for="profile_role_borrower" class="text-sm">I want to borrow cars</label>
+              <label for="profile_role_borrower" class="text-sm">{{ $t('profile_role_borrower_label') }}</label>
             </div>
           </div>
 
           <Message v-if="profileError" severity="error" :closable="false">{{ profileError }}</Message>
-          <Message v-if="profileSuccess" severity="success" :closable="false">Profile saved.</Message>
+          <Message v-if="profileSuccess" severity="success" :closable="false">{{ $t('profile_saved') }}</Message>
 
           <div class="flex justify-end">
-            <Button label="Save" icon="pi pi-check" :loading="profileSaving" @click="saveProfile" />
+            <Button :label="$t('profile_save')" icon="pi pi-check" :loading="profileSaving" @click="saveProfile" />
           </div>
         </div>
       </template>
@@ -225,22 +242,22 @@ async function changePassword() {
 
     <!-- Notification preferences -->
     <Card>
-      <template #title>Notificaties</template>
+      <template #title>{{ $t('profile_notifications_title') }}</template>
       <template #content>
         <div class="flex flex-col gap-5">
 
           <!-- Owner section -->
           <template v-if="profile.role_owner">
-            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">Als eigenaar</p>
+            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">{{ $t('profile_as_owner') }}</p>
             <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">Type</span>
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">In-app & push</span>
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">E-mail</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
             </div>
             <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
             <div v-for="type in NOTIF_OWNER_TYPES" :key="type.key"
               class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-              <span class="text-sm">{{ type.label }}</span>
+              <span class="text-sm">{{ $t(type.labelKey) }}</span>
               <div class="flex justify-center">
                 <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
               </div>
@@ -256,16 +273,16 @@ async function changePassword() {
 
           <!-- Borrower section -->
           <template v-if="profile.role_borrower">
-            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">Als lener</p>
+            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">{{ $t('profile_as_borrower') }}</p>
             <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">Type</span>
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">In-app & push</span>
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">E-mail</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
+              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
             </div>
             <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
             <div v-for="type in NOTIF_BORROWER_TYPES" :key="type.key"
               class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-              <span class="text-sm">{{ type.label }}</span>
+              <span class="text-sm">{{ $t(type.labelKey) }}</span>
               <div class="flex justify-center">
                 <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
               </div>
@@ -276,10 +293,10 @@ async function changePassword() {
           </template>
 
           <Message v-if="notifError" severity="error" :closable="false">{{ notifError }}</Message>
-          <Message v-if="notifSuccess" severity="success" :closable="false">Voorkeuren opgeslagen.</Message>
+          <Message v-if="notifSuccess" severity="success" :closable="false">{{ $t('profile_notif_saved') }}</Message>
 
           <div class="flex justify-end">
-            <Button label="Opslaan" icon="pi pi-check" :loading="notifSaving" @click="saveNotifPrefs" />
+            <Button :label="$t('profile_notif_save')" icon="pi pi-check" :loading="notifSaving" @click="saveNotifPrefs" />
           </div>
         </div>
       </template>
@@ -287,27 +304,27 @@ async function changePassword() {
 
     <!-- Change password -->
     <Card>
-      <template #title>Change password</template>
+      <template #title>{{ $t('profile_change_password_title') }}</template>
       <template #content>
         <div class="flex flex-col gap-4">
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">Current password</label>
+            <label class="text-sm font-medium">{{ $t('profile_current_password') }}</label>
             <Password v-model="passwords.current" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">New password</label>
+            <label class="text-sm font-medium">{{ $t('profile_new_password') }}</label>
             <Password v-model="passwords.next" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">Confirm new password</label>
+            <label class="text-sm font-medium">{{ $t('profile_confirm_new_password') }}</label>
             <Password v-model="passwords.confirm" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
           </div>
 
           <Message v-if="passwordError" severity="error" :closable="false">{{ passwordError }}</Message>
-          <Message v-if="passwordSuccess" severity="success" :closable="false">Password changed successfully.</Message>
+          <Message v-if="passwordSuccess" severity="success" :closable="false">{{ $t('profile_password_changed') }}</Message>
 
           <div class="flex justify-end">
-            <Button label="Change password" icon="pi pi-lock" :loading="passwordSaving" @click="changePassword" />
+            <Button :label="$t('profile_change_password_button')" icon="pi pi-lock" :loading="passwordSaving" @click="changePassword" />
           </div>
         </div>
       </template>

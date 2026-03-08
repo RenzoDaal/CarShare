@@ -109,9 +109,9 @@ const nextMonth = async () => {
     <!-- Car grid -->
     <template v-if="!selectedCar">
       <div class="w-full max-w-[98%] mx-auto mt-6 px-2">
-        <h1 class="text-xl font-semibold mb-4">Car Availability</h1>
-        <p class="text-sm text-surface-500 mb-6">Select a car to see its availability calendar.</p>
-        <p v-if="carsLoading" class="text-sm text-surface-500">Loading cars…</p>
+        <h1 class="text-xl font-semibold mb-4">{{ $t('availability_title') }}</h1>
+        <p class="text-sm text-surface-500 mb-6">{{ $t('availability_select_car') }}</p>
+        <p v-if="carsLoading" class="text-sm text-surface-500">{{ $t('availability_loading_cars') }}</p>
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card v-for="car in cars" :key="car.id"
             class="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
@@ -153,14 +153,14 @@ const nextMonth = async () => {
 
             <!-- Day-of-week headers -->
             <div class="grid grid-cols-7 mb-1">
-              <div v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day"
+              <div v-for="day in [$t('availability_day_sun'), $t('availability_day_mon'), $t('availability_day_tue'), $t('availability_day_wed'), $t('availability_day_thu'), $t('availability_day_fri'), $t('availability_day_sat')]" :key="day"
                 class="text-center text-xs font-medium text-surface-400 py-1">
                 {{ day }}
               </div>
             </div>
 
             <!-- Calendar grid -->
-            <div v-if="calendarLoading" class="text-center py-8 text-sm text-surface-500">Loading…</div>
+            <div v-if="calendarLoading" class="text-center py-8 text-sm text-surface-500">{{ $t('availability_loading_calendar') }}</div>
             <div v-else class="grid grid-cols-7 gap-1">
               <div v-for="(day, i) in calendarDays" :key="i" class="aspect-square flex items-center justify-center rounded-lg text-sm"
                 :class="{
@@ -177,11 +177,11 @@ const nextMonth = async () => {
             <div class="flex items-center gap-4 mt-4 text-xs text-surface-500">
               <div class="flex items-center gap-1">
                 <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
-                <span>Unavailable</span>
+                <span>{{ $t('availability_unavailable') }}</span>
               </div>
               <div class="flex items-center gap-1">
                 <div class="w-4 h-4 rounded border-2 border-primary"></div>
-                <span>Today</span>
+                <span>{{ $t('availability_today') }}</span>
               </div>
             </div>
           </template>

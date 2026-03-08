@@ -8,7 +8,9 @@ import ProgressSpinner from 'primevue/progressspinner';
 import { useConfirm } from 'primevue/useconfirm';
 import http from '@/api/http';
 import type { User } from '@/stores/auth';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const confirm = useConfirm();
 const users = ref<User[]>([]);
 const loading = ref(false);
@@ -21,7 +23,7 @@ async function fetchUsers() {
     const { data } = await http.get<User[]>('/admin/users');
     users.value = data;
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? 'Failed to load users';
+    error.value = err?.response?.data?.detail ?? t('admin_error_load');
   } finally {
     loading.value = false;
   }
@@ -32,23 +34,23 @@ async function approveUser(userId: number) {
     await http.post(`/admin/users/${userId}/approve`);
     await fetchUsers();
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? 'Failed to approve user';
+    error.value = err?.response?.data?.detail ?? t('admin_error_approve');
   }
 }
 
 function confirmDelete(userId: number, name: string) {
   confirm.require({
-    message: `Are you sure you want to delete ${name}'s account? This cannot be undone.`,
-    header: 'Delete user',
+    message: `${t('admin_confirm_delete_header')} — ${name}`,
+    header: t('admin_confirm_delete_header'),
     icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-    acceptProps: { label: 'Delete', severity: 'danger' },
+    rejectProps: { label: t('admin_confirm_cancel'), severity: 'secondary', outlined: true },
+    acceptProps: { label: t('admin_confirm_delete_button'), severity: 'danger' },
     accept: async () => {
       try {
         await http.delete(`/admin/users/${userId}`);
         await fetchUsers();
       } catch (err: any) {
-        error.value = err?.response?.data?.detail ?? 'Failed to delete user';
+        error.value = err?.response?.data?.detail ?? t('admin_error_delete');
       }
     },
   });
@@ -59,7 +61,7 @@ onMounted(fetchUsers);
 
 <template>
   <div class="p-4 flex flex-col gap-4 max-w-5xl mx-auto w-full">
-    <h1 class="text-2xl font-semibold mb-2">Admin — User Management</h1>
+    <h1 class="text-2xl font-semibold mb-2">{{ $t('admin_title') }}</h1>
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
@@ -70,10 +72,10 @@ onMounted(fetchUsers);
     <template v-else>
       <!-- Pending approval -->
       <Card class="mb-4">
-        <template #title>Awaiting approval</template>
+        <template #title>{{ $t('admin_awaiting_approval_title') }}</template>
         <template #content>
           <div v-if="users.filter(u => !u.is_approved).length === 0" class="text-sm text-surface-500">
-            No users awaiting approval.
+            {{ $t('admin_no_pending') }}
           </div>
           <div class="flex flex-col gap-3">
             <div v-for="user in users.filter(u => !u.is_approved)" :key="user.id"
@@ -82,13 +84,13 @@ onMounted(fetchUsers);
                 <div class="font-semibold">{{ user.full_name }}</div>
                 <div class="text-sm text-surface-500">{{ user.email }}</div>
                 <div class="flex gap-1 mt-1">
-                  <Tag v-if="user.role_owner" value="Owner" severity="info" />
-                  <Tag v-if="user.role_borrower" value="Borrower" severity="secondary" />
+                  <Tag v-if="user.role_owner" :value="$t('admin_role_owner')" severity="info" />
+                  <Tag v-if="user.role_borrower" :value="$t('admin_role_borrower')" severity="secondary" />
                 </div>
               </div>
               <div class="flex gap-2">
-                <Button label="Approve" icon="pi pi-check" severity="success" @click="approveUser(user.id)" />
-                <Button label="Delete" icon="pi pi-trash" severity="danger" outlined @click="confirmDelete(user.id, user.full_name)" />
+                <Button :label="$t('admin_approve')" icon="pi pi-check" severity="success" @click="approveUser(user.id)" />
+                <Button :label="$t('admin_delete')" icon="pi pi-trash" severity="danger" outlined @click="confirmDelete(user.id, user.full_name)" />
               </div>
             </div>
           </div>
@@ -97,10 +99,10 @@ onMounted(fetchUsers);
 
       <!-- All approved users -->
       <Card>
-        <template #title>All approved users</template>
+        <template #title>{{ $t('admin_approved_users_title') }}</template>
         <template #content>
           <div v-if="users.filter(u => u.is_approved).length === 0" class="text-sm text-surface-500">
-            No approved users yet.
+            {{ $t('admin_no_approved') }}
           </div>
           <ul class="flex flex-col gap-2 text-sm">
             <li v-for="user in users.filter(u => u.is_approved)" :key="user.id"
@@ -110,9 +112,9 @@ onMounted(fetchUsers);
                 <span class="ml-2 text-surface-500">{{ user.email }}</span>
               </div>
               <div class="flex items-center gap-2">
-                <Tag v-if="user.is_admin" value="Admin" severity="warn" />
-                <Tag v-if="user.role_owner" value="Owner" severity="info" />
-                <Tag v-if="user.role_borrower" value="Borrower" severity="secondary" />
+                <Tag v-if="user.is_admin" :value="$t('admin_role_admin')" severity="warn" />
+                <Tag v-if="user.role_owner" :value="$t('admin_role_owner')" severity="info" />
+                <Tag v-if="user.role_borrower" :value="$t('admin_role_borrower')" severity="secondary" />
                 <Button icon="pi pi-trash" severity="danger" outlined rounded size="small"
                   @click="confirmDelete(user.id, user.full_name)" />
               </div>

@@ -15,6 +15,9 @@ import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
 import http from '@/api/http';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 type UnavailabilityBlock = {
   id: number;
@@ -132,17 +135,17 @@ const submitEditCar = async () => {
 
 const confirmDeleteCar = (carId: number) => {
   confirm.require({
-    message: 'Do you want to delete this car?',
-    header: 'Confirmation',
+    message: t('car_manager_confirm_delete'),
+    header: t('car_manager_confirm_header'),
     icon: 'pi pi-info-circle',
-    rejectLabel: 'Cancel',
+    rejectLabel: t('car_manager_confirm_cancel'),
     rejectProps: {
-      label: 'Cancel',
+      label: t('car_manager_confirm_cancel'),
       severity: 'secondary',
       outlined: true
     },
     acceptProps: {
-      label: 'Delete',
+      label: t('car_manager_confirm_delete_button'),
       severity: 'danger'
     },
     accept: async () => {
@@ -181,7 +184,7 @@ const loadUnavailability = async (carId: number) => {
     const res = await http.get<UnavailabilityBlock[]>(`/cars/${carId}/unavailability`);
     unavailabilityBlocks.value = res.data;
   } catch (err: any) {
-    unavailabilityError.value = err?.response?.data?.detail ?? 'Failed to load unavailability blocks.';
+    unavailabilityError.value = err?.response?.data?.detail ?? t('car_manager_error_load_blocks');
   } finally {
     unavailabilityLoading.value = false;
   }
@@ -198,7 +201,7 @@ const addBlock = async () => {
   if (!unavailabilityCarId.value || !newBlockDates.value || newBlockDates.value.length < 2) return;
   const [startDate, endDate] = newBlockDates.value;
   if (!startDate || !endDate) {
-    addBlockError.value = 'Please select a start and end date.';
+    addBlockError.value = t('car_manager_error_select_dates');
     return;
   }
 
@@ -212,7 +215,7 @@ const addBlock = async () => {
     newBlockDates.value = null;
     await loadUnavailability(unavailabilityCarId.value);
   } catch (err: any) {
-    addBlockError.value = err?.response?.data?.detail ?? 'Failed to add block.';
+    addBlockError.value = err?.response?.data?.detail ?? t('car_manager_error_add_block');
   } finally {
     addingBlock.value = false;
   }
@@ -224,7 +227,7 @@ const deleteBlock = async (blockId: number) => {
     await http.delete(`/cars/${unavailabilityCarId.value}/unavailability/${blockId}`);
     unavailabilityBlocks.value = unavailabilityBlocks.value.filter(b => b.id !== blockId);
   } catch (err: any) {
-    unavailabilityError.value = err?.response?.data?.detail ?? 'Failed to delete block.';
+    unavailabilityError.value = err?.response?.data?.detail ?? t('car_manager_error_delete_block');
   }
 };
 
@@ -233,30 +236,30 @@ const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
 
 
 <template>
-  <Dialog v-model:visible="createCarDialogVisible" modal header="Add new car">
+  <Dialog v-model:visible="createCarDialogVisible" modal :header="$t('car_manager_add_car_title')">
     <div class="flex flex-col gap-4">
-      <InputText v-model="newCar.name" placeholder="Car name" />
-      <Textarea v-model="newCar.description" placeholder="Description" rows="3" />
+      <InputText v-model="newCar.name" :placeholder="$t('car_manager_car_name_placeholder')" />
+      <Textarea v-model="newCar.description" :placeholder="$t('car_manager_description_placeholder')" rows="3" />
       <InputNumber v-model="newCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
-        :maxFractionDigits="2" locale="en-US" placeholder="Price per km" />
+        :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
       <input type="file" accept="image/*" @change="onNewCarImageSelected" />
     </div>
     <template #footer>
-      <Button label="Cancel" severity="secondary" outlined @click="createCarDialogVisible = false" />
-      <Button label="Save" @click="submitCreateCar" />
+      <Button :label="$t('car_manager_cancel')" severity="secondary" outlined @click="createCarDialogVisible = false" />
+      <Button :label="$t('car_manager_save')" @click="submitCreateCar" />
     </template>
   </Dialog>
 
-  <Dialog v-model:visible="editCarDialogVisible" header="Edit car" modal :style="{ width: '36rem' }">
+  <Dialog v-model:visible="editCarDialogVisible" :header="$t('car_manager_edit_car_title')" modal :style="{ width: '36rem' }">
     <div class="flex flex-col gap-4">
-      <InputText v-model="editCar.name" placeholder="Car name" />
-      <Textarea v-model="editCar.description" placeholder="Description" rows="3" />
+      <InputText v-model="editCar.name" :placeholder="$t('car_manager_car_name_placeholder')" />
+      <Textarea v-model="editCar.description" :placeholder="$t('car_manager_description_placeholder')" rows="3" />
       <InputNumber v-model="editCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
-        :maxFractionDigits="2" locale="en-US" placeholder="Price per km" />
+        :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
 
       <div>
-        <p class="text-sm font-medium mb-2">Photos</p>
-        <p v-if="editImagesLoading" class="text-xs text-surface-400">Loading…</p>
+        <p class="text-sm font-medium mb-2">{{ $t('car_manager_photos') }}</p>
+        <p v-if="editImagesLoading" class="text-xs text-surface-400">{{ $t('car_manager_loading_photos') }}</p>
         <div v-else class="flex flex-wrap gap-2">
           <div v-for="img in editCarImages" :key="img.id" class="relative group w-20 h-20">
             <img :src="img.url" class="w-20 h-20 object-cover rounded" />
@@ -278,21 +281,21 @@ const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
       </div>
     </div>
     <template #footer>
-      <Button label="Cancel" severity="secondary" outlined @click="editCarDialogVisible = false" />
-      <Button label="Save" @click="submitEditCar" />
+      <Button :label="$t('car_manager_cancel')" severity="secondary" outlined @click="editCarDialogVisible = false" />
+      <Button :label="$t('car_manager_save')" @click="submitEditCar" />
     </template>
   </Dialog>
 
-  <Dialog v-model:visible="unavailabilityDialogVisible" :header="`Block dates — ${unavailabilityCarName}`" modal
+  <Dialog v-model:visible="unavailabilityDialogVisible" :header="`${$t('car_manager_block_dates_title')} — ${unavailabilityCarName}`" modal
     style="width: 32rem">
     <div class="flex flex-col gap-6">
       <div v-if="unavailabilityError" class="text-sm text-red-500">{{ unavailabilityError }}</div>
 
       <div>
-        <h3 class="font-semibold text-sm mb-2">Blocked periods</h3>
-        <p v-if="unavailabilityLoading" class="text-sm text-surface-500">Loading…</p>
+        <h3 class="font-semibold text-sm mb-2">{{ $t('car_manager_blocked_periods') }}</h3>
+        <p v-if="unavailabilityLoading" class="text-sm text-surface-500">{{ $t('car_manager_loading_blocks') }}</p>
         <p v-else-if="unavailabilityBlocks.length === 0" class="text-sm text-surface-500">
-          No dates blocked — car is fully available.
+          {{ $t('car_manager_no_blocks') }}
         </p>
         <ul v-else class="space-y-2">
           <li v-for="block in unavailabilityBlocks" :key="block.id"
@@ -304,11 +307,11 @@ const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
       </div>
 
       <div class="border-t pt-4">
-        <h3 class="font-semibold text-sm mb-3">Add blocked period</h3>
+        <h3 class="font-semibold text-sm mb-3">{{ $t('car_manager_add_blocked_period') }}</h3>
         <DatePicker v-model="newBlockDates" selectionMode="range" showIcon :manualInput="false" fluid
-          placeholder="Select date range" class="mb-2" />
+          :placeholder="$t('car_manager_select_date_range')" class="mb-2" />
         <p v-if="addBlockError" class="text-xs text-red-500 mb-2">{{ addBlockError }}</p>
-        <Button label="Add block" icon="pi pi-plus" size="small" :loading="addingBlock"
+        <Button :label="$t('car_manager_add_block')" icon="pi pi-plus" size="small" :loading="addingBlock"
           :disabled="!newBlockDates || newBlockDates.length < 2 || !newBlockDates[1] || addingBlock"
           @click="addBlock" />
       </div>
@@ -318,7 +321,7 @@ const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
   <div class="flex flex-col w-full">
     <Toolbar class="w-full max-w-[98%] mx-auto mt-4">
       <template #start>
-        <span>My cars</span>
+        <span>{{ $t('car_manager_my_cars') }}</span>
       </template>
       <template #end>
         <Button icon="pi pi-plus" severity="contrast" rounded @click="createCarDialogVisible = true" />
@@ -336,7 +339,7 @@ const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
             {{ car.name }}
             <div class="flex gap-2">
               <Button icon="pi pi-calendar-times" size="small" rounded variant="text" severity="secondary"
-                title="Manage blocked dates" @click="openUnavailabilityDialog(car)" />
+                :title="$t('car_manager_manage_blocked_dates')" @click="openUnavailabilityDialog(car)" />
               <Button icon="pi pi-ellipsis-v" size="small" rounded variant="text" severity="contrast"
                 @click="openEditDialog(car)" />
               <Button icon="pi pi-trash" size="small" rounded variant="outlined" severity="danger"

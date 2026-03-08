@@ -4,6 +4,9 @@ import Card from 'primevue/card';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import http from '@/api/http';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const email = ref('');
 const submitting = ref(false);
@@ -18,7 +21,7 @@ async function submit() {
     await http.post('/auth/request-reset', { email: email.value });
     submitted.value = true;
   } catch {
-    error.value = 'Something went wrong. Please try again.';
+    error.value = t('forgot_password_error_fallback');
   } finally {
     submitting.value = false;
   }
@@ -28,28 +31,28 @@ async function submit() {
 <template>
   <div class="flex-1 flex justify-center items-center h-screen">
     <Card>
-      <template #title>Reset password</template>
+      <template #title>{{ $t('forgot_password_title') }}</template>
       <template #content>
         <div class="flex flex-col mt-4 w-96 gap-4">
           <template v-if="!submitted">
             <p class="text-sm text-surface-500">
-              Enter your email address and we'll send you a link to reset your password.
+              {{ $t('forgot_password_description') }}
             </p>
-            <InputText v-model="email" placeholder="Email" @keyup.enter="submit" />
+            <InputText v-model="email" :placeholder="$t('forgot_password_email_placeholder')" @keyup.enter="submit" />
             <p v-if="error" class="text-sm text-red-500">{{ error }}</p>
-            <Button label="Send reset link" icon="pi pi-envelope" iconPos="right"
+            <Button :label="$t('forgot_password_send_button')" icon="pi pi-envelope" iconPos="right"
               :loading="submitting" :disabled="!email.trim()" @click="submit" />
           </template>
 
           <template v-else>
             <p class="text-sm text-green-600">
-              If an account exists for that email, a reset link has been sent. Check your inbox.
+              {{ $t('forgot_password_success') }}
             </p>
           </template>
 
           <p class="text-sm text-center">
             <RouterLink :to="{ name: 'login' }" class="text-blue-500 hover:underline">
-              Back to login
+              {{ $t('forgot_password_back_to_login') }}
             </RouterLink>
           </p>
         </div>

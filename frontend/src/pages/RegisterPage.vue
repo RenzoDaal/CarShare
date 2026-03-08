@@ -11,9 +11,11 @@ import { Form } from '@primevue/forms';
 import { z } from 'zod';
 import { zodResolver } from '@primevue/forms/resolvers/zod';
 import { stringFromNullish } from '@/utils/zod';
+import { useI18n } from 'vue-i18n';
 
 import http from '@/api/http';
 
+const { t } = useI18n();
 const router = useRouter();
 
 const form = reactive({
@@ -30,25 +32,25 @@ const resolver = ref(
     z
       .object({
         full_name: stringFromNullish(
-          z.string().min(1, { message: 'Name is required' }),
+          z.string().min(1, { message: t('register_error_name_required') }),
         ),
 
         email: stringFromNullish(
           z
             .string()
-            .min(1, { message: 'Email is required' })
-            .email({ message: 'Invalid email address' }),
+            .min(1, { message: t('register_error_email_required') })
+            .email({ message: t('register_error_email_invalid') }),
         ),
 
         password: stringFromNullish(
           z.string().min(6, {
-            message: 'Password must be at least 6 characters',
+            message: t('register_error_password_min'),
           }),
         ),
 
         confirmPassword: stringFromNullish(
           z.string().min(1, {
-            message: 'Please confirm your password',
+            message: t('register_error_confirm_password_required'),
           }),
         ),
 
@@ -63,11 +65,11 @@ const resolver = ref(
         ),
       })
       .refine((data) => data.password === data.confirmPassword, {
-        message: 'Passwords must match',
+        message: t('register_error_passwords_must_match'),
         path: ['confirmPassword'],
       })
       .refine((data) => data.role_owner || data.role_borrower, {
-        message: 'Select at least one role',
+        message: t('register_error_select_role'),
         path: ['role_borrower'],
       }),
   ),
@@ -93,10 +95,10 @@ const onFormSubmit = async ({ valid }: { valid: boolean }) => {
       role_borrower: form.role_borrower,
     });
 
-    successMessage.value = 'Account created. You will be able to log in once an administrator has approved your account.';
+    successMessage.value = t('register_success');
   } catch (e: any) {
     error.value =
-      e?.response?.data?.detail ?? 'Could not create account. Please try again.';
+      e?.response?.data?.detail ?? t('register_error_fallback');
   } finally {
     submitting.value = false;
   }
@@ -110,13 +112,13 @@ const goToLogin = () => {
 <template>
   <div class="flex-1 flex justify-center items-center h-screen">
     <Card>
-      <template #title>Create account</template>
+      <template #title>{{ $t('register_title') }}</template>
       <template #content>
         <Form :resolver="resolver" @submit="onFormSubmit" v-slot="$form">
           <div class="flex flex-col mt-4 w-96">
             <!-- Full name -->
             <div class="flex flex-col gap-1 mb-4">
-              <InputText name="full_name" v-model="form.full_name" placeholder="Full name" />
+              <InputText name="full_name" v-model="form.full_name" :placeholder="$t('register_full_name_placeholder')" />
               <Message v-if="$form.full_name?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.full_name.error?.message }}
               </Message>
@@ -124,7 +126,7 @@ const goToLogin = () => {
 
             <!-- Email -->
             <div class="flex flex-col gap-1 mb-4">
-              <InputText name="email" v-model="form.email" placeholder="Email" />
+              <InputText name="email" v-model="form.email" :placeholder="$t('register_email_placeholder')" />
               <Message v-if="$form.email?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.email.error?.message }}
               </Message>
@@ -133,7 +135,7 @@ const goToLogin = () => {
             <!-- Password -->
             <div class="flex flex-col gap-1 mb-4">
               <Password name="password" v-model="form.password" :feedback="false" toggleMask class="w-full"
-                inputClass="w-full" :inputProps="{ placeholder: 'Password' }" />
+                inputClass="w-full" :inputProps="{ placeholder: $t('register_password_placeholder') }" />
               <Message v-if="$form.password?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.password.error?.message }}
               </Message>
@@ -142,7 +144,7 @@ const goToLogin = () => {
             <!-- Confirm password -->
             <div class="flex flex-col gap-1 mb-4">
               <Password name="confirmPassword" v-model="form.confirmPassword" :feedback="false" toggleMask
-                class="w-full" inputClass="w-full" :inputProps="{ placeholder: 'Confirm password' }" />
+                class="w-full" inputClass="w-full" :inputProps="{ placeholder: $t('register_confirm_password_placeholder') }" />
               <Message v-if="$form.confirmPassword?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.confirmPassword.error?.message }}
               </Message>
@@ -152,11 +154,11 @@ const goToLogin = () => {
             <div class="flex flex-col gap-1 mb-2 text-sm">
               <div class="flex items-center gap-2">
                 <Checkbox name="role_owner" v-model="form.role_owner" :binary="true" inputId="role_owner" />
-                <label for="role_owner">I want to list my own cars</label>
+                <label for="role_owner">{{ $t('register_role_owner_label') }}</label>
               </div>
               <div class="flex items-center gap-2">
                 <Checkbox name="role_borrower" v-model="form.role_borrower" :binary="true" inputId="role_borrower" />
-                <label for="role_borrower">I want to borrow cars</label>
+                <label for="role_borrower">{{ $t('register_role_borrower_label') }}</label>
               </div>
               <Message v-if="$form.role_borrower?.invalid" severity="error" size="small" variant="simple">
                 {{ $form.role_borrower.error?.message }}
@@ -172,9 +174,9 @@ const goToLogin = () => {
               {{ successMessage }}
             </p>
 
-            <Button type="submit" label="Create account" icon="pi pi-user-plus" iconPos="right" :loading="submitting" />
+            <Button type="submit" :label="$t('register_button')" icon="pi pi-user-plus" iconPos="right" :loading="submitting" />
 
-            <Button type="button" label="Back to login" class="mt-3" text @click="goToLogin" />
+            <Button type="button" :label="$t('register_back_to_login')" class="mt-3" text @click="goToLogin" />
           </div>
         </Form>
       </template>
