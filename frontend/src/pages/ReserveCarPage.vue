@@ -12,7 +12,7 @@ import StepPanels from 'primevue/steppanels';
 import StepPanel from 'primevue/steppanel';
 import RouteMap from '@/components/RouteMap.vue';
 
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import type { Car } from '@/stores/cars';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
@@ -93,6 +93,14 @@ const handleSelectCar = (car: Car, activateCallback: (step: number) => void) => 
 // Step 3: route & distance
 const stops = ref<string[]>(['', '']);
 const locationSuggestions = ref<string[]>([]);
+const userLocation = ref<{ lat: number; lon: number } | null>(null);
+
+onMounted(() => {
+  navigator.geolocation?.getCurrentPosition(
+    (pos) => { userLocation.value = { lat: pos.coords.latitude, lon: pos.coords.longitude }; },
+    () => {},
+  );
+});
 const distanceKm = ref<number | null>(null);
 const routeEstimating = ref(false);
 const routeError = ref<string | null>(null);
@@ -144,8 +152,44 @@ const searchLocations = async (event: { query: string }) => {
   }
 
   try {
+    // Call Photon directly from the browser — supports both POI names and addresses
+    const photonParams = new URLSearchParams({ q: query, limit: '5' });
+    if (userLocation.value) {
+      photonParams.set('lat', String(userLocation.value.lat));
+      photonParams.set('lon', String(userLocation.value.lon));
+    }
+    const photonRes = await fetch(`https://photon.komoot.io/api/?${photonParams}`);
+    console.log('[Photon] status:', photonRes.status);
+    if (photonRes.ok) {
+      const data = await photonRes.json();
+      console.log('[Photon] features:', data.features?.length, data.features?.[0]);
+      const seen = new Set<string>();
+      const labels: string[] = (data.features ?? []).map((f: any) => {
+        const p = f.properties ?? {};
+        const street = p.street ? `${p.street}${p.housenumber ? ' ' + p.housenumber : ''}` : null;
+        return [p.name, street, p.city].filter(Boolean).join(', ');
+      }).filter((label: string) => {
+        if (!label || seen.has(label)) return false;
+        seen.add(label);
+        return true;
+      });
+      console.log('[Photon] labels:', labels);
+      if (labels.length) {
+        locationSuggestions.value = labels;
+        return;
+      }
+    }
+  } catch (e) {
+    console.error('[Photon] fetch error:', e);
+  }
+
+  // Fallback: ORS via backend (address search)
+  try {
     const res = await http.get<string[]>('/locations/suggest', {
-      params: { query }
+      params: {
+        query,
+        ...(userLocation.value && { focus_lat: userLocation.value.lat, focus_lon: userLocation.value.lon }),
+      }
     });
     locationSuggestions.value = res.data;
   } catch (err) {

@@ -1,5 +1,8 @@
+import logging
 import os
-from typing import List
+from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
@@ -24,33 +27,25 @@ class RouteEstimateResponse(SQLModel):
 
 
 @router.get("/locations/suggest", response_model=List[str])
-async def suggest_locations(query: str = Query(..., min_length=3)):
+async def suggest_locations(
+    query: str = Query(..., min_length=3),
+    focus_lat: Optional[float] = Query(None),
+    focus_lon: Optional[float] = Query(None),
+):
+    params: dict = {"api_key": ORS_API_KEY, "text": query, "size": 5}
+    if focus_lat is not None and focus_lon is not None:
+        params["focus.point.lat"] = focus_lat
+        params["focus.point.lon"] = focus_lon
+
     async with httpx.AsyncClient(timeout=10) as client:
         try:
-            resp = await client.get(
-                f"{ORS_BASE_URL}/geocode/search",
-                params={
-                    "api_key": ORS_API_KEY,
-                    "text": query,
-                    "size": 5,
-                },
-            )
+            resp = await client.get(f"{ORS_BASE_URL}/geocode/search", params=params)
             resp.raise_for_status()
         except httpx.HTTPError as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Error talking to geocoding service: {e}",
-            )
+            raise HTTPException(status_code=502, detail=f"Error talking to geocoding service: {e}")
 
-        data = resp.json()
-        features = data.get("features", [])
-        suggestions: List[str] = []
-        for feature in features:
-            label = feature.get("properties", {}).get("label")
-            if label:
-                suggestions.append(label)
-
-        return suggestions
+        features = resp.json().get("features", [])
+        return [f["properties"]["label"] for f in features if f.get("properties", {}).get("label")]
 
 
 @router.post("/routes/estimate", response_model=RouteEstimateResponse)
