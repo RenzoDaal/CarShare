@@ -94,7 +94,49 @@ const handleSelectCar = (car: Car, activateCallback: (step: number) => void) => 
 
 // Step 3: route & distance
 const stops = ref<string[]>(['', '']);
+let stopKeyCounter = 0;
+const stopKeys = ref<number[]>([stopKeyCounter++, stopKeyCounter++]);
+const activeStopIndex = ref(-1);
 const locationSuggestions = ref<string[]>([]);
+const stopAutoCompleteRefs = ref<any[]>([]);
+
+const setStopRef = (el: unknown, index: number) => {
+  if (el) stopAutoCompleteRefs.value[index] = el;
+};
+
+const getStopInput = (index: number): HTMLInputElement | null =>
+  stopAutoCompleteRefs.value[index]?.$el?.querySelector('input') ?? null;
+
+// Called on mousedown/touchstart — fires BEFORE focus, giving us time to
+// set readonly on other fields before Safari decides what to autofill.
+const onStopPointerDown = (index: number) => {
+  stopAutoCompleteRefs.value.forEach((_, i) => {
+    const input = getStopInput(i);
+    if (input) {
+      input.readOnly = i !== index;
+      input.autocomplete = i === index ? 'street-address' : 'new-password';
+    }
+  });
+};
+
+const onStopFocus = (index: number) => {
+  activeStopIndex.value = index;
+};
+
+const onStopBlur = (index: number) => {
+  setTimeout(() => {
+    if (activeStopIndex.value !== index) return;
+    activeStopIndex.value = -1;
+    locationSuggestions.value = [];
+    stopAutoCompleteRefs.value.forEach((_, i) => {
+      const input = getStopInput(i);
+      if (input) {
+        input.readOnly = false;
+        input.autocomplete = 'new-password';
+      }
+    });
+  }, 200);
+};
 const userLocation = ref<{ lat: number; lon: number } | null>(null);
 
 onMounted(() => {
@@ -136,7 +178,9 @@ watch(
 );
 
 const addStop = () => {
-  stops.value.splice(stops.value.length - 1, 0, '');
+  const insertAt = stops.value.length - 1;
+  stops.value.splice(insertAt, 0, '');
+  stopKeys.value.splice(insertAt, 0, stopKeyCounter++);
 };
 
 const removeStop = (index: number) => {
@@ -144,6 +188,7 @@ const removeStop = (index: number) => {
     return;
   }
   stops.value.splice(index, 1);
+  stopKeys.value.splice(index, 1);
 };
 
 const searchLocations = async (event: { query: string }) => {
@@ -462,7 +507,7 @@ const submitBooking = async () => {
                   </div>
 
                   <div class="space-y-3">
-                    <div v-for="(_stop, index) in stops" :key="index" class="flex items-center gap-2 w-full">
+                    <div v-for="(_stop, index) in stops" :key="stopKeys[index]" class="flex items-center gap-2 w-full">
                       <div class="flex-1 min-w-0">
                         <span class="block text-xs font-medium mb-1">
                           {{
@@ -473,8 +518,13 @@ const submitBooking = async () => {
                                 : $t('reserve_stop_label').replace('{index}', String(index))
                           }}
                         </span>
-                        <AutoComplete v-model="stops[index]" :suggestions="locationSuggestions" :minLength="3"
+                        <AutoComplete :ref="(el) => setStopRef(el, index)"
+                          v-model="stops[index]" :suggestions="locationSuggestions" :minLength="3"
                           :delay="300" :placeholder="$t('reserve_address_placeholder')" class="w-full" inputClass="w-full"
+                          @mousedown="onStopPointerDown(index)"
+                          @touchstart.passive="onStopPointerDown(index)"
+                          @focus="onStopFocus(index)"
+                          @blur="onStopBlur(index)"
                           @complete="searchLocations" />
                       </div>
 
