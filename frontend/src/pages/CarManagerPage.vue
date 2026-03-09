@@ -7,6 +7,7 @@ import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import InputNumber from 'primevue/inputnumber';
 import DatePicker from 'primevue/datepicker';
+import Tag from 'primevue/tag';
 
 import { useCarStore, type NewCarPayload, type UpdateCarPayload, type Car } from '@/stores/cars';
 import { formatDateOnly } from '@/utils/formatDate';
@@ -232,6 +233,88 @@ const deleteBlock = async (blockId: number) => {
 };
 
 const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
+
+// Co-owner management
+const coOwnersDialogVisible = ref(false);
+const coOwnersCarId = ref<number | null>(null);
+const coOwnersCarName = ref('');
+const coOwnersList = ref<{ user_id: number; full_name: string; email: string; status: string }[]>([]);
+const coOwnersLoading = ref(false);
+const inviteEmail = ref('');
+const inviteLoading = ref(false);
+const inviteError = ref<string | null>(null);
+const leaveLoading = ref(false);
+
+import { useAuthStore } from '@/stores/auth';
+const auth = useAuthStore();
+
+const isPrimaryOwner = (car: Car) => car.owner_id === auth.user?.id;
+
+const openCoOwnersDialog = async (car: Car) => {
+  coOwnersCarId.value = car.id;
+  coOwnersCarName.value = car.name;
+  coOwnersList.value = [];
+  inviteEmail.value = '';
+  inviteError.value = null;
+  coOwnersDialogVisible.value = true;
+  await loadCoOwners(car.id);
+};
+
+const loadCoOwners = async (carId: number) => {
+  coOwnersLoading.value = true;
+  try {
+    const res = await http.get(`/cars/${carId}/co-owners`);
+    coOwnersList.value = res.data;
+  } catch {
+    coOwnersList.value = [];
+  } finally {
+    coOwnersLoading.value = false;
+  }
+};
+
+const inviteCoOwner = async () => {
+  if (!coOwnersCarId.value || !inviteEmail.value.trim()) return;
+  inviteLoading.value = true;
+  inviteError.value = null;
+  try {
+    await http.post(`/cars/${coOwnersCarId.value}/co-owners/invite`, { email: inviteEmail.value.trim() });
+    inviteEmail.value = '';
+    await loadCoOwners(coOwnersCarId.value);
+  } catch (err: any) {
+    const detail = err?.response?.data?.detail ?? '';
+    if (detail.includes('No account')) inviteError.value = t('car_manager_invite_error_not_found');
+    else if (detail.includes('yourself')) inviteError.value = t('car_manager_invite_error_self');
+    else if (detail.includes('already')) inviteError.value = t('car_manager_invite_error_duplicate');
+    else inviteError.value = t('car_manager_invite_error_fallback');
+  } finally {
+    inviteLoading.value = false;
+  }
+};
+
+const removeCoOwner = async (userId: number) => {
+  if (!coOwnersCarId.value) return;
+  await http.delete(`/cars/${coOwnersCarId.value}/co-owners/${userId}`);
+  await loadCoOwners(coOwnersCarId.value);
+};
+
+const confirmLeaveCoOwnership = (car: Car) => {
+  confirm.require({
+    message: t('car_manager_leave_confirm_message'),
+    header: t('car_manager_leave_confirm_header'),
+    rejectLabel: t('car_manager_leave_confirm_cancel'),
+    rejectProps: { label: t('car_manager_leave_confirm_cancel'), severity: 'secondary', outlined: true },
+    acceptProps: { label: t('car_manager_leave_confirm_button'), severity: 'danger' },
+    accept: async () => {
+      leaveLoading.value = true;
+      try {
+        await http.delete(`/cars/${car.id}/co-owners/leave`);
+        await carStore.fetchMyCars();
+      } finally {
+        leaveLoading.value = false;
+      }
+    },
+  });
+};
 </script>
 
 
@@ -318,6 +401,37 @@ const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
     </div>
   </Dialog>
 
+  <Dialog v-model:visible="coOwnersDialogVisible" :header="`${$t('car_manager_co_owners_title')} — ${coOwnersCarName}`" modal style="width: 32rem">
+    <div class="flex flex-col gap-6">
+      <div>
+        <p v-if="coOwnersLoading" class="text-sm text-surface-500">{{ $t('car_manager_loading_blocks') }}</p>
+        <p v-else-if="coOwnersList.length === 0" class="text-sm text-surface-500">{{ $t('car_manager_no_co_owners') }}</p>
+        <ul v-else class="space-y-2">
+          <li v-for="co in coOwnersList" :key="co.user_id"
+            class="flex items-center justify-between text-sm bg-surface-50 dark:bg-surface-800 rounded px-3 py-2">
+            <div>
+              <span class="font-medium">{{ co.full_name }}</span>
+              <span class="text-surface-400 ml-2 text-xs">{{ co.email }}</span>
+              <span v-if="co.status === 'pending'" class="ml-2 text-xs text-orange-500 font-medium">{{ $t('car_manager_pending_badge') }}</span>
+            </div>
+            <Button icon="pi pi-times" severity="danger" text rounded size="small"
+              :title="$t('car_manager_cancel_invite')"
+              @click="removeCoOwner(co.user_id)" />
+          </li>
+        </ul>
+      </div>
+
+      <div class="border-t pt-4">
+        <h3 class="font-semibold text-sm mb-3">{{ $t('car_manager_invite_button') }}</h3>
+        <div class="flex gap-2">
+          <InputText v-model="inviteEmail" :placeholder="$t('car_manager_invite_email_placeholder')" class="flex-1" @keyup.enter="inviteCoOwner" />
+          <Button :label="$t('car_manager_invite_button')" icon="pi pi-send" size="small" :loading="inviteLoading" :disabled="!inviteEmail.trim() || inviteLoading" @click="inviteCoOwner" />
+        </div>
+        <p v-if="inviteError" class="text-xs text-red-500 mt-2">{{ inviteError }}</p>
+      </div>
+    </div>
+  </Dialog>
+
   <div class="flex flex-col w-full">
     <Toolbar class="w-full max-w-[98%] mx-auto mt-4">
       <template #start>
@@ -336,14 +450,21 @@ const formatDate = (iso: string) => formatDateOnly(iso + 'T00:00:00');
         </template>
         <template #title>
           <div class="flex items-center justify-between w-full">
-            {{ car.name }}
+            <div class="flex items-center gap-2">
+              {{ car.name }}
+              <Tag v-if="!isPrimaryOwner(car)" :value="$t('car_manager_co_owner_badge')" severity="secondary" />
+            </div>
             <div class="flex gap-2">
               <Button icon="pi pi-calendar-times" size="small" rounded variant="text" severity="secondary"
                 :title="$t('car_manager_manage_blocked_dates')" @click="openUnavailabilityDialog(car)" />
               <Button icon="pi pi-ellipsis-v" size="small" rounded variant="text" severity="contrast"
                 @click="openEditDialog(car)" />
-              <Button icon="pi pi-trash" size="small" rounded variant="outlined" severity="danger"
+              <Button v-if="isPrimaryOwner(car)" icon="pi pi-users" size="small" rounded variant="text" severity="info"
+                :title="$t('car_manager_co_owners_manage')" @click="openCoOwnersDialog(car)" />
+              <Button v-if="isPrimaryOwner(car)" icon="pi pi-trash" size="small" rounded variant="outlined" severity="danger"
                 @click="confirmDeleteCar(car.id)" />
+              <Button v-else icon="pi pi-sign-out" size="small" rounded variant="outlined" severity="warning"
+                :title="$t('car_manager_leave_co_ownership')" @click="confirmLeaveCoOwnership(car)" />
             </div>
           </div>
         </template>

@@ -171,3 +171,21 @@ class CarImageRead(SQLModel):
     car_id: int
     url: str
     order: int
+
+
+class CoOwnerRead(SQLModel):
+    user_id: int
+    full_name: str
+    email: str
+    status: str  # "pending" | "accepted"
+
+
+class CoOwnerInvite(SQLModel):
+    email: str
+
+
+class CoOwnerInviteRead(SQLModel):
+    car_id: int
+    car_name: str
+    owner_name: str
+    status: str

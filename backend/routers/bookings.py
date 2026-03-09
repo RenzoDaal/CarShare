@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 import schemas
 from auth import get_current_user, get_session
-from models import Booking, BookingStatus, Car, User, Waitlist
+from models import Booking, BookingStatus, Car, CarCoOwner, User, Waitlist
 from routers.notifications import create_notification
 from schemas import (
     BookingReschedule,
@@ -16,7 +16,7 @@ from schemas import (
     DashboardBookingRead,
     DashboardResponse,
 )
-from utils import get_prefs, parse_iso
+from utils import get_managed_car_ids, is_car_manager, get_prefs, parse_iso
 
 router = APIRouter()
 
@@ -93,6 +93,35 @@ def create_booking(
     else:
         session.commit()
 
+    # Notify accepted co-owners
+    co_owners = session.exec(
+        select(CarCoOwner).where(CarCoOwner.car_id == car.id, CarCoOwner.status == "accepted")
+    ).all()
+    for co in co_owners:
+        co_user = session.get(User, co.user_id)
+        if co_user:
+            co_prefs = get_prefs(co_user)
+            if co_prefs["booking_request"]["push"]:
+                create_notification(
+                    session,
+                    co_user.id,
+                    f"New booking request for {car.name} from {current_user.full_name}",
+                    booking.id,
+                )
+            if co_prefs["booking_request"]["email"] and co_user.email:
+                background_tasks.add_task(
+                    emailer.owner_booking_request_email,
+                    owner_email=co_user.email,
+                    owner_name=co_user.full_name,
+                    car_name=car.name,
+                    borrower_name=current_user.full_name,
+                    start_iso=booking.start_datetime.isoformat(),
+                    end_iso=booking.end_datetime.isoformat(),
+                    booking_id=booking.id,
+                    notes=booking.notes,
+                    tz=getattr(co_user, "timezone", "Europe/Amsterdam"),
+                )
+
     borrower_prefs = get_prefs(current_user)
     if borrower_prefs["booking_request"]["email"] and current_user.email:
         background_tasks.add_task(
@@ -153,6 +182,21 @@ def cancel_booking(
                 booking_id=booking.id,
                 tz=getattr(owner, "timezone", "Europe/Amsterdam"),
             )
+
+    co_owners = session.exec(
+        select(CarCoOwner).where(CarCoOwner.car_id == booking.car_id, CarCoOwner.status == "accepted")
+    ).all()
+    for co in co_owners:
+        co_user = session.get(User, co.user_id)
+        if co_user:
+            co_prefs = get_prefs(co_user)
+            if co_prefs["booking_cancelled"]["push"]:
+                create_notification(
+                    session,
+                    co_user.id,
+                    f"{current_user.full_name} cancelled their booking for {car.name}",
+                    booking.id,
+                )
 
     # Notify waitlist users whose requested period overlaps with the now-free slot
     waitlist_entries = session.exec(
@@ -301,7 +345,7 @@ def get_booking_detail(
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
 
-    if booking.borrower_id != current_user.id and car.owner_id != current_user.id:
+    if booking.borrower_id != current_user.id and not is_car_manager(car.id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to view this booking")
 
     borrower = booking.borrower or session.get(User, booking.borrower_id)
@@ -335,10 +379,13 @@ def list_owner_bookings(
     if not current_user.role_owner:
         raise HTTPException(status_code=403, detail="Not an owner")
 
+    managed_ids = get_managed_car_ids(current_user.id, session)
+    if not managed_ids:
+        return []
     bookings = session.exec(
         select(Booking)
         .join(Car)
-        .where(Car.owner_id == current_user.id)
+        .where(Car.id.in_(managed_ids))
         .order_by(Booking.start_datetime.desc())
     ).all()
 
@@ -427,7 +474,7 @@ def accept_booking(
         raise HTTPException(status_code=404, detail="Booking not found")
 
     car = booking.car
-    if car is None or car.owner_id != current_user.id:
+    if car is None or not is_car_manager(car.id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to modify this booking")
     if booking.status != BookingStatus.PENDING.value:
         raise HTTPException(status_code=400, detail="Only pending bookings can be accepted")
@@ -493,7 +540,7 @@ def decline_booking(
         raise HTTPException(status_code=404, detail="Booking not found")
 
     car = booking.car
-    if car is None or car.owner_id != current_user.id:
+    if car is None or not is_car_manager(car.id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to modify this booking")
     if booking.status != BookingStatus.PENDING.value:
         raise HTTPException(status_code=400, detail="Only pending bookings can be declined")
@@ -592,7 +639,8 @@ def get_dashboard(
     active_cars: List[CarRead] = []
     active_rentals: List[DashboardBookingRead] = []
     if current_user.role_owner:
-        cars = session.exec(select(Car).where(Car.owner_id == current_user.id)).all()
+        managed_ids = get_managed_car_ids(current_user.id, session)
+        cars = session.exec(select(Car).where(Car.id.in_(managed_ids))).all() if managed_ids else []
         for car in cars:
             active_cars.append(
                 CarRead(
@@ -606,11 +654,12 @@ def get_dashboard(
                 )
             )
 
+        managed_ids_set = {c.id for c in cars}
         ongoing = session.exec(
             select(Booking)
             .join(Car)
             .where(
-                Car.owner_id == current_user.id,
+                Car.id.in_(managed_ids_set),
                 Booking.status == BookingStatus.ACCEPTED.value,
                 Booking.start_datetime <= now,
                 Booking.end_datetime >= now,

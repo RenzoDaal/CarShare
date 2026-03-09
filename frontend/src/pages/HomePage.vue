@@ -85,6 +85,36 @@ const otherBookings = computed<DashboardBooking[]>(() => {
 
 const carStats = ref<CarStats[]>([]);
 
+type CoOwnerInvite = {
+  car_id: number;
+  car_name: string;
+  owner_name: string;
+  status: string;
+};
+
+const pendingInvites = ref<CoOwnerInvite[]>([]);
+
+async function loadPendingInvites() {
+  if (!auth.user?.role_owner) return;
+  try {
+    const res = await http.get<CoOwnerInvite[]>('/cars/co-owner-invites');
+    pendingInvites.value = res.data;
+  } catch {
+    // silently ignore
+  }
+}
+
+async function acceptInvite(carId: number) {
+  await http.post(`/cars/${carId}/co-owners/accept`);
+  await loadPendingInvites();
+  await loadDashboard();
+}
+
+async function declineInvite(carId: number) {
+  await http.post(`/cars/${carId}/co-owners/decline`);
+  await loadPendingInvites();
+}
+
 async function loadCarStats() {
   if (!auth.user?.role_owner) return;
   try {
@@ -138,6 +168,7 @@ function goToManageCars() {
 onMounted(() => {
   loadDashboard();
   loadCarStats();
+  loadPendingInvites();
 });
 </script>
 
@@ -251,6 +282,32 @@ onMounted(() => {
               </template>
             </Card>
           </div>
+        </div>
+
+        <div v-if="isOwner && pendingInvites.length > 0">
+          <Card class="mb-4">
+            <template #title>
+              <div class="flex items-center gap-2">
+                <span>{{ $t('dashboard_pending_invites_title') }}</span>
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-xs font-bold">{{ pendingInvites.length }}</span>
+              </div>
+            </template>
+            <template #content>
+              <div class="flex flex-col gap-3">
+                <div v-for="invite in pendingInvites" :key="invite.car_id"
+                  class="border border-surface-200 dark:border-surface-700 rounded-lg p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p class="font-medium text-sm">{{ invite.car_name }}</p>
+                    <p class="text-xs text-surface-500">{{ invite.owner_name }} {{ $t('dashboard_pending_invite_from') }} {{ invite.car_name }}</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <Button :label="$t('dashboard_accept_invite')" icon="pi pi-check" size="small" severity="success" @click="acceptInvite(invite.car_id)" />
+                    <Button :label="$t('dashboard_decline_invite')" icon="pi pi-times" size="small" severity="danger" outlined @click="declineInvite(invite.car_id)" />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </Card>
         </div>
 
         <div v-if="isOwner && data.active_rentals.length > 0">

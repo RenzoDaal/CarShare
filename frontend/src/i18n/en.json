@@ -335,5 +335,29 @@
 
   "app_push_banner": "Enable notifications to stay up to date on your bookings.",
   "app_push_enable": "Enable",
-  "app_push_error_fallback": "Push subscription failed (unknown error)"
+  "app_push_error_fallback": "Push subscription failed (unknown error)",
+
+  "car_manager_co_owners_title": "Co-owners",
+  "car_manager_co_owners_manage": "Manage co-owners",
+  "car_manager_no_co_owners": "No co-owners yet.",
+  "car_manager_pending_badge": "Pending",
+  "car_manager_invite_email_placeholder": "Email address",
+  "car_manager_invite_button": "Invite",
+  "car_manager_invite_error_not_found": "No account found with this email.",
+  "car_manager_invite_error_self": "You cannot invite yourself.",
+  "car_manager_invite_error_duplicate": "This user already has an invite for this car.",
+  "car_manager_invite_error_fallback": "Failed to send invite.",
+  "car_manager_cancel_invite": "Cancel invite",
+  "car_manager_remove_co_owner": "Remove",
+  "car_manager_co_owner_badge": "Co-owner",
+  "car_manager_primary_owner_label": "Primary owner:",
+  "car_manager_leave_co_ownership": "Leave co-ownership",
+  "car_manager_leave_confirm_message": "Are you sure you want to leave co-ownership of this car? You will no longer be able to manage it.",
+  "car_manager_leave_confirm_header": "Leave co-ownership",
+  "car_manager_leave_confirm_cancel": "Cancel",
+  "car_manager_leave_confirm_button": "Leave",
+  "dashboard_pending_invites_title": "Co-owner invitations",
+  "dashboard_pending_invite_from": "invited you to co-own",
+  "dashboard_accept_invite": "Accept",
+  "dashboard_decline_invite": "Decline"
 }

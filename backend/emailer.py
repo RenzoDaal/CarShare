@@ -220,3 +220,87 @@ def waitlist_availability_email(
         f"Book it before someone else does: {APP_BASE_URL}/reserve\n"
     )
     send_email(to_email, subject, body)
+
+
+def co_owner_invite_email(
+    *,
+    to_email: str,
+    to_name: str,
+    inviter_name: str,
+    car_name: str,
+) -> None:
+    subject = f"You've been invited to co-own {car_name}"
+    body = (
+        f"Hi {to_name},\n\n"
+        f"{inviter_name} has invited you to co-own their car: {car_name}.\n\n"
+        f"Accept or decline this invitation in the app:\n"
+        f"{APP_BASE_URL}\n"
+    )
+    send_email(to_email, subject, body)
+
+
+def co_owner_accepted_email(
+    *,
+    to_email: str,
+    to_name: str,
+    accepted_name: str,
+    car_name: str,
+) -> None:
+    subject = f"{accepted_name} accepted your co-owner invite for {car_name}"
+    body = (
+        f"Hi {to_name},\n\n"
+        f"{accepted_name} accepted your invitation to co-own {car_name}.\n\n"
+        f"They can now manage bookings and availability for this car.\n"
+        f"{APP_BASE_URL}/managecars\n"
+    )
+    send_email(to_email, subject, body)
+
+
+def co_owner_declined_email(
+    *,
+    to_email: str,
+    to_name: str,
+    declined_name: str,
+    car_name: str,
+) -> None:
+    subject = f"{declined_name} declined your co-owner invite for {car_name}"
+    body = (
+        f"Hi {to_name},\n\n"
+        f"{declined_name} declined your invitation to co-own {car_name}.\n"
+        f"{APP_BASE_URL}/managecars\n"
+    )
+    send_email(to_email, subject, body)
+
+
+def co_owner_left_email(
+    *,
+    to_email: str,
+    to_name: str,
+    left_name: str,
+    car_name: str,
+) -> None:
+    subject = f"{left_name} left co-ownership of {car_name}"
+    body = (
+        f"Hi {to_name},\n\n"
+        f"{left_name} has left co-ownership of {car_name}.\n"
+        f"They can no longer manage bookings or availability for this car.\n"
+        f"{APP_BASE_URL}/managecars\n"
+    )
+    send_email(to_email, subject, body)
+
+
+def co_owner_removed_email(
+    *,
+    to_email: str,
+    to_name: str,
+    car_name: str,
+    removed_by: str,
+) -> None:
+    subject = f"You've been removed as co-owner of {car_name}"
+    body = (
+        f"Hi {to_name},\n\n"
+        f"{removed_by} has removed you as a co-owner of {car_name}.\n"
+        f"You can no longer manage this car.\n"
+        f"{APP_BASE_URL}\n"
+    )
+    send_email(to_email, subject, body)

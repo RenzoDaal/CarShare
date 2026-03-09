@@ -4,12 +4,14 @@ from datetime import date, datetime
 from typing import List
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlmodel import Session, select
 
+import emailer
 from auth import get_current_user, get_session
 from config import BASE_DATA_DIR, CAR_IMAGE_DIR, MAX_IMAGE_SIZE
-from models import Booking, BookingStatus, Car, CarImage, CarUnavailability, User
+from models import Booking, BookingStatus, Car, CarCoOwner, CarImage, CarUnavailability, User
+from routers.notifications import create_notification
 from schemas import (
     CalendarDateRange,
     CarCreate,
@@ -19,8 +21,11 @@ from schemas import (
     CarUnavailabilityCreate,
     CarUnavailabilityRead,
     CarUpdate,
+    CoOwnerInvite,
+    CoOwnerInviteRead,
+    CoOwnerRead,
 )
-from utils import parse_iso
+from utils import get_managed_car_ids, is_car_manager, parse_iso
 
 router = APIRouter()
 
@@ -32,7 +37,8 @@ def get_car_stats(
 ):
     if not current_user.role_owner:
         raise HTTPException(status_code=403, detail="Not an owner")
-    cars = session.exec(select(Car).where(Car.owner_id == current_user.id)).all()
+    managed_ids = get_managed_car_ids(current_user.id, session)
+    cars = session.exec(select(Car).where(Car.id.in_(managed_ids))).all() if managed_ids else []
     result = []
     for car in cars:
         accepted_bookings = session.exec(
@@ -82,7 +88,7 @@ async def upload_car_image(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to update this car")
 
     _, ext = os.path.splitext(file.filename or "")
@@ -121,7 +127,7 @@ def update_car(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to update this car")
 
     update_data = data.model_dump(exclude_unset=True)
@@ -185,7 +191,11 @@ def list_my_cars(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    return session.exec(select(Car).where(Car.owner_id == current_user.id)).all()
+    managed_ids = get_managed_car_ids(current_user.id, session)
+    if not managed_ids:
+        return []
+    cars = session.exec(select(Car).where(Car.id.in_(managed_ids))).all()
+    return cars
 
 
 @router.get("/cars")
@@ -216,6 +226,12 @@ def delete_car(
     for b in blocks:
         session.delete(b)
 
+    co_owners = session.exec(
+        select(CarCoOwner).where(CarCoOwner.car_id == car_id)
+    ).all()
+    for co in co_owners:
+        session.delete(co)
+
     session.delete(car)
     session.commit()
 
@@ -243,7 +259,7 @@ async def add_car_image(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to update this car")
 
     _, ext = os.path.splitext(file.filename or "")
@@ -287,7 +303,7 @@ def delete_car_image(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to update this car")
 
     image = session.get(CarImage, image_id)
@@ -320,7 +336,7 @@ def list_car_unavailability(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to view this car's unavailability")
 
     return session.exec(
@@ -344,7 +360,7 @@ def add_car_unavailability(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to update this car")
     if data.end_date < data.start_date:
         raise HTTPException(status_code=400, detail="End date must be on or after start date")
@@ -369,7 +385,7 @@ def delete_car_unavailability(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed to update this car")
 
     block = session.get(CarUnavailability, block_id)
@@ -424,3 +440,264 @@ def get_car_calendar(
         ranges.append(CalendarDateRange(start=b.start_date, end=b.end_date))
 
     return ranges
+
+
+# --- Co-owner management ---
+
+@router.get("/cars/co-owner-invites", response_model=List[CoOwnerInviteRead])
+def list_co_owner_invites(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Return pending co-owner invites for the current user."""
+    rows = session.exec(
+        select(CarCoOwner).where(
+            CarCoOwner.user_id == current_user.id,
+            CarCoOwner.status == "pending",
+        )
+    ).all()
+    result = []
+    for row in rows:
+        car = session.get(Car, row.car_id)
+        if car is None:
+            continue
+        owner = session.get(User, car.owner_id)
+        result.append(CoOwnerInviteRead(
+            car_id=car.id,
+            car_name=car.name,
+            owner_name=owner.full_name if owner else "Unknown",
+            status=row.status,
+        ))
+    return result
+
+
+@router.get("/cars/{car_id}/co-owners", response_model=List[CoOwnerRead])
+def list_co_owners(
+    car_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if not is_car_manager(car_id, current_user.id, session) and car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    rows = session.exec(select(CarCoOwner).where(CarCoOwner.car_id == car_id)).all()
+    result = []
+    for row in rows:
+        user = session.get(User, row.user_id)
+        if user:
+            result.append(CoOwnerRead(user_id=user.id, full_name=user.full_name, email=user.email, status=row.status))
+    return result
+
+
+@router.post("/cars/{car_id}/co-owners/invite", status_code=status.HTTP_201_CREATED)
+def invite_co_owner(
+    car_id: int,
+    data: CoOwnerInvite,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the primary owner can invite co-owners")
+
+    invitee = session.exec(select(User).where(User.email == data.email)).first()
+    if invitee is None:
+        raise HTTPException(status_code=404, detail="No account found with this email")
+    if invitee.id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot invite yourself")
+
+    existing = session.exec(
+        select(CarCoOwner).where(CarCoOwner.car_id == car_id, CarCoOwner.user_id == invitee.id)
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This user already has a pending or accepted co-owner invite for this car")
+
+    row = CarCoOwner(car_id=car_id, user_id=invitee.id, status="pending")
+    session.add(row)
+    create_notification(
+        session,
+        invitee.id,
+        f"{current_user.full_name} invited you to co-own {car.name}",
+    )
+    session.commit()
+
+    if invitee.email:
+        background_tasks.add_task(
+            emailer.co_owner_invite_email,
+            to_email=invitee.email,
+            to_name=invitee.full_name,
+            inviter_name=current_user.full_name,
+            car_name=car.name,
+        )
+
+    return {"ok": True}
+
+
+@router.post("/cars/{car_id}/co-owners/accept")
+def accept_co_owner_invite(
+    car_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    row = session.exec(
+        select(CarCoOwner).where(
+            CarCoOwner.car_id == car_id,
+            CarCoOwner.user_id == current_user.id,
+            CarCoOwner.status == "pending",
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No pending invite found")
+
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    row.status = "accepted"
+    session.add(row)
+
+    owner = session.get(User, car.owner_id)
+    if owner:
+        create_notification(
+            session,
+            owner.id,
+            f"{current_user.full_name} accepted your co-owner invite for {car.name}",
+        )
+    session.commit()
+
+    if owner and owner.email:
+        background_tasks.add_task(
+            emailer.co_owner_accepted_email,
+            to_email=owner.email,
+            to_name=owner.full_name,
+            accepted_name=current_user.full_name,
+            car_name=car.name,
+        )
+
+    return {"ok": True}
+
+
+@router.post("/cars/{car_id}/co-owners/decline")
+def decline_co_owner_invite(
+    car_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    row = session.exec(
+        select(CarCoOwner).where(
+            CarCoOwner.car_id == car_id,
+            CarCoOwner.user_id == current_user.id,
+            CarCoOwner.status == "pending",
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No pending invite found")
+
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    session.delete(row)
+
+    owner = session.get(User, car.owner_id)
+    if owner:
+        create_notification(
+            session,
+            owner.id,
+            f"{current_user.full_name} declined your co-owner invite for {car.name}",
+        )
+    session.commit()
+
+    if owner and owner.email:
+        background_tasks.add_task(
+            emailer.co_owner_declined_email,
+            to_email=owner.email,
+            to_name=owner.full_name,
+            declined_name=current_user.full_name,
+            car_name=car.name,
+        )
+
+    return {"ok": True}
+
+
+@router.delete("/cars/{car_id}/co-owners/leave", status_code=status.HTTP_204_NO_CONTENT)
+def leave_co_ownership(
+    car_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    row = session.exec(
+        select(CarCoOwner).where(
+            CarCoOwner.car_id == car_id,
+            CarCoOwner.user_id == current_user.id,
+            CarCoOwner.status == "accepted",
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="You are not a co-owner of this car")
+
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    session.delete(row)
+
+    owner = session.get(User, car.owner_id)
+    if owner:
+        create_notification(
+            session,
+            owner.id,
+            f"{current_user.full_name} left co-ownership of {car.name}",
+        )
+    session.commit()
+
+    if owner and owner.email:
+        background_tasks.add_task(
+            emailer.co_owner_left_email,
+            to_email=owner.email,
+            to_name=owner.full_name,
+            left_name=current_user.full_name,
+            car_name=car.name,
+        )
+
+
+@router.delete("/cars/{car_id}/co-owners/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_co_owner(
+    car_id: int,
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+    if car.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the primary owner can remove co-owners")
+
+    row = session.exec(
+        select(CarCoOwner).where(CarCoOwner.car_id == car_id, CarCoOwner.user_id == user_id)
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Co-owner not found")
+
+    removed_user = session.get(User, user_id)
+    session.delete(row)
+    session.commit()
+
+    if removed_user and removed_user.email:
+        background_tasks.add_task(
+            emailer.co_owner_removed_email,
+            to_email=removed_user.email,
+            to_name=removed_user.full_name,
+            car_name=car.name,
+            removed_by=current_user.full_name,
+        )

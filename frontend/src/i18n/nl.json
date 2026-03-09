@@ -335,5 +335,29 @@
 
   "app_push_banner": "Zet meldingen aan om op de hoogte te blijven van je boekingen.",
   "app_push_enable": "Aanzetten",
-  "app_push_error_fallback": "Push-abonnement mislukt (onbekende fout)"
+  "app_push_error_fallback": "Push-abonnement mislukt (onbekende fout)",
+
+  "car_manager_co_owners_title": "Mede-eigenaren",
+  "car_manager_co_owners_manage": "Mede-eigenaren beheren",
+  "car_manager_no_co_owners": "Nog geen mede-eigenaren.",
+  "car_manager_pending_badge": "In afwachting",
+  "car_manager_invite_email_placeholder": "E-mailadres",
+  "car_manager_invite_button": "Uitnodigen",
+  "car_manager_invite_error_not_found": "Geen account gevonden met dit e-mailadres.",
+  "car_manager_invite_error_self": "Je kunt jezelf niet uitnodigen.",
+  "car_manager_invite_error_duplicate": "Deze gebruiker heeft al een uitnodiging voor deze auto.",
+  "car_manager_invite_error_fallback": "Uitnodiging verzenden mislukt.",
+  "car_manager_cancel_invite": "Uitnodiging annuleren",
+  "car_manager_remove_co_owner": "Verwijderen",
+  "car_manager_co_owner_badge": "Mede-eigenaar",
+  "car_manager_primary_owner_label": "Primaire eigenaar:",
+  "car_manager_leave_co_ownership": "Mede-eigenaarschap verlaten",
+  "car_manager_leave_confirm_message": "Weet je zeker dat je het mede-eigenaarschap van deze auto wilt verlaten? Je kunt de auto daarna niet meer beheren.",
+  "car_manager_leave_confirm_header": "Mede-eigenaarschap verlaten",
+  "car_manager_leave_confirm_cancel": "Annuleren",
+  "car_manager_leave_confirm_button": "Verlaten",
+  "dashboard_pending_invites_title": "Mede-eigenaar uitnodigingen",
+  "dashboard_pending_invite_from": "heeft je uitgenodigd om mede-eigenaar te worden van",
+  "dashboard_accept_invite": "Accepteren",
+  "dashboard_decline_invite": "Weigeren"
 }
