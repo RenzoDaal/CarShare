@@ -562,6 +562,11 @@ def accept_co_owner_invite(
     row.status = "accepted"
     session.add(row)
 
+    # Grant owner role if not already set
+    if not current_user.role_owner:
+        current_user.role_owner = True
+        session.add(current_user)
+
     owner = session.get(User, car.owner_id)
     if owner:
         create_notification(
@@ -570,6 +575,7 @@ def accept_co_owner_invite(
             f"{current_user.full_name} accepted your co-owner invite for {car.name}",
         )
     session.commit()
+    session.refresh(current_user)
 
     if owner and owner.email:
         background_tasks.add_task(
@@ -580,7 +586,8 @@ def accept_co_owner_invite(
             car_name=car.name,
         )
 
-    return {"ok": True}
+    from auth import user_to_read
+    return {"ok": True, "user": user_to_read(current_user)}
 
 
 @router.post("/cars/{car_id}/co-owners/decline")

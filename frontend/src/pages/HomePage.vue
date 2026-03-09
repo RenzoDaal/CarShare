@@ -95,7 +95,6 @@ type CoOwnerInvite = {
 const pendingInvites = ref<CoOwnerInvite[]>([]);
 
 async function loadPendingInvites() {
-  if (!auth.user?.role_owner) return;
   try {
     const res = await http.get<CoOwnerInvite[]>('/cars/co-owner-invites');
     pendingInvites.value = res.data;
@@ -105,9 +104,13 @@ async function loadPendingInvites() {
 }
 
 async function acceptInvite(carId: number) {
-  await http.post(`/cars/${carId}/co-owners/accept`);
+  const res = await http.post(`/cars/${carId}/co-owners/accept`);
+  if (res.data?.user) {
+    auth.updateUser(res.data.user);
+  }
   await loadPendingInvites();
   await loadDashboard();
+  await loadCarStats();
 }
 
 async function declineInvite(carId: number) {
@@ -284,7 +287,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-if="isOwner && pendingInvites.length > 0">
+        <div v-if="pendingInvites.length > 0">
           <Card class="mb-4">
             <template #title>
               <div class="flex items-center gap-2">
