@@ -69,6 +69,18 @@ const data = ref<DashboardResponse>({
 });
 
 const isOwner = computed(() => auth.user?.role_owner ?? false);
+const isBorrower = computed(() => auth.user?.role_borrower ?? false);
+
+const pendingOwnerCount = ref(0);
+async function loadPendingOwnerCount() {
+  if (!auth.user?.role_owner) return;
+  try {
+    const { data } = await http.get<{ status: string }[]>('/bookings/owner');
+    pendingOwnerCount.value = data.filter(b => b.status === 'pending').length;
+  } catch {
+    // silently ignore
+  }
+}
 
 const hasBookings = computed<boolean>(() => {
   const value = data.value;
@@ -221,6 +233,7 @@ onMounted(() => {
   loadDashboard();
   loadCarStats();
   loadPendingInvites();
+  loadPendingOwnerCount();
 });
 </script>
 
@@ -257,10 +270,22 @@ onMounted(() => {
       </div>
 
       <div v-else class="space-y-4">
-        <div ref="bookingsEl" class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch"
-          :class="['transition-all duration-700', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
-          <div class="lg:col-span-2 h-full">
-            <Card class="h-full">
+        <div ref="bookingsEl"
+          :class="['transition-all duration-700 space-y-4', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
+
+          <!-- Quick actions row -->
+          <div class="flex flex-wrap gap-2">
+            <Button :label="$t('dashboard_reserve_car')" icon="pi pi-calendar" @click="goToReserve" />
+            <Button v-if="isBorrower" :label="$t('dashboard_my_appointments')" icon="pi pi-list" severity="secondary"
+              @click="router.push({ name: 'borrowerappointments' })" />
+            <Button v-if="isOwner" :label="$t('dashboard_booking_requests')" icon="pi pi-inbox" severity="secondary"
+              :badge="pendingOwnerCount > 0 ? String(pendingOwnerCount) : undefined" badge-severity="warn"
+              @click="router.push({ name: 'ownerappointments' })" />
+            <Button v-if="isOwner" :label="$t('dashboard_manage_my_cars')" icon="pi pi-car" severity="secondary"
+              @click="goToManageCars" />
+          </div>
+
+          <Card>
               <template #title>
                 <div class="flex items-center justify-between gap-2">
                   <span>{{ $t('dashboard_your_bookings') }}</span>
@@ -347,22 +372,6 @@ onMounted(() => {
                 </div>
               </template>
             </Card>
-          </div>
-
-          <div class="lg:col-span-1 flex">
-            <Card class="flex-1 h-full flex flex-col">
-              <template #title>
-                <span>{{ $t('dashboard_quick_actions') }}</span>
-              </template>
-              <template #content>
-                <div class="flex-1 flex flex-col gap-2">
-                  <Button :label="$t('dashboard_reserve_car')" icon="pi pi-calendar" @click="goToReserve" />
-                  <Button v-if="isOwner" :label="$t('dashboard_manage_my_cars')" icon="pi pi-car" severity="secondary"
-                    @click="goToManageCars" />
-                </div>
-              </template>
-            </Card>
-          </div>
         </div>
 
         <div v-if="pendingInvites.length > 0">
@@ -474,7 +483,7 @@ onMounted(() => {
 
               <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div v-for="(car, index) in data!.active_cars" :key="car.id"
-                  class="relative h-40 rounded-xl overflow-hidden cursor-pointer shadow hover:-translate-y-1 hover:shadow-lg transition-all duration-300 card-animate border border-surface-200 dark:border-surface-700"
+                  class="relative h-80 rounded-xl overflow-hidden cursor-pointer shadow hover:-translate-y-1 hover:shadow-lg transition-all duration-300 card-animate border border-surface-200 dark:border-surface-700"
                   :style="{ animationDelay: `${index * 60}ms` }"
                   @click="goToManageCars">
                   <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />

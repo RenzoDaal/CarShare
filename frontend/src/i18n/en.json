@@ -70,6 +70,8 @@
   "dashboard_awaiting_approval": "Awaiting approval",
   "dashboard_quick_actions": "Quick actions",
   "dashboard_manage_my_cars": "Manage my cars",
+  "dashboard_my_appointments": "My appointments",
+  "dashboard_booking_requests": "Booking requests",
   "dashboard_currently_in_use": "Currently in use",
   "dashboard_active": "Active",
   "dashboard_borrower": "Borrower:",
