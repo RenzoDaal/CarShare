@@ -29,11 +29,11 @@ async function submit() {
 </script>
 
 <template>
-  <div class="flex-1 flex justify-center items-center h-screen">
-    <Card>
+  <div class="flex-1 flex justify-center items-center min-h-screen px-4 bg-gradient-to-br from-primary/5 via-transparent to-surface-100 dark:from-primary/10 dark:via-surface-950 dark:to-surface-900">
+    <Card class="w-full max-w-sm">
       <template #title>{{ $t('forgot_password_title') }}</template>
       <template #content>
-        <div class="flex flex-col mt-4 w-96 gap-4">
+        <div class="flex flex-col mt-4 w-full gap-4">
           <template v-if="!submitted">
             <p class="text-sm text-surface-500">
               {{ $t('forgot_password_description') }}

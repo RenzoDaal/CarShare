@@ -448,7 +448,7 @@ const confirmLeaveCoOwnership = (car: Car) => {
 
 
 <template>
-  <Dialog v-model:visible="createCarDialogVisible" modal :header="$t('car_manager_add_car_title')" :style="{ width: '36rem' }">
+  <Dialog v-model:visible="createCarDialogVisible" modal :header="$t('car_manager_add_car_title')" :style="{ width: '36rem' }" :breakpoints="{ '640px': '95vw' }">
     <div class="flex flex-col gap-4">
       <InputText v-model="newCar.name" :placeholder="$t('car_manager_car_name_placeholder')" />
       <Textarea v-model="newCar.description" :placeholder="$t('car_manager_description_placeholder')" rows="3" />
@@ -518,7 +518,7 @@ const confirmLeaveCoOwnership = (car: Car) => {
     </template>
   </Dialog>
 
-  <Dialog v-model:visible="editCarDialogVisible" :header="$t('car_manager_edit_car_title')" modal :style="{ width: '36rem' }">
+  <Dialog v-model:visible="editCarDialogVisible" :header="$t('car_manager_edit_car_title')" modal :style="{ width: '36rem' }" :breakpoints="{ '640px': '95vw' }">
     <div class="flex flex-col gap-4">
       <InputText v-model="editCar.name" :placeholder="$t('car_manager_car_name_placeholder')" />
       <Textarea v-model="editCar.description" :placeholder="$t('car_manager_description_placeholder')" rows="3" />
@@ -590,7 +590,7 @@ const confirmLeaveCoOwnership = (car: Car) => {
   </Dialog>
 
   <Dialog v-model:visible="unavailabilityDialogVisible" :header="`${$t('car_manager_block_dates_title')} — ${unavailabilityCarName}`" modal
-    style="width: 32rem">
+    :style="{ width: '32rem' }" :breakpoints="{ '640px': '95vw' }">
     <div class="flex flex-col gap-6">
       <div v-if="unavailabilityError" class="text-sm text-red-500">{{ unavailabilityError }}</div>
 
@@ -621,7 +621,7 @@ const confirmLeaveCoOwnership = (car: Car) => {
     </div>
   </Dialog>
 
-  <Dialog v-model:visible="coOwnersDialogVisible" :header="`${$t('car_manager_co_owners_title')} — ${coOwnersCarName}`" modal style="width: 32rem">
+  <Dialog v-model:visible="coOwnersDialogVisible" :header="`${$t('car_manager_co_owners_title')} — ${coOwnersCarName}`" modal :style="{ width: '32rem' }" :breakpoints="{ '640px': '95vw' }">
     <div class="flex flex-col gap-6">
       <div>
         <p v-if="coOwnersLoading" class="text-sm text-surface-500">{{ $t('car_manager_loading_blocks') }}</p>

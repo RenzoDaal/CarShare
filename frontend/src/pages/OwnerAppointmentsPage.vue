@@ -178,17 +178,24 @@ onMounted(fetchBookings);
           <div v-if="declinedBookings.length === 0" class="text-sm text-surface-500">
             {{ $t('owner_no_declined') }}
           </div>
-          <ul v-else class="flex flex-col gap-2 text-sm">
-            <li v-for="booking in declinedBookings" :key="booking.id"
-              class="flex justify-between items-center border rounded-md p-2">
-              <div>
-                <span class="font-medium">{{ booking.car.name }}</span> –
-                {{ formatDateTime(booking.start_datetime) }}
-                <span v-if="booking.borrower_name" class="ml-2 text-surface-400">({{ booking.borrower_name }})</span>
-              </div>
-              <Tag severity="danger" :value="$t('owner_declined_tag')" />
-            </li>
-          </ul>
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Card v-for="booking in declinedBookings" :key="booking.id" class="h-full">
+              <template #title>{{ booking.car.name }}</template>
+              <template #subtitle>
+                <Tag severity="danger" :value="$t('owner_declined_tag')" />
+              </template>
+              <template #content>
+                <p class="text-sm text-surface-500 mb-1">
+                  {{ formatDateTime(booking.start_datetime) }} –
+                  {{ formatDateTime(booking.end_datetime) }}
+                </p>
+                <p v-if="booking.borrower_name" class="text-sm mt-1 text-surface-500">
+                  {{ $t('owner_borrower_label') }} <span class="font-medium text-surface-700 dark:text-surface-200">{{ booking.borrower_name }}</span>
+                  <span v-if="booking.borrower_email"> — {{ booking.borrower_email }}</span>
+                </p>
+              </template>
+            </Card>
+          </div>
         </template>
       </Card>
 
@@ -199,17 +206,24 @@ onMounted(fetchBookings);
           <div v-if="cancelledBookings.length === 0" class="text-sm text-surface-500">
             {{ $t('owner_no_cancelled') }}
           </div>
-          <ul v-else class="flex flex-col gap-2 text-sm">
-            <li v-for="booking in cancelledBookings" :key="booking.id"
-              class="flex justify-between items-center border rounded-md p-2">
-              <div>
-                <span class="font-medium">{{ booking.car.name }}</span> –
-                {{ formatDateTime(booking.start_datetime) }}
-                <span v-if="booking.borrower_name" class="ml-2 text-surface-400">({{ booking.borrower_name }})</span>
-              </div>
-              <Tag severity="secondary" :value="$t('owner_cancelled_tag')" />
-            </li>
-          </ul>
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Card v-for="booking in cancelledBookings" :key="booking.id" class="h-full">
+              <template #title>{{ booking.car.name }}</template>
+              <template #subtitle>
+                <Tag severity="secondary" :value="$t('owner_cancelled_tag')" />
+              </template>
+              <template #content>
+                <p class="text-sm text-surface-500 mb-1">
+                  {{ formatDateTime(booking.start_datetime) }} –
+                  {{ formatDateTime(booking.end_datetime) }}
+                </p>
+                <p v-if="booking.borrower_name" class="text-sm mt-1 text-surface-500">
+                  {{ $t('owner_borrower_label') }} <span class="font-medium text-surface-700 dark:text-surface-200">{{ booking.borrower_name }}</span>
+                  <span v-if="booking.borrower_email"> — {{ booking.borrower_email }}</span>
+                </p>
+              </template>
+            </Card>
+          </div>
         </template>
       </Card>
     </template>

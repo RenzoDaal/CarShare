@@ -185,102 +185,100 @@ const selectDay = async (day: Date) => {
         <p class="text-sm text-surface-500 mb-6">{{ $t('availability_select_car') }}</p>
         <p v-if="carsLoading" class="text-sm text-surface-500">{{ $t('availability_loading_cars') }}</p>
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card v-for="car in cars" :key="car.id"
-            class="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+          <div v-for="(car, index) in cars" :key="car.id"
+            class="relative h-80 rounded-xl overflow-hidden cursor-pointer shadow hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 card-animate border border-surface-200 dark:border-surface-700"
+            :style="{ animationDelay: `${index * 70}ms` }"
             @click="selectCar(car)">
-            <template #header>
-              <div class="h-48 w-full">
-                <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
-              </div>
-            </template>
-            <template #title>{{ car.name }}</template>
-            <template #content>
-              <span class="text-sm text-surface-500">{{ car.price_per_km }} € / km</span>
-            </template>
-          </Card>
+            <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent pointer-events-none" />
+            <div class="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
+              <p class="text-white font-semibold leading-tight">{{ car.name }}</p>
+              <p class="text-white/75 text-sm mt-0.5">{{ car.price_per_km }} € / km</p>
+            </div>
+          </div>
         </div>
       </div>
     </template>
 
-    <!-- Calendar view -->
+    <!-- Calendar / Day detail view -->
     <template v-else>
       <div class="w-full max-w-2xl mx-auto mt-6 px-2">
+
+        <!-- Header: always visible, back button changes target depending on view -->
         <div class="flex items-center gap-3 mb-6">
           <Button icon="pi pi-arrow-left" severity="secondary" outlined rounded size="small"
-            @click="selectedCar = null; selectedDay = null" />
+            @click="selectedDay ? selectedDay = null : (selectedCar = null)" />
           <div>
-            <h1 class="text-xl font-semibold">{{ selectedCar.name }}</h1>
-            <p class="text-sm text-surface-500">{{ selectedCar.price_per_km }} € / km</p>
+            <h1 class="text-xl font-semibold">{{ selectedDay ? dayTitle : selectedCar.name }}</h1>
+            <p class="text-sm text-surface-500">{{ selectedDay ? selectedCar.name : `${selectedCar.price_per_km} € / km` }}</p>
           </div>
         </div>
 
-        <Card>
-          <template #content>
-            <!-- Month navigation -->
-            <div class="flex items-center justify-between mb-4">
-              <Button icon="pi pi-chevron-left" severity="secondary" text rounded @click="prevMonth" />
-              <span class="font-semibold text-base">{{ monthName }}</span>
-              <Button icon="pi pi-chevron-right" severity="secondary" text rounded @click="nextMonth" />
-            </div>
+        <!-- Calendar ↔ Day detail: mutually exclusive with transition -->
+        <Transition name="drill" mode="out-in">
 
-            <!-- Day-of-week headers -->
-            <div class="grid grid-cols-7 mb-1">
-              <div v-for="day in [$t('availability_day_sun'), $t('availability_day_mon'), $t('availability_day_tue'), $t('availability_day_wed'), $t('availability_day_thu'), $t('availability_day_fri'), $t('availability_day_sat')]" :key="day"
-                class="text-center text-xs font-medium text-surface-400 py-1">
-                {{ day }}
-              </div>
-            </div>
-
-            <!-- Calendar grid -->
-            <div v-if="calendarLoading" class="text-center py-8 text-sm text-surface-500">{{ $t('availability_loading_calendar') }}</div>
-            <div v-else class="grid grid-cols-7 gap-1">
-              <div v-for="(day, i) in calendarDays" :key="i"
-                class="aspect-square flex items-center justify-center rounded-lg text-sm transition-all"
-                :class="{
-                  'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-medium': day && isUnavailable(day),
-                  'ring-2 ring-primary font-semibold': day && isToday(day) && !isUnavailable(day),
-                  'text-surface-800 dark:text-surface-100 cursor-pointer hover:bg-surface-100 dark:hover:bg-surface-700': day && !isUnavailable(day),
-                  'cursor-pointer hover:bg-red-200 dark:hover:bg-red-800/50': day && isUnavailable(day),
-                  'ring-2 ring-offset-1 ring-primary/60': day && selectedDay && toDateStr(day) === toDateStr(selectedDay),
-                  'text-surface-300': !day,
-                }"
-                @click="day && selectDay(day)">
-                {{ day ? day.getDate() : '' }}
-              </div>
-            </div>
-
-            <!-- Legend -->
-            <div class="flex items-center gap-4 mt-4 text-xs text-surface-500">
-              <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
-                <span>{{ $t('availability_unavailable') }}</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded border-2 border-primary"></div>
-                <span>{{ $t('availability_today') }}</span>
-              </div>
-            </div>
-            <!-- Hint -->
-            <p class="text-xs text-surface-400 italic mt-2">{{ $t('availability_click_day_hint') }}</p>
-          </template>
-        </Card>
-
-        <!-- Day detail panel -->
-        <div v-if="selectedDay" class="mt-4">
-          <Card>
+          <!-- Calendar view -->
+          <Card v-if="!selectedDay" key="calendar">
             <template #content>
+              <!-- Month navigation -->
               <div class="flex items-center justify-between mb-4">
-                <h2 class="font-semibold text-base capitalize">{{ $t('availability_day_detail_title') }} {{ dayTitle }}</h2>
-                <Button icon="pi pi-times" severity="secondary" text rounded size="small" @click="selectedDay = null" />
+                <Button icon="pi pi-chevron-left" severity="secondary" text rounded @click="prevMonth" />
+                <span class="font-semibold text-base">{{ monthName }}</span>
+                <Button icon="pi pi-chevron-right" severity="secondary" text rounded @click="nextMonth" />
               </div>
 
-              <div v-if="dayLoading" class="text-sm text-surface-500 py-4 text-center">{{ $t('availability_loading_calendar') }}</div>
+              <!-- Day-of-week headers -->
+              <div class="grid grid-cols-7 mb-1">
+                <div v-for="day in [$t('availability_day_sun'), $t('availability_day_mon'), $t('availability_day_tue'), $t('availability_day_wed'), $t('availability_day_thu'), $t('availability_day_fri'), $t('availability_day_sat')]" :key="day"
+                  class="text-center text-xs font-medium text-surface-400 py-1">
+                  {{ day }}
+                </div>
+              </div>
 
-              <div v-else-if="!dayBusySlots.length" class="text-sm text-green-600 dark:text-green-400 py-2">
+              <!-- Calendar grid -->
+              <div v-if="calendarLoading" class="text-center py-8 text-sm text-surface-500">{{ $t('availability_loading_calendar') }}</div>
+              <div v-else class="grid grid-cols-7 gap-1">
+                <div v-for="(day, i) in calendarDays" :key="i"
+                  class="aspect-square flex items-center justify-center rounded-lg text-sm transition-all"
+                  :class="{
+                    'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400': day && isUnavailable(day),
+                    'ring-2 ring-primary font-semibold': day && isToday(day) && !isUnavailable(day),
+                    'text-surface-800 dark:text-surface-100 cursor-pointer hover:bg-surface-100 dark:hover:bg-surface-700': day && !isUnavailable(day),
+                    'cursor-pointer hover:bg-red-200 dark:hover:bg-red-800/50': day && isUnavailable(day),
+                    'text-surface-300': !day,
+                  }"
+                  @click="day && selectDay(day)">
+                  <span :class="{ 'line-through opacity-60': day && isUnavailable(day) }">{{ day ? day.getDate() : '' }}</span>
+                </div>
+              </div>
+
+              <!-- Legend -->
+              <div class="flex items-center gap-4 mt-4 text-xs text-surface-500">
+                <div class="flex items-center gap-1">
+                  <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
+                  <span>{{ $t('availability_unavailable') }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <div class="w-4 h-4 rounded border-2 border-primary"></div>
+                  <span>{{ $t('availability_today') }}</span>
+                </div>
+              </div>
+              <p class="text-xs text-surface-400 italic mt-2">{{ $t('availability_click_day_hint') }}</p>
+            </template>
+          </Card>
+
+          <!-- Day detail view -->
+          <Card v-else key="day-detail">
+            <template #content>
+              <div v-if="dayLoading" class="text-sm text-surface-500 py-8 text-center">
+                {{ $t('availability_loading_calendar') }}
+              </div>
+
+              <div v-else-if="!dayBusySlots.length" class="text-sm text-green-600 dark:text-green-400 py-4">
                 {{ $t('availability_day_fully_free') }}
               </div>
 
-              <div v-else class="flex flex-col rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700" style="height: 360px">
+              <div v-else class="flex flex-col rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700" style="height: min(420px, 55vh)">
                 <div
                   v-for="(seg, i) in daySegments" :key="i"
                   class="flex items-center px-3 gap-3 text-xs overflow-hidden transition-colors"
@@ -314,10 +312,44 @@ const selectDay = async (day: Date) => {
               </div>
             </template>
           </Card>
-        </div>
+
+        </Transition>
 
       </div>
     </template>
 
   </div>
 </template>
+
+<style scoped>
+.card-animate {
+  animation: cardFadeIn 0.35s ease forwards;
+  opacity: 0;
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.drill-enter-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.drill-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.drill-enter-from {
+  opacity: 0;
+  transform: translateX(16px);
+}
+.drill-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+</style>

@@ -205,11 +205,12 @@
       </div>
     </template>
   </Drawer>
-  <div>
-    <Toolbar class="!border-none !rounded-none">
+  <div class="sticky top-0 z-50 backdrop-blur-lg border-b border-surface-200/50 dark:border-surface-700/40"
+    :style="{ backgroundColor: isDark ? 'rgba(12, 12, 12, 0.88)' : 'rgba(255, 255, 255, 0.88)' }">
+    <Toolbar class="!border-none !rounded-none !bg-transparent" style="background: transparent">
       <template #end>
         <Popover ref="notifPopover">
-          <div class="w-80 flex flex-col">
+          <div class="w-[min(320px,85vw)] flex flex-col">
             <div class="px-1 pb-2">
               <span class="font-semibold text-sm">{{ $t('nav_notifications') }}</span>
             </div>

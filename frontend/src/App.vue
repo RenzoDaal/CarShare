@@ -80,7 +80,11 @@
     </Transition>
 
     <div class="flex-1 flex">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <Transition name="page">
+          <component :is="Component" />
+        </Transition>
+      </router-view>
     </div>
   </div>
 </template>
@@ -94,5 +98,18 @@
 .slide-down-leave-to {
   opacity: 0;
   transform: translateY(-100%);
+}
+
+.page-enter-active {
+  transition: opacity 0.18s ease;
+}
+.page-leave-active {
+  transition: opacity 0.12s ease;
+  position: absolute;
+  pointer-events: none;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
 }
 </style>

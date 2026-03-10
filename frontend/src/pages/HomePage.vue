@@ -14,6 +14,13 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
+const timeGreeting = computed(() => {
+  const h = new Date().getHours();
+  if (h < 12) return t('dashboard_greeting_morning');
+  if (h < 18) return t('dashboard_greeting_afternoon');
+  return t('dashboard_greeting_evening');
+});
+
 type CarStats = {
   car_id: number;
   car_name: string;
@@ -198,23 +205,32 @@ onMounted(() => {
 <template>
   <div class="flex-1 flex justify-center w-full">
     <div class="w-full max-w-6xl px-4 py-6 space-y-4">
-      <h1 class="text-2xl font-semibold mb-2">{{ $t('dashboard_title') }}</h1>
+      <div class="mb-6">
+        <p class="text-sm font-medium text-surface-400 mb-0.5">{{ timeGreeting }}</p>
+        <h1 class="text-3xl font-bold tracking-tight">{{ auth.user?.full_name?.split(' ')[0] }}</h1>
+      </div>
 
-      <div v-if="error" class="p-3 rounded bg-red-100 text-red-800 text-sm">
+      <div v-if="error" class="p-3 rounded-xl bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300 text-sm">
         {{ error }}
       </div>
 
-      <div v-if="loading">
-        <Card class="mb-4">
-          <template #title>
-            <span>{{ $t('dashboard_loading_title') }}</span>
-          </template>
-          <template #content>
-            <p class="text-sm text-surface-500">
-              {{ $t('dashboard_loading_description') }}
-            </p>
-          </template>
-        </Card>
+      <div v-if="loading" class="space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2 rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden animate-pulse">
+            <div class="p-5 space-y-3">
+              <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded-full w-1/3" />
+              <div class="h-28 bg-surface-100 dark:bg-surface-800 rounded-xl" />
+              <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded-full w-1/2" />
+            </div>
+          </div>
+          <div class="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden animate-pulse">
+            <div class="p-5 space-y-3">
+              <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded-full w-1/2" />
+              <div class="h-10 bg-surface-100 dark:bg-surface-800 rounded-xl" />
+              <div class="h-10 bg-surface-100 dark:bg-surface-800 rounded-xl" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-else class="space-y-4">
@@ -235,34 +251,37 @@ onMounted(() => {
                 </div>
 
                 <div v-else class="space-y-4">
-                  <div v-if="nextBooking" class="rounded-lg border border-surface-200 p-3">
-                    <p class="text-xs uppercase tracking-wide text-surface-500 mb-1">
-                      {{ $t('dashboard_next_booking') }}
-                    </p>
-                    <p class="font-medium">
-                      {{ nextBooking!.car.name }}
-                    </p>
-                    <p class="text-sm text-surface-500">
-                      {{ formatDateTime(nextBooking!.start_datetime) }}
-                      -
-                      {{ formatDateTime(nextBooking!.end_datetime) }}
-                    </p>
-                    <p v-if="nextBooking!.total_price != null" class="text-sm mt-1">
-                      {{ $t('dashboard_estimated_price') }}
-                      <span class="font-semibold">
+                  <div v-if="nextBooking" class="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/8 to-primary/3 dark:from-primary/15 dark:to-primary/5 p-4 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-xl"></div>
+                    <div class="pl-1">
+                      <div class="flex items-center gap-2 mb-2">
+                        <i class="pi pi-calendar-clock text-primary text-sm" />
+                        <p class="text-xs font-semibold uppercase tracking-wide text-primary">
+                          {{ $t('dashboard_next_booking') }}
+                        </p>
+                      </div>
+                      <p class="font-semibold text-base mb-0.5">
+                        {{ nextBooking!.car.name }}
+                      </p>
+                      <p class="text-sm text-surface-500">
+                        {{ formatDateTime(nextBooking!.start_datetime) }}
+                        –
+                        {{ formatDateTime(nextBooking!.end_datetime) }}
+                      </p>
+                      <p v-if="nextBooking!.total_price != null" class="text-sm mt-1.5 font-semibold text-primary">
                         € {{ nextBooking!.total_price!.toFixed(2) }}
-                      </span>
-                    </p>
-                    <div class="mt-2 flex items-center gap-3 flex-wrap">
-                      <Tag :value="nextBooking!.status" />
-                      <span v-if="nextBooking!.status === 'pending'" class="text-xs text-surface-400">{{ $t('dashboard_awaiting_owner_approval') }}</span>
-                      <Button v-if="nextBooking!.status === 'pending'" :label="$t('borrower_send_reminder')" icon="pi pi-bell"
-                        severity="secondary" outlined size="small"
-                        :loading="reminderSending.has(nextBooking!.id)"
-                        :disabled="reminderSending.has(nextBooking!.id)"
-                        @click="sendReminder(nextBooking!.id)" />
-                      <Button :label="$t('dashboard_cancel')" icon="pi pi-times" severity="danger" outlined size="small"
-                        @click="confirmCancel(nextBooking!.id)" />
+                      </p>
+                      <div class="mt-3 flex items-center gap-3 flex-wrap">
+                        <Tag :value="nextBooking!.status" />
+                        <span v-if="nextBooking!.status === 'pending'" class="text-xs text-surface-400">{{ $t('dashboard_awaiting_owner_approval') }}</span>
+                        <Button v-if="nextBooking!.status === 'pending'" :label="$t('borrower_send_reminder')" icon="pi pi-bell"
+                          severity="secondary" outlined size="small"
+                          :loading="reminderSending.has(nextBooking!.id)"
+                          :disabled="reminderSending.has(nextBooking!.id)"
+                          @click="sendReminder(nextBooking!.id)" />
+                        <Button :label="$t('dashboard_cancel')" icon="pi pi-times" severity="danger" outlined size="small"
+                          @click="confirmCancel(nextBooking!.id)" />
+                      </div>
                     </div>
                   </div>
 
@@ -272,7 +291,7 @@ onMounted(() => {
                     </p>
                     <ul class="space-y-2">
                       <li v-for="b in otherBookings" :key="b.id"
-                        class="flex items-center justify-between text-sm border border-surface-100 rounded px-2 py-1">
+                        class="flex items-center justify-between text-sm border border-surface-100 dark:border-surface-700 rounded-lg px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-default">
                         <div>
                           <p class="font-medium">
                             {{ b.car.name }}
@@ -353,9 +372,15 @@ onMounted(() => {
             <template #content>
               <div class="flex flex-col gap-3">
                 <div v-for="rental in data.active_rentals" :key="rental.id"
-                  class="border border-green-200 dark:border-green-800 rounded-lg p-3 flex flex-col gap-1">
+                  class="border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 rounded-xl p-4 flex flex-col gap-1">
                   <div class="flex items-center justify-between">
-                    <span class="font-semibold">{{ rental.car.name }}</span>
+                    <div class="flex items-center gap-2">
+                      <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                      </span>
+                      <span class="font-semibold">{{ rental.car.name }}</span>
+                    </div>
                     <Tag :value="$t('dashboard_active')" severity="success" />
                   </div>
                   <p class="text-sm text-surface-500">
@@ -378,11 +403,19 @@ onMounted(() => {
             <template #content>
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div v-for="stat in carStats" :key="stat.car_id"
-                  class="border rounded-lg p-3 flex flex-col gap-1">
-                  <p class="font-semibold text-sm">{{ stat.car_name }}</p>
-                  <p class="text-xs text-surface-500">{{ stat.total_bookings }} {{ stat.total_bookings !== 1 ? $t('dashboard_bookings_accepted_plural') : $t('dashboard_bookings_accepted') }}</p>
-                  <p class="text-xs text-surface-500">{{ stat.total_km.toFixed(0) }} {{ $t('dashboard_km_total') }}</p>
-                  <p class="text-sm font-medium mt-1">€{{ stat.total_earnings.toFixed(2) }} {{ $t('dashboard_earned') }}</p>
+                  class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 flex flex-col gap-2 hover:shadow-md transition-shadow bg-gradient-to-br from-surface-0 to-surface-50 dark:from-surface-800 dark:to-surface-900">
+                  <p class="font-semibold text-sm text-surface-700 dark:text-surface-200">{{ stat.car_name }}</p>
+                  <p class="text-2xl font-bold text-primary">€{{ stat.total_earnings.toFixed(2) }}</p>
+                  <div class="flex items-center gap-4 text-xs text-surface-500">
+                    <span class="flex items-center gap-1">
+                      <i class="pi pi-check-circle" />
+                      {{ stat.total_bookings }} {{ stat.total_bookings !== 1 ? $t('dashboard_bookings_accepted_plural') : $t('dashboard_bookings_accepted') }}
+                    </span>
+                    <span class="flex items-center gap-1">
+                      <i class="pi pi-map-marker" />
+                      {{ stat.total_km.toFixed(0) }} {{ $t('dashboard_km_total') }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </template>

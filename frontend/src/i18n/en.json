@@ -52,6 +52,9 @@
   "reset_password_error_fallback": "Failed to reset password.",
 
   "dashboard_title": "Dashboard",
+  "dashboard_greeting_morning": "Good morning",
+  "dashboard_greeting_afternoon": "Good afternoon",
+  "dashboard_greeting_evening": "Good evening",
   "dashboard_loading_title": "Loading your dashboard...",
   "dashboard_loading_description": "Fetching your bookings and cars.",
   "dashboard_your_bookings": "Your bookings",

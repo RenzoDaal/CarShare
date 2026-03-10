@@ -52,6 +52,9 @@
   "reset_password_error_fallback": "Wachtwoord resetten mislukt.",
 
   "dashboard_title": "Dashboard",
+  "dashboard_greeting_morning": "Goedemorgen",
+  "dashboard_greeting_afternoon": "Goedemiddag",
+  "dashboard_greeting_evening": "Goedenavond",
   "dashboard_loading_title": "Dashboard laden...",
   "dashboard_loading_description": "Je boekingen en auto's worden opgehaald.",
   "dashboard_your_bookings": "Jouw boekingen",

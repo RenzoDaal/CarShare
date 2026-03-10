@@ -110,12 +110,12 @@ const goToLogin = () => {
 </script>
 
 <template>
-  <div class="flex-1 flex justify-center items-center h-screen">
-    <Card>
+  <div class="flex-1 flex justify-center items-center min-h-screen px-4 py-8 bg-gradient-to-br from-primary/5 via-transparent to-surface-100 dark:from-primary/10 dark:via-surface-950 dark:to-surface-900">
+    <Card class="w-full max-w-sm">
       <template #title>{{ $t('register_title') }}</template>
       <template #content>
         <Form :resolver="resolver" @submit="onFormSubmit" v-slot="$form">
-          <div class="flex flex-col mt-4 w-96">
+          <div class="flex flex-col mt-4 w-full">
             <!-- Full name -->
             <div class="flex flex-col gap-1 mb-4">
               <InputText name="full_name" v-model="form.full_name" :placeholder="$t('register_full_name_placeholder')" />

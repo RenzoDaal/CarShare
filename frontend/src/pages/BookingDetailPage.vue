@@ -134,14 +134,14 @@ async function declineBooking() {
 
     <template v-else-if="booking">
       <!-- Status banner -->
-      <div class="flex items-center gap-3 p-4 rounded-lg border"
+      <div class="flex items-center gap-3 p-4 rounded-xl border-l-4"
         :class="{
-          'border-green-300 bg-green-50 dark:bg-green-900/20': booking.status === 'accepted',
-          'border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20': booking.status === 'pending',
-          'border-red-300 bg-red-50 dark:bg-red-900/20': booking.status === 'declined' || booking.status === 'cancelled',
+          'border-l-green-500 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800': booking.status === 'accepted',
+          'border-l-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800': booking.status === 'pending',
+          'border-l-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800': booking.status === 'declined' || booking.status === 'cancelled',
         }">
         <Tag :value="booking.status" :severity="statusSeverity(booking.status)" />
-        <span class="text-sm">{{ statusLabel(booking.status) }}</span>
+        <span class="text-sm font-medium">{{ statusLabel(booking.status) }}</span>
       </div>
 
       <!-- Car -->
@@ -164,24 +164,24 @@ async function declineBooking() {
       <Card>
         <template #title>{{ $t('booking_detail_details') }}</template>
         <template #content>
-          <dl class="space-y-3 text-sm">
-            <div class="flex justify-between">
-              <dt class="text-surface-500">{{ $t('booking_detail_start') }}</dt>
-              <dd class="font-medium">{{ formatDateTime(booking.start_datetime) }}</dd>
+          <div class="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden text-sm divide-y divide-surface-100 dark:divide-surface-700">
+            <div class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+              <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar" />{{ $t('booking_detail_start') }}</span>
+              <span class="font-medium">{{ formatDateTime(booking.start_datetime) }}</span>
             </div>
-            <div class="flex justify-between">
-              <dt class="text-surface-500">{{ $t('booking_detail_end') }}</dt>
-              <dd class="font-medium">{{ formatDateTime(booking.end_datetime) }}</dd>
+            <div class="flex justify-between items-center px-4 py-3">
+              <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar-clock" />{{ $t('booking_detail_end') }}</span>
+              <span class="font-medium">{{ formatDateTime(booking.end_datetime) }}</span>
             </div>
-            <div class="flex justify-between">
-              <dt class="text-surface-500">{{ $t('booking_detail_duration') }}</dt>
-              <dd class="font-medium">{{ formatDuration(booking.start_datetime, booking.end_datetime) }}</dd>
+            <div class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+              <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-clock" />{{ $t('booking_detail_duration') }}</span>
+              <span class="font-medium">{{ formatDuration(booking.start_datetime, booking.end_datetime) }}</span>
             </div>
-            <div v-if="booking.total_price != null" class="flex justify-between border-t pt-3">
-              <dt class="text-surface-500">{{ $t('booking_detail_estimated_cost') }}</dt>
-              <dd class="font-semibold text-base">€{{ booking.total_price.toFixed(2) }}</dd>
+            <div v-if="booking.total_price != null" class="flex justify-between items-center px-4 py-3.5 bg-primary/5 dark:bg-primary/10">
+              <span class="flex items-center gap-2 font-semibold text-primary"><i class="pi pi-euro" />{{ $t('booking_detail_estimated_cost') }}</span>
+              <span class="text-xl font-bold text-primary">€{{ booking.total_price.toFixed(2) }}</span>
             </div>
-          </dl>
+          </div>
         </template>
       </Card>
 

@@ -424,29 +424,26 @@ const submitBooking = async () => {
                 </div>
 
                 <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Card v-for="car in availableCars" :key="car.id"
-                    class="flex flex-col justify-between overflow-hidden">
+                  <Card v-for="(car, index) in availableCars" :key="car.id"
+                    class="overflow-hidden cursor-pointer hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 card-animate"
+                    :style="{ animationDelay: `${index * 70}ms` }"
+                    @click="handleSelectCar(car, activateCallback)">
                     <template #header>
-                      <div class="h-80 w-full">
+                      <div class="h-80 w-full relative">
                         <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent pointer-events-none" />
+                        <div class="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
+                          <p class="text-white font-semibold text-base leading-tight">{{ car.name }}</p>
+                          <p class="text-white/75 text-sm mt-0.5">{{ car.price_per_km }} € / km</p>
+                        </div>
                       </div>
                     </template>
-                    <template #title>
-                      <div class="flex flex-col gap-1">
-                        <span class="font-semibold">{{ car.name }}</span>
-                        <span class="text-sm text-surface-500">
-                          {{ car.price_per_km }} € / km
-                        </span>
-                      </div>
-                    </template>
-
                     <template #content>
-                      <p class="text-sm text-surface-600 mb-4">
+                      <p class="text-sm text-surface-500 mb-3 line-clamp-2">
                         {{ car.description || $t('reserve_no_description') }}
                       </p>
-                      <div class="flex justify-end">
-                        <Button :label="$t('reserve_select_button')" size="small" @click="handleSelectCar(car, activateCallback)" />
-                      </div>
+                      <Button :label="$t('reserve_select_button')" size="small" class="w-full"
+                        @click.stop="handleSelectCar(car, activateCallback)" />
                     </template>
                   </Card>
                 </div>
@@ -456,16 +453,15 @@ const submitBooking = async () => {
                   <p class="text-sm font-medium text-surface-500">{{ $t('reserve_unavailable_for_dates') }}</p>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Card v-for="car in unavailableCars" :key="car.id"
-                      class="flex flex-col justify-between overflow-hidden opacity-70">
+                      class="overflow-hidden opacity-60 grayscale">
                       <template #header>
-                        <div class="h-48 w-full">
+                        <div class="h-44 w-full relative">
                           <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
-                        </div>
-                      </template>
-                      <template #title>
-                        <div class="flex flex-col gap-1">
-                          <span class="font-semibold">{{ car.name }}</span>
-                          <span class="text-sm text-surface-500">{{ car.price_per_km }} € / km</span>
+                          <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent pointer-events-none" />
+                          <div class="absolute bottom-0 left-0 right-0 p-3 pointer-events-none">
+                            <p class="text-white font-semibold text-sm leading-tight">{{ car.name }}</p>
+                            <p class="text-white/75 text-xs mt-0.5">{{ car.price_per_km }} € / km</p>
+                          </div>
                         </div>
                       </template>
                       <template #content>
@@ -576,51 +572,38 @@ const submitBooking = async () => {
 
             <StepPanel v-slot="{ activateCallback }" :value="4">
               <div class="flex flex-col gap-6">
-                <div class="space-y-2">
+                <div class="space-y-3">
                   <h2 class="font-semibold text-base">{{ $t('reserve_summary_title') }}</h2>
-                  <div v-if="selectedCar" class="text-sm space-y-1">
-                    <div>
-                      <span class="font-medium">{{ $t('reserve_car_label') }}</span>
-                      <span class="ml-2">{{ selectedCar.name }}</span>
+                  <div class="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden text-sm divide-y divide-surface-100 dark:divide-surface-700">
+                    <div v-if="selectedCar" class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-car" />{{ $t('reserve_car_label') }}</span>
+                      <span class="font-medium">{{ selectedCar.name }}</span>
                     </div>
-                    <div>
-                      <span class="font-medium">{{ $t('reserve_price_per_km') }}</span>
-                      <span class="ml-2">
-                        {{ selectedCar.price_per_km }} € / km
-                      </span>
+                    <div v-if="selectedCar" class="flex justify-between items-center px-4 py-3">
+                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-tag" />{{ $t('reserve_price_per_km') }}</span>
+                      <span class="font-medium">{{ selectedCar.price_per_km }} € / km</span>
                     </div>
-                  </div>
-
-                  <div v-if="start && end" class="text-sm space-y-1">
-                    <div>
-                      <span class="font-medium">{{ $t('reserve_start_summary') }}</span>
-                      <span class="ml-2">{{ formatDateTime(start!) }}</span>
+                    <div v-if="start" class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar" />{{ $t('reserve_start_summary') }}</span>
+                      <span class="font-medium">{{ formatDateTime(start!) }}</span>
                     </div>
-                    <div>
-                      <span class="font-medium">{{ $t('reserve_end_summary') }}</span>
-                      <span class="ml-2">{{ formatDateTime(end!) }}</span>
+                    <div v-if="end" class="flex justify-between items-center px-4 py-3">
+                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar-clock" />{{ $t('reserve_end_summary') }}</span>
+                      <span class="font-medium">{{ formatDateTime(end!) }}</span>
                     </div>
-                  </div>
-
-                  <div v-if="trimmedStops.length >= 2" class="text-sm space-y-1">
-                    <div class="font-medium">{{ $t('reserve_route_summary') }}</div>
-                    <ul class="list-disc list-inside text-xs">
-                      <li v-for="(stop, index) in trimmedStops" :key="index">
-                        {{ stop }}
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div v-if="distanceKm != null" class="text-sm space-y-1">
-                    <div>
-                      <span class="font-medium">{{ $t('reserve_total_distance') }}</span>
-                      <span class="ml-2">{{ distanceKm.toFixed(1) }} km</span>
+                    <div v-if="trimmedStops.length >= 2" class="flex justify-between items-start px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+                      <span class="flex items-center gap-2 text-surface-500 shrink-0"><i class="pi pi-map-marker" />{{ $t('reserve_route_summary') }}</span>
+                      <ul class="text-right space-y-0.5">
+                        <li v-for="(stop, index) in trimmedStops" :key="index" class="font-medium text-xs">{{ stop }}</li>
+                      </ul>
                     </div>
-                    <div v-if="estimatedPrice != null">
-                      <span class="font-medium">{{ $t('reserve_estimated_cost') }}</span>
-                      <span class="ml-2">
-                        €{{ estimatedPrice.toFixed(2) }}
-                      </span>
+                    <div v-if="distanceKm != null" class="flex justify-between items-center px-4 py-3">
+                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-map" />{{ $t('reserve_total_distance') }}</span>
+                      <span class="font-medium">{{ distanceKm.toFixed(1) }} km</span>
+                    </div>
+                    <div v-if="estimatedPrice != null" class="flex justify-between items-center px-4 py-3.5 bg-primary/5 dark:bg-primary/10">
+                      <span class="flex items-center gap-2 font-semibold text-primary"><i class="pi pi-euro" />{{ $t('reserve_estimated_cost') }}</span>
+                      <span class="text-xl font-bold text-primary">€{{ estimatedPrice.toFixed(2) }}</span>
                     </div>
                   </div>
                 </div>
@@ -677,3 +660,21 @@ const submitBooking = async () => {
   </div>
 
 </template>
+
+<style scoped>
+.card-animate {
+  animation: cardFadeIn 0.35s ease forwards;
+  opacity: 0;
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>

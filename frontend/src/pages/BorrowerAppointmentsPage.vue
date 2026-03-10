@@ -279,20 +279,24 @@ onMounted(() => {
 
     <div v-if="stats && stats.total_rides > 0"
       class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
-        <span class="text-2xl font-semibold">{{ stats.total_rides }}</span>
+      <div class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 flex flex-col gap-1 hover:shadow-md transition-shadow">
+        <i class="pi pi-car text-primary text-lg mb-1" />
+        <span class="text-2xl font-bold">{{ stats.total_rides }}</span>
         <span class="text-xs text-surface-500">{{ $t('borrower_stats_rides') }}</span>
       </div>
-      <div class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
-        <span class="text-2xl font-semibold">{{ stats.total_km.toFixed(0) }}</span>
+      <div class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 flex flex-col gap-1 hover:shadow-md transition-shadow">
+        <i class="pi pi-map-marker text-primary text-lg mb-1" />
+        <span class="text-2xl font-bold">{{ stats.total_km.toFixed(0) }}</span>
         <span class="text-xs text-surface-500">{{ $t('borrower_stats_km') }}</span>
       </div>
-      <div class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
-        <span class="text-2xl font-semibold">€{{ stats.total_spent.toFixed(2) }}</span>
+      <div class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 flex flex-col gap-1 hover:shadow-md transition-shadow">
+        <i class="pi pi-wallet text-primary text-lg mb-1" />
+        <span class="text-2xl font-bold">€{{ stats.total_spent.toFixed(2) }}</span>
         <span class="text-xs text-surface-500">{{ $t('borrower_stats_spent') }}</span>
       </div>
-      <div v-if="stats.favourite_car" class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
-        <span class="text-lg font-semibold truncate">{{ stats.favourite_car }}</span>
+      <div v-if="stats.favourite_car" class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 flex flex-col gap-1 hover:shadow-md transition-shadow">
+        <i class="pi pi-heart text-primary text-lg mb-1" />
+        <span class="text-lg font-bold truncate">{{ stats.favourite_car }}</span>
         <span class="text-xs text-surface-500">{{ $t('borrower_stats_favourite') }}</span>
       </div>
     </div>
@@ -313,7 +317,14 @@ onMounted(() => {
             {{ $t('borrower_no_upcoming') }}
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <Card v-for="booking in upcoming" :key="booking.id" class="h-full">
+            <Card v-for="booking in upcoming" :key="booking.id" class="h-full overflow-hidden"
+              :style="{
+                boxShadow: booking.status === 'pending'
+                  ? 'inset 0 3px 0 #fbbf24'
+                  : booking.status === 'accepted'
+                  ? 'inset 0 3px 0 #22c55e'
+                  : undefined
+              }">
               <template #title>{{ booking.car.name }}</template>
               <template #subtitle>
                 <div class="flex items-center gap-2 flex-wrap">
@@ -397,7 +408,7 @@ onMounted(() => {
   </div>
 
   <!-- Reschedule dialog -->
-  <Dialog v-model:visible="rescheduleVisible" :header="$t('borrower_reschedule_dialog_title')" modal :style="{ width: '42rem' }">
+  <Dialog v-model:visible="rescheduleVisible" :header="$t('borrower_reschedule_dialog_title')" modal :style="{ width: '42rem' }" :breakpoints="{ '640px': '95vw' }">
     <div class="flex flex-col gap-5 mt-2">
 
       <!-- Dates -->
