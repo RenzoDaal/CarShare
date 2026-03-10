@@ -28,6 +28,8 @@ def _run_migrations():
         "ALTER TABLE booking ADD COLUMN notes TEXT",
         "ALTER TABLE user ADD COLUMN timezone TEXT NOT NULL DEFAULT 'Europe/Amsterdam'",
         "ALTER TABLE user ADD COLUMN notification_prefs TEXT",
+        "ALTER TABLE booking ADD COLUMN created_at TEXT",
+        "ALTER TABLE booking ADD COLUMN last_reminder_sent TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

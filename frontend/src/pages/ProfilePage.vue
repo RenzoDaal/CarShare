@@ -126,15 +126,21 @@ const notifSaving = ref(false);
 const notifSuccess = ref(false);
 const notifError = ref<string | null>(null);
 
-const NOTIF_OWNER_TYPES: { key: keyof NotificationPrefs; labelKey: string }[] = [
+const NOTIF_OWNER_TYPES: { key: keyof NotificationPrefs; labelKey: string; pushAlwaysOn?: boolean }[] = [
   { key: 'booking_request',    labelKey: 'profile_notif_booking_request' },
   { key: 'booking_reschedule', labelKey: 'profile_notif_booking_reschedule' },
   { key: 'booking_cancelled',  labelKey: 'profile_notif_booking_cancelled' },
+  { key: 'co_owner_response',  labelKey: 'profile_notif_co_owner_response' },
+  { key: 'booking_reminder',   labelKey: 'profile_notif_booking_reminder', pushAlwaysOn: true },
 ];
 
 const NOTIF_BORROWER_TYPES: { key: keyof NotificationPrefs; labelKey: string }[] = [
   { key: 'booking_response', labelKey: 'profile_notif_booking_response' },
   { key: 'waitlist',         labelKey: 'profile_notif_waitlist' },
+];
+
+const NOTIF_GENERAL_TYPES: { key: keyof NotificationPrefs; labelKey: string }[] = [
+  { key: 'co_owner_invite', labelKey: 'profile_notif_co_owner_invite' },
 ];
 
 async function saveNotifPrefs() {
@@ -259,7 +265,8 @@ async function changePassword() {
               class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
               <span class="text-sm">{{ $t(type.labelKey) }}</span>
               <div class="flex justify-center">
-                <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
+                <i v-if="type.pushAlwaysOn" class="pi pi-check text-primary text-sm" :title="$t('profile_notif_push_always_on')" />
+                <Checkbox v-else v-model="notifPrefs[type.key].push" :binary="true" />
               </div>
               <div class="flex justify-center">
                 <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
@@ -291,6 +298,29 @@ async function changePassword() {
               </div>
             </div>
           </template>
+
+          <!-- Divider before general section -->
+          <div v-if="profile.role_owner || profile.role_borrower"
+            class="border-t border-surface-200 dark:border-surface-700" />
+
+          <!-- General section (always visible) -->
+          <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">{{ $t('profile_as_general') }}</p>
+          <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+            <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
+            <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
+            <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
+          </div>
+          <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
+          <div v-for="type in NOTIF_GENERAL_TYPES" :key="type.key"
+            class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+            <span class="text-sm">{{ $t(type.labelKey) }}</span>
+            <div class="flex justify-center">
+              <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
+            </div>
+            <div class="flex justify-center">
+              <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
+            </div>
+          </div>
 
           <Message v-if="notifError" severity="error" :closable="false">{{ notifError }}</Message>
           <Message v-if="notifSuccess" severity="success" :closable="false">{{ $t('profile_notif_saved') }}</Message>

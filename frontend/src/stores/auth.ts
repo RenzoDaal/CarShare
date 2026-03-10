@@ -7,6 +7,9 @@ export type NotificationPrefs = {
   booking_reschedule: { push: boolean; email: boolean };
   booking_cancelled: { push: boolean; email: boolean };
   waitlist: { push: boolean; email: boolean };
+  co_owner_invite: { push: boolean; email: boolean };
+  co_owner_response: { push: boolean; email: boolean };
+  booking_reminder: { push: boolean; email: boolean };
 };
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
@@ -15,6 +18,9 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   booking_reschedule: { push: true, email: true },
   booking_cancelled: { push: true, email: true },
   waitlist: { push: true, email: true },
+  co_owner_invite: { push: true, email: true },
+  co_owner_response: { push: true, email: true },
+  booking_reminder: { push: true, email: true },
 };
 
 export type User = {

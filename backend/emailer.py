@@ -222,6 +222,29 @@ def waitlist_availability_email(
     send_email(to_email, subject, body)
 
 
+def owner_booking_reminder_email(
+    *,
+    owner_email: str,
+    owner_name: str,
+    car_name: str,
+    borrower_name: str,
+    start_iso: str,
+    end_iso: str,
+    booking_id: int,
+    tz: str = "Europe/Amsterdam",
+) -> None:
+    subject = f"Reminder: booking request awaiting your response for {car_name}"
+    body = (
+        f"Hi {owner_name},\n\n"
+        f"{borrower_name} is waiting for your response on their booking request for {car_name}.\n\n"
+        f"Start: {_format_dt(start_iso, tz)}\n"
+        f"End:   {_format_dt(end_iso, tz)}\n"
+        f"Booking ID: {booking_id}\n\n"
+        f"Respond here: {APP_BASE_URL}/ownerappointments\n"
+    )
+    send_email(owner_email, subject, body)
+
+
 def co_owner_invite_email(
     *,
     to_email: str,

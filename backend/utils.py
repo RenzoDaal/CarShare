@@ -7,6 +7,9 @@ DEFAULT_PREFS: dict = {
     "booking_reschedule": {"push": True, "email": True},
     "booking_cancelled": {"push": True, "email": True},
     "waitlist": {"push": True, "email": True},
+    "co_owner_invite": {"push": True, "email": True},
+    "co_owner_response": {"push": True, "email": True},
+    "booking_reminder": {"push": True, "email": True},
 }
 
 

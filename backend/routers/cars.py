@@ -25,7 +25,7 @@ from schemas import (
     CoOwnerInviteRead,
     CoOwnerRead,
 )
-from utils import get_managed_car_ids, is_car_manager, parse_iso
+from utils import get_managed_car_ids, is_car_manager, get_prefs, parse_iso
 
 router = APIRouter()
 
@@ -519,14 +519,17 @@ def invite_co_owner(
 
     row = CarCoOwner(car_id=car_id, user_id=invitee.id, status="pending")
     session.add(row)
-    create_notification(
-        session,
-        invitee.id,
-        f"{current_user.full_name} invited you to co-own {car.name}",
-    )
+
+    invitee_prefs = get_prefs(invitee)
+    if invitee_prefs["co_owner_invite"]["push"]:
+        create_notification(
+            session,
+            invitee.id,
+            f"{current_user.full_name} invited you to co-own {car.name}",
+        )
     session.commit()
 
-    if invitee.email:
+    if invitee_prefs["co_owner_invite"]["email"] and invitee.email:
         background_tasks.add_task(
             emailer.co_owner_invite_email,
             to_email=invitee.email,
@@ -569,22 +572,26 @@ def accept_co_owner_invite(
 
     owner = session.get(User, car.owner_id)
     if owner:
-        create_notification(
-            session,
-            owner.id,
-            f"{current_user.full_name} accepted your co-owner invite for {car.name}",
-        )
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["co_owner_response"]["push"]:
+            create_notification(
+                session,
+                owner.id,
+                f"{current_user.full_name} accepted your co-owner invite for {car.name}",
+            )
     session.commit()
     session.refresh(current_user)
 
-    if owner and owner.email:
-        background_tasks.add_task(
-            emailer.co_owner_accepted_email,
-            to_email=owner.email,
-            to_name=owner.full_name,
-            accepted_name=current_user.full_name,
-            car_name=car.name,
-        )
+    if owner:
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["co_owner_response"]["email"] and owner.email:
+            background_tasks.add_task(
+                emailer.co_owner_accepted_email,
+                to_email=owner.email,
+                to_name=owner.full_name,
+                accepted_name=current_user.full_name,
+                car_name=car.name,
+            )
 
     from auth import user_to_read
     return {"ok": True, "user": user_to_read(current_user)}
@@ -615,21 +622,25 @@ def decline_co_owner_invite(
 
     owner = session.get(User, car.owner_id)
     if owner:
-        create_notification(
-            session,
-            owner.id,
-            f"{current_user.full_name} declined your co-owner invite for {car.name}",
-        )
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["co_owner_response"]["push"]:
+            create_notification(
+                session,
+                owner.id,
+                f"{current_user.full_name} declined your co-owner invite for {car.name}",
+            )
     session.commit()
 
-    if owner and owner.email:
-        background_tasks.add_task(
-            emailer.co_owner_declined_email,
-            to_email=owner.email,
-            to_name=owner.full_name,
-            declined_name=current_user.full_name,
-            car_name=car.name,
-        )
+    if owner:
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["co_owner_response"]["email"] and owner.email:
+            background_tasks.add_task(
+                emailer.co_owner_declined_email,
+                to_email=owner.email,
+                to_name=owner.full_name,
+                declined_name=current_user.full_name,
+                car_name=car.name,
+            )
 
     return {"ok": True}
 
@@ -659,21 +670,25 @@ def leave_co_ownership(
 
     owner = session.get(User, car.owner_id)
     if owner:
-        create_notification(
-            session,
-            owner.id,
-            f"{current_user.full_name} left co-ownership of {car.name}",
-        )
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["co_owner_response"]["push"]:
+            create_notification(
+                session,
+                owner.id,
+                f"{current_user.full_name} left co-ownership of {car.name}",
+            )
     session.commit()
 
-    if owner and owner.email:
-        background_tasks.add_task(
-            emailer.co_owner_left_email,
-            to_email=owner.email,
-            to_name=owner.full_name,
-            left_name=current_user.full_name,
-            car_name=car.name,
-        )
+    if owner:
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["co_owner_response"]["email"] and owner.email:
+            background_tasks.add_task(
+                emailer.co_owner_left_email,
+                to_email=owner.email,
+                to_name=owner.full_name,
+                left_name=current_user.full_name,
+                car_name=car.name,
+            )
 
 
 @router.delete("/cars/{car_id}/co-owners/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -697,14 +712,24 @@ def remove_co_owner(
         raise HTTPException(status_code=404, detail="Co-owner not found")
 
     removed_user = session.get(User, user_id)
+    if removed_user:
+        removed_prefs = get_prefs(removed_user)
+        if removed_prefs["co_owner_invite"]["push"]:
+            create_notification(
+                session,
+                removed_user.id,
+                f"You have been removed as co-owner of {car.name}",
+            )
     session.delete(row)
     session.commit()
 
-    if removed_user and removed_user.email:
-        background_tasks.add_task(
-            emailer.co_owner_removed_email,
-            to_email=removed_user.email,
-            to_name=removed_user.full_name,
-            car_name=car.name,
-            removed_by=current_user.full_name,
-        )
+    if removed_user:
+        removed_prefs = get_prefs(removed_user)
+        if removed_prefs["co_owner_invite"]["email"] and removed_user.email:
+            background_tasks.add_task(
+                emailer.co_owner_removed_email,
+                to_email=removed_user.email,
+                to_name=removed_user.full_name,
+                car_name=car.name,
+                removed_by=current_user.full_name,
+            )

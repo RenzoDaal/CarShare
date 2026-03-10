@@ -457,9 +457,90 @@ def list_borrower_bookings(
                 total_price=booking.total_price,
                 stops=_parse_stops(booking.stops_json),
                 notes=booking.notes,
+                created_at=getattr(booking, "created_at", None),
+                last_reminder_sent=getattr(booking, "last_reminder_sent", None),
             )
         )
     return result
+
+
+@router.post("/bookings/{booking_id}/remind")
+def send_booking_reminder(
+    booking_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    from datetime import datetime, timezone
+    from models import CarCoOwner
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.borrower_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your booking")
+    if booking.status != BookingStatus.PENDING.value:
+        raise HTTPException(status_code=400, detail="Can only send reminders for pending bookings")
+
+    now = datetime.now(timezone.utc)
+    reference = getattr(booking, "last_reminder_sent", None) or getattr(booking, "created_at", None)
+    if reference is not None:
+        if reference.tzinfo is None:
+            reference = reference.replace(tzinfo=timezone.utc)
+        elapsed = (now - reference).total_seconds()
+        if elapsed < 86400:
+            hours_remaining = (86400 - elapsed) / 3600
+            raise HTTPException(
+                status_code=400,
+                detail=f"You can send another reminder in {hours_remaining:.1f} hours",
+            )
+
+    car = booking.car or session.get(Car, booking.car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    owner = session.get(User, car.owner_id)
+    if owner:
+        create_notification(
+            session,
+            owner.id,
+            f"{current_user.full_name} is waiting for your response on their booking for {car.name}",
+            booking.id,
+        )
+
+    co_owners = session.exec(
+        select(CarCoOwner).where(CarCoOwner.car_id == car.id, CarCoOwner.status == "accepted")
+    ).all()
+    for co in co_owners:
+        co_user = session.get(User, co.user_id)
+        if co_user:
+            create_notification(
+                session,
+                co_user.id,
+                f"{current_user.full_name} is waiting for your response on their booking for {car.name}",
+                booking.id,
+            )
+
+    booking.last_reminder_sent = now
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+
+    if owner:
+        owner_prefs = get_prefs(owner)
+        if owner_prefs["booking_reminder"]["email"] and owner.email:
+            background_tasks.add_task(
+                emailer.owner_booking_reminder_email,
+                owner_email=owner.email,
+                owner_name=owner.full_name,
+                car_name=car.name,
+                borrower_name=current_user.full_name,
+                start_iso=booking.start_datetime.isoformat(),
+                end_iso=booking.end_datetime.isoformat(),
+                booking_id=booking.id,
+                tz=getattr(owner, "timezone", "Europe/Amsterdam"),
+            )
+
+    return {"ok": True, "last_reminder_sent": booking.last_reminder_sent.isoformat()}
 
 
 @router.post("/bookings/{booking_id}/accept", response_model=schemas.BookingRead)

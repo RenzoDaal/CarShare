@@ -115,6 +115,8 @@ class Booking(SQLModel, table=True):
     notes: Optional[str] = None
 
     status: str = Field(default=BookingStatus.PENDING.value)
+    created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_reminder_sent: Optional[datetime] = Field(default=None)
 
     car: Optional[Car] = Relationship(back_populates="bookings")
     borrower: Optional[User] = Relationship(back_populates="bookings")

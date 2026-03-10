@@ -37,6 +37,8 @@ type DashboardBooking = {
   borrower_name?: string | null;
   borrower_email?: string | null;
   notes?: string | null;
+  created_at?: string | null;
+  last_reminder_sent?: string | null;
 };
 
 type DashboardResponse = {
@@ -160,6 +162,23 @@ function confirmCancel(bookingId: number) {
   });
 }
 
+const reminderSending = ref<Set<number>>(new Set());
+
+async function sendReminder(bookingId: number) {
+  reminderSending.value = new Set(reminderSending.value).add(bookingId);
+  try {
+    const { data: res } = await http.post<{ ok: boolean; last_reminder_sent: string }>(`/bookings/${bookingId}/remind`);
+    const booking = data.value.upcoming_bookings.find(b => b.id === bookingId);
+    if (booking) booking.last_reminder_sent = res.last_reminder_sent;
+  } catch (err: any) {
+    error.value = err?.response?.data?.detail ?? t('borrower_reminder_error');
+  } finally {
+    const next = new Set(reminderSending.value);
+    next.delete(bookingId);
+    reminderSending.value = next;
+  }
+}
+
 function goToReserve() {
   router.push({ name: 'reserve car' });
 }
@@ -237,6 +256,11 @@ onMounted(() => {
                     <div class="mt-2 flex items-center gap-3 flex-wrap">
                       <Tag :value="nextBooking!.status" />
                       <span v-if="nextBooking!.status === 'pending'" class="text-xs text-surface-400">{{ $t('dashboard_awaiting_owner_approval') }}</span>
+                      <Button v-if="nextBooking!.status === 'pending'" :label="$t('borrower_send_reminder')" icon="pi pi-bell"
+                        severity="secondary" outlined size="small"
+                        :loading="reminderSending.has(nextBooking!.id)"
+                        :disabled="reminderSending.has(nextBooking!.id)"
+                        @click="sendReminder(nextBooking!.id)" />
                       <Button :label="$t('dashboard_cancel')" icon="pi pi-times" severity="danger" outlined size="small"
                         @click="confirmCancel(nextBooking!.id)" />
                     </div>
@@ -257,11 +281,16 @@ onMounted(() => {
                             {{ formatDateTime(b.start_datetime) }}
                           </p>
                         </div>
-                        <div class="flex items-center gap-2 flex-wrap justify-end">
-                          <Tag :value="b.status" />
-                          <span v-if="b.status === 'pending'" class="text-xs text-surface-400">{{ $t('dashboard_awaiting_approval') }}</span>
-                          <Button icon="pi pi-times" severity="danger" outlined rounded size="small"
-                            @click="confirmCancel(b.id)" />
+                        <div class="flex flex-col items-end gap-1">
+                          <div class="flex items-center gap-2 flex-wrap justify-end">
+                            <Tag :value="b.status" />
+                            <Button v-if="b.status === 'pending'" icon="pi pi-bell" severity="secondary" outlined rounded size="small"
+                              :loading="reminderSending.has(b.id)"
+                              :disabled="reminderSending.has(b.id)"
+                              @click="sendReminder(b.id)" />
+                            <Button icon="pi pi-times" severity="danger" outlined rounded size="small"
+                              @click="confirmCancel(b.id)" />
+                          </div>
                         </div>
                       </li>
                     </ul>

@@ -36,6 +36,8 @@ type BorrowerBooking = {
   total_price?: number | null;
   stops?: string[] | null;
   notes?: string | null;
+  created_at?: string | null;
+  last_reminder_sent?: string | null;
 };
 
 const confirm = useConfirm();
@@ -230,6 +232,23 @@ async function submitReschedule() {
   }
 }
 
+const reminderSending = ref<Set<number>>(new Set());
+
+async function sendReminder(bookingId: number) {
+  reminderSending.value = new Set(reminderSending.value).add(bookingId);
+  try {
+    const { data } = await http.post<{ ok: boolean; last_reminder_sent: string }>(`/bookings/${bookingId}/remind`);
+    const booking = bookings.value.find(b => b.id === bookingId);
+    if (booking) booking.last_reminder_sent = data.last_reminder_sent;
+  } catch (err: any) {
+    error.value = err?.response?.data?.detail ?? t('borrower_reminder_error');
+  } finally {
+    const next = new Set(reminderSending.value);
+    next.delete(bookingId);
+    reminderSending.value = next;
+  }
+}
+
 onMounted(() => {
   fetchBookings();
   fetchWaitlist();
@@ -280,6 +299,11 @@ onMounted(() => {
                     @click="router.push({ name: 'booking-detail', params: { id: booking.id } })" />
                   <Button :label="$t('borrower_reschedule')" icon="pi pi-calendar-clock" severity="secondary" outlined size="small"
                     @click="openReschedule(booking)" />
+                  <Button v-if="booking.status === 'pending'" :label="$t('borrower_send_reminder')" icon="pi pi-bell"
+                    severity="secondary" outlined size="small"
+                    :loading="reminderSending.has(booking.id)"
+                    :disabled="reminderSending.has(booking.id)"
+                    @click="sendReminder(booking.id)" />
                   <Button :label="$t('borrower_cancel')" icon="pi pi-times" severity="danger" outlined size="small"
                     @click="confirmCancel(booking.id)" />
                 </div>
