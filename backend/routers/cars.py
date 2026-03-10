@@ -1,6 +1,6 @@
 import os
 from calendar import monthrange
-from datetime import date as date_type, date, datetime
+from datetime import date as date_type, date, datetime, timedelta
 from typing import List
 from uuid import uuid4
 
@@ -467,7 +467,8 @@ def get_car_day_view(
         raise HTTPException(status_code=400, detail="Invalid date")
 
     day_start = datetime(day.year, day.month, day.day, 0, 0, 0)
-    day_end = datetime(day.year, day.month, day.day, 23, 59, 59)
+    # Clamp to midnight of next day so the frontend's "=== 0 → 1440" guard works correctly
+    day_end_clamp = day_start + timedelta(days=1)
 
     slots: List[DayBusySlot] = []
 
@@ -475,8 +476,8 @@ def get_car_day_view(
         select(Booking).where(
             Booking.car_id == car_id,
             Booking.status == BookingStatus.ACCEPTED.value,
-            Booking.start_datetime <= day_end,
-            Booking.end_datetime >= day_start,
+            Booking.start_datetime < day_end_clamp,
+            Booking.end_datetime > day_start,
         )
     ).all()
     for b in bookings:
@@ -484,7 +485,7 @@ def get_car_day_view(
         end = b.end_datetime.replace(tzinfo=None) if b.end_datetime.tzinfo else b.end_datetime
         slots.append(DayBusySlot(
             start=max(start, day_start),
-            end=min(end, day_end),
+            end=min(end, day_end_clamp),
             type="booking",
         ))
 
@@ -496,7 +497,7 @@ def get_car_day_view(
         )
     ).all()
     for _ in blocks:
-        slots.append(DayBusySlot(start=day_start, end=day_end, type="block"))
+        slots.append(DayBusySlot(start=day_start, end=day_end_clamp, type="block"))
 
     return sorted(slots, key=lambda s: s.start)
 
