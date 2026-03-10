@@ -25,6 +25,13 @@
   const auth = useAuthStore();
   const router = useRouter()
 
+  const userInitials = computed(() => {
+    const name = auth.user?.full_name ?? '';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    return parts.slice(0, 2).map(p => p[0]).join('').toUpperCase();
+  });
+
   const logout = () => {
     auth.logout();
     drawerVisible.value = false;
@@ -71,6 +78,24 @@
       await http.post('/notifications/read-all');
       notifications.value = notifications.value.map(n => ({ ...n, is_read: true }));
       if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+    }
+  }
+
+  async function clearAllNotifications() {
+    try {
+      await http.delete('/notifications');
+      notifications.value = [];
+      if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+      notifPopover.value.hide();
+    } catch {
+      // silently ignore
+    }
+  }
+
+  function handleNotifClick(notif: Notification) {
+    if (notif.booking_id) {
+      router.push({ name: 'booking-detail', params: { id: notif.booking_id } });
+      notifPopover.value.hide();
     }
   }
 
@@ -221,14 +246,28 @@
               <li
                 v-for="notif in notifications"
                 :key="notif.id"
-                class="text-sm px-2 py-2 rounded"
-                :class="notif.is_read ? 'text-surface-500' : 'font-medium bg-surface-100 dark:bg-surface-800'"
+                class="text-sm px-2 py-2 rounded transition-colors"
+                :class="[
+                  notif.is_read ? 'text-surface-500' : 'font-medium bg-surface-100 dark:bg-surface-800',
+                  notif.booking_id ? 'cursor-pointer hover:bg-surface-200 dark:hover:bg-surface-700' : ''
+                ]"
+                @click="handleNotifClick(notif)"
               >
                 {{ notif.message }}
               </li>
             </ul>
+            <div v-if="notifications.length > 0" class="pt-2 mt-1 border-t border-surface-100 dark:border-surface-700">
+              <Button :label="$t('nav_clear_notifications')" icon="pi pi-trash" text size="small" severity="secondary"
+                class="w-full" @click="clearAllNotifications" />
+            </div>
           </div>
         </Popover>
+        <div
+          class="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold cursor-pointer hover:bg-primary/25 transition-colors"
+          @click="router.push({ name: 'profile' })"
+        >
+          {{ userInitials }}
+        </div>
         <Button
           icon="pi pi-bell"
           variant="text"

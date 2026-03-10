@@ -1,29 +1,31 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
 import http from '@/api/http';
 import type { User } from '@/stores/auth';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 const confirm = useConfirm();
+const toast = useToast();
 const users = ref<User[]>([]);
 const loading = ref(false);
-const error = ref<string | null>(null);
+
+const pendingUsers = computed(() => users.value.filter(u => !u.is_approved));
+const approvedUsers = computed(() => users.value.filter(u => u.is_approved));
 
 async function fetchUsers() {
   loading.value = true;
-  error.value = null;
   try {
     const { data } = await http.get<User[]>('/admin/users');
     users.value = data;
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? t('admin_error_load');
+    toast.add({ severity: 'error', summary: err?.response?.data?.detail ?? t('admin_error_load'), life: 4000 });
   } finally {
     loading.value = false;
   }
@@ -33,8 +35,9 @@ async function approveUser(userId: number) {
   try {
     await http.post(`/admin/users/${userId}/approve`);
     await fetchUsers();
+    toast.add({ severity: 'success', summary: t('admin_approve'), life: 2500 });
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? t('admin_error_approve');
+    toast.add({ severity: 'error', summary: t('admin_error_approve'), detail: err?.response?.data?.detail, life: 4000 });
   }
 }
 
@@ -49,8 +52,9 @@ function confirmDelete(userId: number, name: string) {
       try {
         await http.delete(`/admin/users/${userId}`);
         await fetchUsers();
+        toast.add({ severity: 'info', summary: t('admin_confirm_delete_button'), life: 2500 });
       } catch (err: any) {
-        error.value = err?.response?.data?.detail ?? t('admin_error_delete');
+        toast.add({ severity: 'error', summary: t('admin_error_delete'), detail: err?.response?.data?.detail, life: 4000 });
       }
     },
   });
@@ -63,7 +67,14 @@ onMounted(fetchUsers);
   <div class="p-4 flex flex-col gap-4 max-w-5xl mx-auto w-full">
     <h1 class="text-2xl font-semibold mb-2">{{ $t('admin_title') }}</h1>
 
-    <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+    <!-- Pending users summary strip -->
+    <div v-if="pendingUsers.length > 0"
+      class="flex items-center gap-3 p-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+      <i class="pi pi-user-plus text-orange-500" />
+      <span class="text-sm font-medium text-orange-700 dark:text-orange-300">
+        {{ $t('admin_pending_count', { count: pendingUsers.length }) }}
+      </span>
+    </div>
 
     <div v-if="loading" class="flex justify-center items-center py-10">
       <ProgressSpinner />
@@ -74,11 +85,11 @@ onMounted(fetchUsers);
       <Card class="mb-4">
         <template #title>{{ $t('admin_awaiting_approval_title') }}</template>
         <template #content>
-          <div v-if="users.filter(u => !u.is_approved).length === 0" class="text-sm text-surface-500">
+          <div v-if="pendingUsers.length === 0" class="text-sm text-surface-500">
             {{ $t('admin_no_pending') }}
           </div>
           <div class="flex flex-col gap-3">
-            <div v-for="user in users.filter(u => !u.is_approved)" :key="user.id"
+            <div v-for="user in pendingUsers" :key="user.id"
               class="border rounded-md p-3 flex flex-col gap-2 md:flex-row md:justify-between md:items-center">
               <div>
                 <div class="font-semibold">{{ user.full_name }}</div>
@@ -101,17 +112,17 @@ onMounted(fetchUsers);
       <Card>
         <template #title>{{ $t('admin_approved_users_title') }}</template>
         <template #content>
-          <div v-if="users.filter(u => u.is_approved).length === 0" class="text-sm text-surface-500">
+          <div v-if="approvedUsers.length === 0" class="text-sm text-surface-500">
             {{ $t('admin_no_approved') }}
           </div>
           <ul class="flex flex-col gap-2 text-sm">
-            <li v-for="user in users.filter(u => u.is_approved)" :key="user.id"
-              class="flex justify-between items-center border rounded-md p-2 gap-2">
+            <li v-for="user in approvedUsers" :key="user.id"
+              class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center border rounded-md p-2">
               <div>
                 <span class="font-medium">{{ user.full_name }}</span>
                 <span class="ml-2 text-surface-500">{{ user.email }}</span>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <Tag v-if="user.is_admin" :value="$t('admin_role_admin')" severity="warn" />
                 <Tag v-if="user.role_owner" :value="$t('admin_role_owner')" severity="info" />
                 <Tag v-if="user.role_borrower" :value="$t('admin_role_borrower')" severity="secondary" />

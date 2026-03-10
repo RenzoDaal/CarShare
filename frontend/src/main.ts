@@ -7,6 +7,7 @@ import "@/assets/main.css";
 import "@/assets/tailwind.css";
 import "leaflet/dist/leaflet.css";
 import ConfirmationService from "primevue/confirmationservice";
+import ToastService from 'primevue/toastservice';
 
 import PrimeVue from "primevue/config";
 import Aura from "@primeuix/themes/aura";
@@ -20,6 +21,7 @@ const pinia = createPinia();
 app.use(pinia);
 useAuthStore().loadFromStorage();
 app.use(ConfirmationService);
+app.use(ToastService);
 
 const MyTheme = definePreset(Aura, {
   semantic: {

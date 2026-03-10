@@ -117,3 +117,17 @@ def mark_read(
         session.add(notif)
         session.commit()
     return {"ok": True}
+
+
+@router.delete("/notifications")
+def clear_all_notifications(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    notifs = session.exec(
+        select(Notification).where(Notification.user_id == current_user.id)
+    ).all()
+    for n in notifs:
+        session.delete(n)
+    session.commit()
+    return {"ok": True}

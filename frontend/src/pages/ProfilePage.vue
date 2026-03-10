@@ -12,8 +12,10 @@ import { DEFAULT_NOTIFICATION_PREFS } from '@/stores/auth';
 import type { NotificationPrefs, User } from '@/stores/auth';
 import http from '@/api/http';
 import { useI18n } from 'vue-i18n';
+import { useToast } from 'primevue/usetoast';
 
 const { t, locale } = useI18n();
+const toast = useToast();
 
 const LANGUAGE_OPTIONS = [
   { label: 'Nederlands', value: 'nl' },
@@ -79,13 +81,9 @@ const profile = reactive({
   timezone: auth.user?.timezone ?? 'Europe/Amsterdam',
 });
 const profileSaving = ref(false);
-const profileSuccess = ref(false);
-const profileError = ref<string | null>(null);
 
 async function saveProfile() {
   profileSaving.value = true;
-  profileError.value = null;
-  profileSuccess.value = false;
   try {
     const { data } = await http.patch<User>('/users/me', {
       full_name: profile.full_name,
@@ -95,9 +93,9 @@ async function saveProfile() {
       timezone: profile.timezone,
     });
     auth.updateUser(data);
-    profileSuccess.value = true;
+    toast.add({ severity: 'success', summary: t('profile_saved_toast'), life: 3000 });
   } catch (err: any) {
-    profileError.value = err?.response?.data?.detail ?? t('profile_error_save');
+    toast.add({ severity: 'error', summary: t('profile_error_save'), detail: err?.response?.data?.detail, life: 4000 });
   } finally {
     profileSaving.value = false;
   }
@@ -123,8 +121,6 @@ function parsePrefs(raw: string | null | undefined): NotificationPrefs {
 
 const notifPrefs = reactive<NotificationPrefs>(parsePrefs(auth.user?.notification_prefs));
 const notifSaving = ref(false);
-const notifSuccess = ref(false);
-const notifError = ref<string | null>(null);
 
 const NOTIF_OWNER_TYPES: { key: keyof NotificationPrefs; labelKey: string; pushAlwaysOn?: boolean }[] = [
   { key: 'booking_request',    labelKey: 'profile_notif_booking_request' },
@@ -145,16 +141,14 @@ const NOTIF_GENERAL_TYPES: { key: keyof NotificationPrefs; labelKey: string }[] 
 
 async function saveNotifPrefs() {
   notifSaving.value = true;
-  notifError.value = null;
-  notifSuccess.value = false;
   try {
     const { data } = await http.patch<User>('/users/me', {
       notification_prefs: JSON.stringify(notifPrefs),
     });
     auth.updateUser(data);
-    notifSuccess.value = true;
+    toast.add({ severity: 'success', summary: t('profile_notif_saved_toast'), life: 3000 });
   } catch (err: any) {
-    notifError.value = err?.response?.data?.detail ?? t('profile_notif_error_save');
+    toast.add({ severity: 'error', summary: t('profile_notif_error_save'), detail: err?.response?.data?.detail, life: 4000 });
   } finally {
     notifSaving.value = false;
   }
@@ -167,12 +161,10 @@ const passwords = reactive({
   confirm: '',
 });
 const passwordSaving = ref(false);
-const passwordSuccess = ref(false);
 const passwordError = ref<string | null>(null);
 
 async function changePassword() {
   passwordError.value = null;
-  passwordSuccess.value = false;
   if (passwords.next !== passwords.confirm) {
     passwordError.value = t('profile_password_error_no_match');
     return;
@@ -190,9 +182,10 @@ async function changePassword() {
     passwords.current = '';
     passwords.next = '';
     passwords.confirm = '';
-    passwordSuccess.value = true;
+    passwordError.value = null;
+    toast.add({ severity: 'success', summary: t('profile_password_changed_toast'), life: 3000 });
   } catch (err: any) {
-    passwordError.value = err?.response?.data?.detail ?? t('profile_password_error_save');
+    toast.add({ severity: 'error', summary: t('profile_password_error_save'), detail: err?.response?.data?.detail, life: 4000 });
   } finally {
     passwordSaving.value = false;
   }
@@ -235,9 +228,6 @@ async function changePassword() {
               <label for="profile_role_borrower" class="text-sm">{{ $t('profile_role_borrower_label') }}</label>
             </div>
           </div>
-
-          <Message v-if="profileError" severity="error" :closable="false">{{ profileError }}</Message>
-          <Message v-if="profileSuccess" severity="success" :closable="false">{{ $t('profile_saved') }}</Message>
 
           <div class="flex justify-end">
             <Button :label="$t('profile_save')" icon="pi pi-check" :loading="profileSaving" @click="saveProfile" />
@@ -322,9 +312,6 @@ async function changePassword() {
             </div>
           </div>
 
-          <Message v-if="notifError" severity="error" :closable="false">{{ notifError }}</Message>
-          <Message v-if="notifSuccess" severity="success" :closable="false">{{ $t('profile_notif_saved') }}</Message>
-
           <div class="flex justify-end">
             <Button :label="$t('profile_notif_save')" icon="pi pi-check" :loading="notifSaving" @click="saveNotifPrefs" />
           </div>
@@ -351,7 +338,6 @@ async function changePassword() {
           </div>
 
           <Message v-if="passwordError" severity="error" :closable="false">{{ passwordError }}</Message>
-          <Message v-if="passwordSuccess" severity="success" :closable="false">{{ $t('profile_password_changed') }}</Message>
 
           <div class="flex justify-end">
             <Button :label="$t('profile_change_password_button')" icon="pi pi-lock" :loading="passwordSaving" @click="changePassword" />

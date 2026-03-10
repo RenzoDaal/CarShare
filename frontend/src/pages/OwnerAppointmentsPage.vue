@@ -9,8 +9,10 @@ import http from '@/api/http';
 import { useRouter } from 'vue-router';
 import { formatDateTime } from '@/utils/formatDate';
 import { useI18n } from 'vue-i18n';
+import { useToast } from 'primevue/usetoast';
 
 const { t } = useI18n();
+const toast = useToast();
 
 type BookingStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
@@ -66,20 +68,30 @@ async function fetchBookings() {
 }
 
 async function acceptBooking(id: number) {
+  const booking = bookings.value.find(b => b.id === id)
+  if (!booking) return
+  const prev = booking.status
+  booking.status = 'accepted'
   try {
-    await http.post(`/bookings/${id}/accept`);
-    await fetchBookings();
+    await http.post(`/bookings/${id}/accept`)
+    toast.add({ severity: 'success', summary: t('owner_accepted_toast'), life: 2500 })
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? t('owner_error_accept');
+    booking.status = prev
+    toast.add({ severity: 'error', summary: t('owner_error_accept'), detail: err?.response?.data?.detail, life: 4000 })
   }
 }
 
 async function declineBooking(id: number) {
+  const booking = bookings.value.find(b => b.id === id)
+  if (!booking) return
+  const prev = booking.status
+  booking.status = 'declined'
   try {
-    await http.post(`/bookings/${id}/decline`);
-    await fetchBookings();
+    await http.post(`/bookings/${id}/decline`)
+    toast.add({ severity: 'info', summary: t('owner_declined_toast'), life: 2500 })
   } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? t('owner_error_decline');
+    booking.status = prev
+    toast.add({ severity: 'error', summary: t('owner_error_decline'), detail: err?.response?.data?.detail, life: 4000 })
   }
 }
 

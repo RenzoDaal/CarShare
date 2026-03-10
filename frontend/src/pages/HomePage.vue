@@ -3,7 +3,7 @@ import Card from 'primevue/card';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import http from '@/api/http';
 import type { Car } from '@/stores/cars';
@@ -11,8 +11,14 @@ import { useAuthStore } from '@/stores/auth';
 import { useConfirm } from 'primevue/useconfirm';
 import { formatDateTime } from '@/utils/formatDate';
 import { useI18n } from 'vue-i18n';
+import { useReveal } from '@/composables/useReveal';
+import CarImageCarousel from '@/components/CarImageCarousel.vue';
 
 const { t } = useI18n();
+
+const { el: bookingsEl, visible: bookingsVisible } = useReveal()
+const { el: statsEl, visible: statsVisible } = useReveal()
+const { el: carsEl, visible: carsVisible } = useReveal()
 
 const timeGreeting = computed(() => {
   const h = new Date().getHours();
@@ -93,6 +99,23 @@ const otherBookings = computed<DashboardBooking[]>(() => {
 });
 
 const carStats = ref<CarStats[]>([]);
+
+const statEarningsDisplayed = ref<Record<number, number>>({})
+watch([statsVisible, carStats], () => {
+  if (!statsVisible.value) return
+  carStats.value.forEach(stat => {
+    const target = stat.total_earnings
+    const start = performance.now()
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / 900, 1)
+      const eased = 1 - Math.pow(1 - p, 3)
+      statEarningsDisplayed.value[stat.car_id] = target * eased
+      if (p < 1) requestAnimationFrame(tick)
+      else statEarningsDisplayed.value[stat.car_id] = target
+    }
+    requestAnimationFrame(tick)
+  })
+}, { immediate: false })
 
 type CoOwnerInvite = {
   car_id: number;
@@ -234,7 +257,8 @@ onMounted(() => {
       </div>
 
       <div v-else class="space-y-4">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+        <div ref="bookingsEl" class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch"
+          :class="['transition-all duration-700', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
           <div class="lg:col-span-2 h-full">
             <Card class="h-full">
               <template #title>
@@ -245,9 +269,15 @@ onMounted(() => {
                 </div>
               </template>
               <template #content>
-                <div v-if="!hasBookings" class="text-sm text-surface-500">
-                  {{ $t('dashboard_no_bookings_yet') }}
-                  <Button :label="$t('dashboard_reserve_car')" icon="pi pi-calendar" size="small" class="mt-3" @click="goToReserve" />
+                <div v-if="!hasBookings" class="flex flex-col items-center gap-3 py-8 text-center">
+                  <div class="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center">
+                    <i class="pi pi-calendar text-2xl text-surface-400" />
+                  </div>
+                  <div>
+                    <p class="font-medium text-surface-600 dark:text-surface-300">{{ $t('dashboard_no_bookings_yet') }}</p>
+                    <p class="text-sm text-surface-400 mt-1">{{ $t('dashboard_reserve_car') }}</p>
+                  </div>
+                  <Button :label="$t('dashboard_reserve_car')" icon="pi pi-calendar" size="small" @click="goToReserve" />
                 </div>
 
                 <div v-else class="space-y-4">
@@ -397,7 +427,8 @@ onMounted(() => {
           </Card>
         </div>
 
-        <div v-if="isOwner && carStats.length > 0">
+        <div v-if="isOwner && carStats.length > 0" ref="statsEl"
+          :class="['transition-all duration-700', statsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
           <Card class="mb-4">
             <template #title>{{ $t('dashboard_usage_stats') }}</template>
             <template #content>
@@ -405,7 +436,7 @@ onMounted(() => {
                 <div v-for="stat in carStats" :key="stat.car_id"
                   class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 flex flex-col gap-2 hover:shadow-md transition-shadow bg-gradient-to-br from-surface-0 to-surface-50 dark:from-surface-800 dark:to-surface-900">
                   <p class="font-semibold text-sm text-surface-700 dark:text-surface-200">{{ stat.car_name }}</p>
-                  <p class="text-2xl font-bold text-primary">€{{ stat.total_earnings.toFixed(2) }}</p>
+                  <p class="text-2xl font-bold text-primary">€{{ (statEarningsDisplayed[stat.car_id] ?? 0).toFixed(2) }}</p>
                   <div class="flex items-center gap-4 text-xs text-surface-500">
                     <span class="flex items-center gap-1">
                       <i class="pi pi-check-circle" />
@@ -422,7 +453,8 @@ onMounted(() => {
           </Card>
         </div>
 
-        <div v-if="isOwner">
+        <div v-if="isOwner" ref="carsEl"
+          :class="['transition-all duration-700', carsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
           <Card>
             <template #title>
               <div class="flex items-center justify-between gap-2">
@@ -432,31 +464,30 @@ onMounted(() => {
               </div>
             </template>
             <template #content>
-              <div v-if="!data?.active_cars?.length" class="text-sm text-surface-500">
-                {{ $t('dashboard_no_cars_yet') }}
-                <span class="block mt-1">
-                  {{ $t('dashboard_no_cars_hint').replace('{bold}', '') }}<b>{{ $t('dashboard_manage_cars_bold') }}</b>{{ $t('dashboard_no_cars_hint').split('{bold}')[1] ?? '' }}
-                </span>
+              <div v-if="!data?.active_cars?.length" class="flex flex-col items-center gap-3 py-8 text-center">
+                <div class="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center">
+                  <i class="pi pi-car text-2xl text-surface-400" />
+                </div>
+                <p class="text-sm text-surface-500">{{ $t('dashboard_no_cars_yet') }}</p>
+                <Button :label="$t('dashboard_manage_cars')" icon="pi pi-car" size="small" severity="secondary" @click="goToManageCars" />
               </div>
 
               <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <Card v-for="car in data!.active_cars" :key="car.id" class="border border-surface-200 rounded-lg">
-                  <template #title>
+                <div v-for="(car, index) in data!.active_cars" :key="car.id"
+                  class="relative h-40 rounded-xl overflow-hidden cursor-pointer shadow hover:-translate-y-1 hover:shadow-lg transition-all duration-300 card-animate border border-surface-200 dark:border-surface-700"
+                  :style="{ animationDelay: `${index * 60}ms` }"
+                  @click="goToManageCars">
+                  <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+                  <div class="absolute bottom-0 left-0 right-0 p-3 pointer-events-none">
                     <div class="flex items-center justify-between gap-2">
-                      <span>{{ car.name }}</span>
+                      <p class="text-white font-semibold text-sm leading-tight truncate">{{ car.name }}</p>
                       <Tag :value="car.is_active ? $t('dashboard_active_tag') : $t('dashboard_disabled_tag')"
                         :severity="car.is_active ? 'success' : 'danger'" />
                     </div>
-                  </template>
-                  <template #content>
-                    <p class="text-sm text-surface-500 mb-1">
-                      {{ car.description || $t('dashboard_no_description') }}
-                    </p>
-                    <p class="text-sm">
-                      € {{ car.price_per_km.toFixed(2) }} / km
-                    </p>
-                  </template>
-                </Card>
+                    <p class="text-white/70 text-xs mt-0.5">€ {{ car.price_per_km.toFixed(2) }} / km</p>
+                  </div>
+                </div>
               </div>
             </template>
           </Card>
@@ -465,3 +496,14 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.card-animate {
+  animation: cardFadeIn 0.35s ease forwards;
+  opacity: 0;
+}
+@keyframes cardFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

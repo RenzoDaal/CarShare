@@ -2,6 +2,7 @@
   import MenubarAndDrawer from '@/snippets/MenubarAndDrawer.vue';
   import { useRoute } from 'vue-router';
   import ConfirmDialog from 'primevue/confirmdialog';
+  import Toast from 'primevue/toast';
   import { ref, watch } from 'vue';
   import { useAuthStore } from '@/stores/auth';
   import { registerPush } from '@/utils/push';
@@ -54,6 +55,7 @@
   <div class="h-screen flex flex-col">
     <MenubarAndDrawer v-if="!route.meta.hideLayout"/>
     <ConfirmDialog />
+    <Toast position="top-right" />
 
     <!-- Push error message -->
     <Transition name="slide-down">

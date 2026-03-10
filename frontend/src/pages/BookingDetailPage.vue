@@ -8,6 +8,7 @@ import ProgressSpinner from 'primevue/progressspinner';
 import { useConfirm } from 'primevue/useconfirm';
 import { useAuthStore } from '@/stores/auth';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
+import RescheduleDialog from '@/components/RescheduleDialog.vue';
 import http from '@/api/http';
 import { formatDateTime } from '@/utils/formatDate';
 import { useI18n } from 'vue-i18n';
@@ -43,6 +44,7 @@ const confirm = useConfirm();
 const booking = ref<Booking | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
+const rescheduleVisible = ref(false);
 
 const isOwnerView = computed(() => auth.user?.id === booking.value?.car.owner_id);
 
@@ -189,13 +191,26 @@ async function declineBooking() {
       <Card v-if="booking.stops && booking.stops.length >= 2">
         <template #title>{{ $t('booking_detail_route') }}</template>
         <template #content>
-          <ol class="space-y-2">
-            <li v-for="(stop, i) in booking.stops" :key="i" class="flex items-start gap-2 text-sm">
-              <span class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                :class="i === 0 ? 'bg-primary text-white' : i === booking.stops!.length - 1 ? 'bg-surface-700 text-white dark:bg-surface-300 dark:text-surface-900' : 'bg-surface-200 dark:bg-surface-600 text-surface-700 dark:text-white'">
+          <ol class="relative space-y-0">
+            <li v-for="(stop, i) in booking.stops" :key="i" class="flex items-start gap-3 pb-4 last:pb-0 relative">
+              <!-- vertical connector line (not on last item) -->
+              <div v-if="i < booking.stops!.length - 1"
+                class="absolute left-[9px] top-5 bottom-0 w-px bg-surface-200 dark:bg-surface-700" />
+              <!-- circle indicator -->
+              <span class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 z-10"
+                :class="i === 0
+                  ? 'bg-primary text-white'
+                  : i === booking.stops!.length - 1
+                  ? 'bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900'
+                  : 'bg-surface-200 dark:bg-surface-600 text-surface-600 dark:text-white'">
                 {{ i === 0 ? 'A' : i === booking.stops!.length - 1 ? 'B' : i }}
               </span>
-              <span>{{ stop }}</span>
+              <div class="flex flex-col min-w-0 pt-0.5">
+                <span class="text-xs text-surface-400 font-medium uppercase tracking-wide mb-0.5">
+                  {{ i === 0 ? $t('reserve_start_location') : i === booking.stops!.length - 1 ? $t('reserve_end_location') : $t('reserve_stop_label').replace('{index}', String(i)) }}
+                </span>
+                <span class="text-sm">{{ stop }}</span>
+              </div>
             </li>
           </ol>
         </template>
@@ -219,33 +234,37 @@ async function declineBooking() {
       </Card>
 
       <!-- Actions -->
-      <div class="flex gap-2 flex-wrap">
-        <!-- Borrower actions -->
-        <template v-if="!isOwnerView">
-          <Button
-            v-if="booking.status === 'pending' || booking.status === 'accepted'"
-            :label="$t('booking_detail_cancel_booking')"
-            icon="pi pi-times"
-            severity="danger"
-            outlined
-            @click="confirmCancel"
-          />
-          <Button
-            v-if="booking.status === 'pending' || booking.status === 'accepted'"
-            :label="$t('booking_detail_reschedule')"
-            icon="pi pi-calendar-clock"
-            severity="secondary"
-            outlined
-            @click="router.push({ name: 'borrowerappointments' })"
-          />
-        </template>
+      <div class="sticky bottom-0 -mx-4 px-4 py-3 mt-2 bg-surface-0/95 dark:bg-surface-900/95 backdrop-blur-sm border-t border-surface-100 dark:border-surface-800 sm:static sm:bg-transparent sm:border-0 sm:backdrop-filter-none sm:px-0 sm:py-0 sm:mx-0">
+        <div class="flex gap-2 flex-wrap">
+          <!-- Borrower actions -->
+          <template v-if="!isOwnerView">
+            <Button
+              v-if="booking.status === 'pending' || booking.status === 'accepted'"
+              :label="$t('booking_detail_cancel_booking')"
+              icon="pi pi-times"
+              severity="danger"
+              outlined
+              @click="confirmCancel"
+            />
+            <Button
+              v-if="booking.status === 'pending' || booking.status === 'accepted'"
+              :label="$t('booking_detail_reschedule')"
+              icon="pi pi-calendar-clock"
+              severity="secondary"
+              outlined
+              @click="rescheduleVisible = true"
+            />
+          </template>
 
-        <!-- Owner actions -->
-        <template v-if="isOwnerView && booking.status === 'pending'">
-          <Button :label="$t('booking_detail_accept')" icon="pi pi-check" severity="success" @click="acceptBooking" />
-          <Button :label="$t('booking_detail_decline')" icon="pi pi-times" severity="danger" outlined @click="declineBooking" />
-        </template>
+          <!-- Owner actions -->
+          <template v-if="isOwnerView && booking.status === 'pending'">
+            <Button :label="$t('booking_detail_accept')" icon="pi pi-check" severity="success" @click="acceptBooking" />
+            <Button :label="$t('booking_detail_decline')" icon="pi pi-times" severity="danger" outlined @click="declineBooking" />
+          </template>
+        </div>
       </div>
     </template>
   </div>
+
+  <RescheduleDialog v-model:visible="rescheduleVisible" :booking="booking" @rescheduled="booking!.status = 'pending'" />
 </template>
