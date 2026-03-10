@@ -66,13 +66,26 @@ onMounted(() => {
 const createCarDialogVisible = ref(false);
 const editCarDialogVisible = ref(false);
 const editingCarId = ref<number | null>(null);
-const newCarImage = ref<File | null>(null);
 
-const onNewCarImageSelected = (event: Event) => {
+// Staged images for the create dialog (uploaded after car is created)
+const newCarImages = ref<File[]>([]);
+const newCarImagePreviews = ref<string[]>([]);
+const newCarFileInput = ref<HTMLInputElement | null>(null);
+
+const onNewCarImagesSelected = (event: Event) => {
   const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    newCarImage.value = target.files[0];
+  if (!target.files?.length) return;
+  for (const file of Array.from(target.files)) {
+    newCarImages.value.push(file);
+    newCarImagePreviews.value.push(URL.createObjectURL(file));
   }
+  target.value = '';
+};
+
+const removeNewCarImage = (index: number) => {
+  URL.revokeObjectURL(newCarImagePreviews.value[index]!);
+  newCarImages.value.splice(index, 1);
+  newCarImagePreviews.value.splice(index, 1);
 };
 
 type CarImage = { id: number; url: string; order: number };
@@ -169,6 +182,15 @@ const calcFields = (car: typeof newCar.value | typeof editCar.value) => [
   car.calc_fuel_price_per_liter,
 ];
 
+// Clean up staged images if the create dialog is closed without saving
+watch(createCarDialogVisible, (visible) => {
+  if (!visible) {
+    newCarImagePreviews.value.forEach(url => URL.revokeObjectURL(url));
+    newCarImages.value = [];
+    newCarImagePreviews.value = [];
+  }
+});
+
 watch(() => calcFields(newCar.value), () => {
   if (newCarCalcPrice.value !== null)
     newCar.value.price_per_km = Math.round(newCarCalcPrice.value * 100) / 100;
@@ -182,10 +204,23 @@ watch(() => calcFields(editCar.value), () => {
 const submitCreateCar = async () => {
   const created = await carStore.createCar(newCar.value);
 
-  if (created && newCarImage.value) {
-    await carStore.uploadCarImage(created.id, newCarImage.value);
-    newCarImage.value = null;
+  if (created) {
+    for (const file of newCarImages.value) {
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        await http.post(`/cars/${created.id}/images`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } catch { /* ignore individual upload failures */ }
+    }
+    if (newCarImages.value.length) await carStore.fetchMyCars();
   }
+
+  // Clean up object URLs
+  newCarImagePreviews.value.forEach(url => URL.revokeObjectURL(url));
+  newCarImages.value = [];
+  newCarImagePreviews.value = [];
 
   createCarDialogVisible.value = false;
 
@@ -455,7 +490,27 @@ const confirmLeaveCoOwnership = (car: Car) => {
           :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
       </template>
 
-      <input type="file" accept="image/*" @change="onNewCarImageSelected" />
+      <div>
+        <p class="text-sm font-medium mb-2">{{ $t('car_manager_photos') }}</p>
+        <div class="flex flex-wrap gap-2">
+          <div v-for="(preview, index) in newCarImagePreviews" :key="index" class="relative group w-20 h-20">
+            <img :src="preview" class="w-20 h-20 object-cover rounded" />
+            <button
+              class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded transition-opacity"
+              @click="removeNewCarImage(index)"
+            >
+              <i class="pi pi-trash text-white text-sm" />
+            </button>
+          </div>
+          <button
+            class="w-20 h-20 border-2 border-dashed border-surface-300 rounded flex items-center justify-center text-surface-400 hover:border-primary hover:text-primary transition-colors"
+            @click="newCarFileInput?.click()"
+          >
+            <i class="pi pi-plus text-lg" />
+          </button>
+        </div>
+        <input ref="newCarFileInput" type="file" accept="image/*" multiple class="hidden" @change="onNewCarImagesSelected" />
+      </div>
     </div>
     <template #footer>
       <Button :label="$t('car_manager_cancel')" severity="secondary" outlined @click="createCarDialogVisible = false" />

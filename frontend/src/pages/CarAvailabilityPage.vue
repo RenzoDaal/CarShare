@@ -5,8 +5,13 @@ import { ref, computed, onMounted } from 'vue';
 import http from '@/api/http';
 import type { Car } from '@/stores/cars';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
+import { useI18n } from 'vue-i18n';
+
+const { locale } = useI18n();
 
 type DateRange = { start: string; end: string };
+type DayBusySlot = { start: string; end: string; type: 'booking' | 'block' };
+type DaySegment = { startMinutes: number; endMinutes: number; type: 'free' | 'booking' | 'block' };
 
 // --- Car grid ---
 const cars = ref<Car[]>([]);
@@ -30,14 +35,13 @@ const unavailableRanges = ref<DateRange[]>([]);
 const calendarLoading = ref(false);
 
 const monthName = computed(() =>
-  new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' })
+  new Intl.DateTimeFormat(locale.value === 'nl' ? 'nl-NL' : 'en-GB', { month: 'long', year: 'numeric' })
     .format(new Date(currentYear.value, currentMonth.value, 1))
 );
 
 const calendarDays = computed(() => {
   const firstDay = new Date(currentYear.value, currentMonth.value, 1);
   const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate();
-  // Sunday = 0, fill leading blanks
   const leadingBlanks = firstDay.getDay();
   const days: (Date | null)[] = Array(leadingBlanks).fill(null);
   for (let d = 1; d <= daysInMonth; d++) {
@@ -79,6 +83,7 @@ const selectCar = async (car: Car) => {
   selectedCar.value = car;
   currentYear.value = new Date().getFullYear();
   currentMonth.value = new Date().getMonth();
+  selectedDay.value = null;
   await fetchCalendar();
 };
 
@@ -89,6 +94,7 @@ const prevMonth = async () => {
   } else {
     currentMonth.value--;
   }
+  selectedDay.value = null;
   await fetchCalendar();
 };
 
@@ -99,7 +105,73 @@ const nextMonth = async () => {
   } else {
     currentMonth.value++;
   }
+  selectedDay.value = null;
   await fetchCalendar();
+};
+
+// --- Day view ---
+const selectedDay = ref<Date | null>(null);
+const dayBusySlots = ref<DayBusySlot[]>([]);
+const dayLoading = ref(false);
+
+const toMinutes = (isoStr: string): number => {
+  const d = new Date(isoStr);
+  return d.getHours() * 60 + d.getMinutes();
+};
+
+const daySegments = computed((): DaySegment[] => {
+  if (!dayBusySlots.value.length) return [];
+  const busy = dayBusySlots.value
+    .map(s => ({ start: toMinutes(s.start), end: toMinutes(s.end) === 0 ? 1440 : toMinutes(s.end), type: s.type as 'booking' | 'block' }))
+    .sort((a, b) => a.start - b.start);
+
+  const segments: DaySegment[] = [];
+  let cursor = 0;
+
+  for (const slot of busy) {
+    if (slot.start > cursor) {
+      segments.push({ startMinutes: cursor, endMinutes: slot.start, type: 'free' });
+    }
+    segments.push({ startMinutes: slot.start, endMinutes: slot.end, type: slot.type });
+    cursor = Math.max(cursor, slot.end);
+  }
+  if (cursor < 1440) {
+    segments.push({ startMinutes: cursor, endMinutes: 1440, type: 'free' });
+  }
+  return segments;
+});
+
+const formatMinutes = (m: number): string => {
+  const h = Math.floor(m / 60) % 24;
+  const min = m % 60;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+};
+
+const dayTitle = computed(() => {
+  if (!selectedDay.value) return '';
+  return new Intl.DateTimeFormat(locale.value === 'nl' ? 'nl-NL' : 'en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  }).format(selectedDay.value);
+});
+
+const selectDay = async (day: Date) => {
+  if (selectedDay.value && toDateStr(selectedDay.value) === toDateStr(day)) {
+    selectedDay.value = null;
+    return;
+  }
+  selectedDay.value = day;
+  if (!selectedCar.value) return;
+  dayLoading.value = true;
+  try {
+    const res = await http.get<DayBusySlot[]>(`/cars/${selectedCar.value.id}/day`, {
+      params: { date: toDateStr(day) },
+    });
+    dayBusySlots.value = res.data;
+  } catch {
+    dayBusySlots.value = [];
+  } finally {
+    dayLoading.value = false;
+  }
 };
 </script>
 
@@ -135,7 +207,7 @@ const nextMonth = async () => {
       <div class="w-full max-w-2xl mx-auto mt-6 px-2">
         <div class="flex items-center gap-3 mb-6">
           <Button icon="pi pi-arrow-left" severity="secondary" outlined rounded size="small"
-            @click="selectedCar = null" />
+            @click="selectedCar = null; selectedDay = null" />
           <div>
             <h1 class="text-xl font-semibold">{{ selectedCar.name }}</h1>
             <p class="text-sm text-surface-500">{{ selectedCar.price_per_km }} € / km</p>
@@ -162,30 +234,89 @@ const nextMonth = async () => {
             <!-- Calendar grid -->
             <div v-if="calendarLoading" class="text-center py-8 text-sm text-surface-500">{{ $t('availability_loading_calendar') }}</div>
             <div v-else class="grid grid-cols-7 gap-1">
-              <div v-for="(day, i) in calendarDays" :key="i" class="aspect-square flex items-center justify-center rounded-lg text-sm"
+              <div v-for="(day, i) in calendarDays" :key="i"
+                class="aspect-square flex items-center justify-center rounded-lg text-sm transition-all"
                 :class="{
                   'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-medium': day && isUnavailable(day),
                   'ring-2 ring-primary font-semibold': day && isToday(day) && !isUnavailable(day),
-                  'text-surface-800 dark:text-surface-100': day && !isUnavailable(day),
+                  'text-surface-800 dark:text-surface-100 cursor-pointer hover:bg-surface-100 dark:hover:bg-surface-700': day && !isUnavailable(day),
+                  'cursor-pointer hover:bg-red-200 dark:hover:bg-red-800/50': day && isUnavailable(day),
+                  'ring-2 ring-offset-1 ring-primary/60': day && selectedDay && toDateStr(day) === toDateStr(selectedDay),
                   'text-surface-300': !day,
-                }">
+                }"
+                @click="day && selectDay(day)">
                 {{ day ? day.getDate() : '' }}
               </div>
             </div>
 
-            <!-- Legend -->
-            <div class="flex items-center gap-4 mt-4 text-xs text-surface-500">
-              <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
-                <span>{{ $t('availability_unavailable') }}</span>
+            <!-- Legend + hint -->
+            <div class="flex items-center justify-between mt-4">
+              <div class="flex items-center gap-4 text-xs text-surface-500">
+                <div class="flex items-center gap-1">
+                  <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
+                  <span>{{ $t('availability_unavailable') }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <div class="w-4 h-4 rounded border-2 border-primary"></div>
+                  <span>{{ $t('availability_today') }}</span>
+                </div>
               </div>
-              <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded border-2 border-primary"></div>
-                <span>{{ $t('availability_today') }}</span>
-              </div>
+              <span class="text-xs text-surface-400 italic">{{ $t('availability_click_day_hint') }}</span>
             </div>
           </template>
         </Card>
+
+        <!-- Day detail panel -->
+        <div v-if="selectedDay" class="mt-4">
+          <Card>
+            <template #content>
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="font-semibold text-base capitalize">{{ $t('availability_day_detail_title') }} {{ dayTitle }}</h2>
+                <Button icon="pi pi-times" severity="secondary" text rounded size="small" @click="selectedDay = null" />
+              </div>
+
+              <div v-if="dayLoading" class="text-sm text-surface-500 py-4 text-center">{{ $t('availability_loading_calendar') }}</div>
+
+              <div v-else-if="!dayBusySlots.length" class="text-sm text-green-600 dark:text-green-400 py-2">
+                {{ $t('availability_day_fully_free') }}
+              </div>
+
+              <div v-else class="flex flex-col rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700" style="height: 360px">
+                <div
+                  v-for="(seg, i) in daySegments" :key="i"
+                  class="flex items-center px-3 gap-3 text-xs overflow-hidden transition-colors"
+                  :style="{ flexGrow: seg.endMinutes - seg.startMinutes, minHeight: '20px' }"
+                  :class="{
+                    'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400': seg.type === 'free',
+                    'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300': seg.type === 'booking',
+                    'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300': seg.type === 'block',
+                  }">
+                  <span class="font-semibold shrink-0">{{ formatMinutes(seg.startMinutes) }} – {{ formatMinutes(seg.endMinutes) }}</span>
+                  <span class="truncate">
+                    {{ seg.type === 'free' ? $t('availability_day_free') : seg.type === 'booking' ? $t('availability_day_booked') : $t('availability_day_blocked') }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Day legend -->
+              <div v-if="dayBusySlots.length" class="flex items-center gap-4 mt-3 text-xs text-surface-500">
+                <div class="flex items-center gap-1">
+                  <div class="w-3 h-3 rounded bg-green-100 dark:bg-green-900/40"></div>
+                  <span>{{ $t('availability_day_free') }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <div class="w-3 h-3 rounded bg-red-100 dark:bg-red-900/40"></div>
+                  <span>{{ $t('availability_day_booked') }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <div class="w-3 h-3 rounded bg-orange-100 dark:bg-orange-900/40"></div>
+                  <span>{{ $t('availability_day_blocked') }}</span>
+                </div>
+              </div>
+            </template>
+          </Card>
+        </div>
+
       </div>
     </template>
 

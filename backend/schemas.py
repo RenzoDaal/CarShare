@@ -203,6 +203,12 @@ class BorrowerStatsRead(SQLModel):
     favourite_car: Optional[str] = None
 
 
+class DayBusySlot(SQLModel):
+    start: datetime
+    end: datetime
+    type: str  # "booking" | "block"
+
+
 class CoOwnerRead(SQLModel):
     user_id: int
     full_name: str

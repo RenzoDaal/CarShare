@@ -1,6 +1,6 @@
 import os
 from calendar import monthrange
-from datetime import date, datetime
+from datetime import date as date_type, date, datetime
 from typing import List
 from uuid import uuid4
 
@@ -24,6 +24,7 @@ from schemas import (
     CoOwnerInvite,
     CoOwnerInviteRead,
     CoOwnerRead,
+    DayBusySlot,
 )
 from utils import get_managed_car_ids, is_car_manager, get_prefs, parse_iso
 
@@ -447,6 +448,57 @@ def get_car_calendar(
         ranges.append(CalendarDateRange(start=b.start_date, end=b.end_date))
 
     return ranges
+
+
+@router.get("/cars/{car_id}/day", response_model=List[DayBusySlot])
+def get_car_day_view(
+    car_id: int,
+    date: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    car = session.get(Car, car_id)
+    if car is None:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    try:
+        day = date_type.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date")
+
+    day_start = datetime(day.year, day.month, day.day, 0, 0, 0)
+    day_end = datetime(day.year, day.month, day.day, 23, 59, 59)
+
+    slots: List[DayBusySlot] = []
+
+    bookings = session.exec(
+        select(Booking).where(
+            Booking.car_id == car_id,
+            Booking.status == BookingStatus.ACCEPTED.value,
+            Booking.start_datetime <= day_end,
+            Booking.end_datetime >= day_start,
+        )
+    ).all()
+    for b in bookings:
+        start = b.start_datetime.replace(tzinfo=None) if b.start_datetime.tzinfo else b.start_datetime
+        end = b.end_datetime.replace(tzinfo=None) if b.end_datetime.tzinfo else b.end_datetime
+        slots.append(DayBusySlot(
+            start=max(start, day_start),
+            end=min(end, day_end),
+            type="booking",
+        ))
+
+    blocks = session.exec(
+        select(CarUnavailability).where(
+            CarUnavailability.car_id == car_id,
+            CarUnavailability.start_date <= day,
+            CarUnavailability.end_date >= day,
+        )
+    ).all()
+    for _ in blocks:
+        slots.append(DayBusySlot(start=day_start, end=day_end, type="block"))
+
+    return sorted(slots, key=lambda s: s.start)
 
 
 # --- Co-owner management ---
