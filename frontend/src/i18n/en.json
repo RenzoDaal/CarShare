@@ -137,6 +137,10 @@
   "reserve_error_not_logged_in": "You must be logged in to create a reservation.",
   "reserve_error_booking": "Failed to complete booking.",
 
+  "borrower_stats_rides": "rides",
+  "borrower_stats_km": "km driven",
+  "borrower_stats_spent": "spent",
+  "borrower_stats_favourite": "Favourite car",
   "borrower_appointments_title": "My appointments",
   "borrower_upcoming_title": "Upcoming and current",
   "borrower_no_upcoming": "You don't have any upcoming bookings.",

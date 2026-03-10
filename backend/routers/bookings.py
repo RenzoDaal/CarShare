@@ -12,6 +12,7 @@ from models import Booking, BookingStatus, Car, CarCoOwner, User, Waitlist
 from routers.notifications import create_notification
 from schemas import (
     BookingReschedule,
+    BorrowerStatsRead,
     CarRead,
     DashboardBookingRead,
     DashboardResponse,
@@ -418,6 +419,45 @@ def list_owner_bookings(
             )
         )
     return result
+
+
+@router.get("/bookings/borrower/stats", response_model=BorrowerStatsRead)
+def get_borrower_stats(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    now = datetime.now(timezone.utc)
+    bookings = session.exec(
+        select(Booking).where(
+            Booking.borrower_id == current_user.id,
+            Booking.status == BookingStatus.ACCEPTED.value,
+        )
+    ).all()
+
+    def end_utc(b: Booking) -> datetime:
+        return b.end_datetime if b.end_datetime.tzinfo else b.end_datetime.replace(tzinfo=timezone.utc)
+
+    completed = [b for b in bookings if end_utc(b) < now]
+
+    total_rides = len(completed)
+    total_km = sum(b.total_km or 0 for b in completed)
+    total_spent = sum(b.total_price or 0 for b in completed)
+
+    # Favourite car: the one that appears most often
+    car_counts: dict[int, tuple[str, int]] = {}
+    for b in completed:
+        car = b.car or session.get(Car, b.car_id)
+        if car:
+            prev = car_counts.get(car.id, (car.name, 0))
+            car_counts[car.id] = (prev[0], prev[1] + 1)
+    favourite_car = max(car_counts.values(), key=lambda x: x[1])[0] if car_counts else None
+
+    return BorrowerStatsRead(
+        total_rides=total_rides,
+        total_km=round(total_km, 1),
+        total_spent=round(total_spent, 2),
+        favourite_car=favourite_car,
+    )
 
 
 @router.get("/bookings/borrower", response_model=List[DashboardBookingRead])

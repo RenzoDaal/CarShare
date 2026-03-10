@@ -137,6 +137,10 @@
   "reserve_error_not_logged_in": "Je moet ingelogd zijn om een reservering te maken.",
   "reserve_error_booking": "Boeking voltooien mislukt.",
 
+  "borrower_stats_rides": "ritten",
+  "borrower_stats_km": "km gereden",
+  "borrower_stats_spent": "uitgegeven",
+  "borrower_stats_favourite": "Favoriete auto",
   "borrower_appointments_title": "Mijn afspraken",
   "borrower_upcoming_title": "Aankomend en huidig",
   "borrower_no_upcoming": "Je hebt geen aankomende boekingen.",

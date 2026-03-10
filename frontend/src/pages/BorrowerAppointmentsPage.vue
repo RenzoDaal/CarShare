@@ -40,9 +40,26 @@ type BorrowerBooking = {
   last_reminder_sent?: string | null;
 };
 
+type BorrowerStats = {
+  total_rides: number;
+  total_km: number;
+  total_spent: number;
+  favourite_car: string | null;
+};
+
 const confirm = useConfirm();
 const router = useRouter();
 const bookings = ref<BorrowerBooking[]>([]);
+const stats = ref<BorrowerStats | null>(null);
+
+async function fetchStats() {
+  try {
+    const { data } = await http.get<BorrowerStats>('/bookings/borrower/stats');
+    stats.value = data;
+  } catch {
+    // silently ignore
+  }
+}
 
 type WaitlistEntry = {
   id: number;
@@ -252,12 +269,33 @@ async function sendReminder(bookingId: number) {
 onMounted(() => {
   fetchBookings();
   fetchWaitlist();
+  fetchStats();
 });
 </script>
 
 <template>
   <div class="p-4 flex flex-col gap-4 max-w-5xl mx-auto w-full">
     <h1 class="text-2xl font-semibold mb-2">{{ $t('borrower_appointments_title') }}</h1>
+
+    <div v-if="stats && stats.total_rides > 0"
+      class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
+        <span class="text-2xl font-semibold">{{ stats.total_rides }}</span>
+        <span class="text-xs text-surface-500">{{ $t('borrower_stats_rides') }}</span>
+      </div>
+      <div class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
+        <span class="text-2xl font-semibold">{{ stats.total_km.toFixed(0) }}</span>
+        <span class="text-xs text-surface-500">{{ $t('borrower_stats_km') }}</span>
+      </div>
+      <div class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
+        <span class="text-2xl font-semibold">€{{ stats.total_spent.toFixed(2) }}</span>
+        <span class="text-xs text-surface-500">{{ $t('borrower_stats_spent') }}</span>
+      </div>
+      <div v-if="stats.favourite_car" class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 flex flex-col gap-0.5">
+        <span class="text-lg font-semibold truncate">{{ stats.favourite_car }}</span>
+        <span class="text-xs text-surface-500">{{ $t('borrower_stats_favourite') }}</span>
+      </div>
+    </div>
 
     <Message v-if="error" severity="error" :closable="false">
       {{ error }}

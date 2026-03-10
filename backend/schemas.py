@@ -175,6 +175,13 @@ class CarImageRead(SQLModel):
     order: int
 
 
+class BorrowerStatsRead(SQLModel):
+    total_rides: int
+    total_km: float
+    total_spent: float
+    favourite_car: Optional[str] = None
+
+
 class CoOwnerRead(SQLModel):
     user_id: int
     full_name: str
