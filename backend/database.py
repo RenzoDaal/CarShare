@@ -30,6 +30,13 @@ def _run_migrations():
         "ALTER TABLE user ADD COLUMN notification_prefs TEXT",
         "ALTER TABLE booking ADD COLUMN created_at TEXT",
         "ALTER TABLE booking ADD COLUMN last_reminder_sent TEXT",
+        "ALTER TABLE car ADD COLUMN price_mode TEXT NOT NULL DEFAULT 'manual'",
+        "ALTER TABLE car ADD COLUMN fuel_type TEXT",
+        "ALTER TABLE car ADD COLUMN calc_battery_kwh REAL",
+        "ALTER TABLE car ADD COLUMN calc_range_km REAL",
+        "ALTER TABLE car ADD COLUMN calc_charge_cost_per_kwh REAL",
+        "ALTER TABLE car ADD COLUMN calc_consumption_per_100km REAL",
+        "ALTER TABLE car ADD COLUMN calc_fuel_price_per_liter REAL",
     ]
     with engine.connect() as conn:
         for sql in migrations:

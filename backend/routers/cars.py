@@ -71,6 +71,13 @@ def create_car(
         description=data.description,
         price_per_km=data.price_per_km,
         is_active=True,
+        price_mode=data.price_mode,
+        fuel_type=data.fuel_type,
+        calc_battery_kwh=data.calc_battery_kwh,
+        calc_range_km=data.calc_range_km,
+        calc_charge_cost_per_kwh=data.calc_charge_cost_per_kwh,
+        calc_consumption_per_100km=data.calc_consumption_per_100km,
+        calc_fuel_price_per_liter=data.calc_fuel_price_per_liter,
     )
     session.add(car)
     session.commit()

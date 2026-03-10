@@ -29,6 +29,13 @@ class Car(SQLModel, table=True):
     price_per_km: float
     is_active: bool = True
     image_url: Optional[str] = None
+    price_mode: str = Field(default="manual")  # "manual" | "calculated"
+    fuel_type: Optional[str] = None             # "electric" | "combustion"
+    calc_battery_kwh: Optional[float] = None
+    calc_range_km: Optional[float] = None
+    calc_charge_cost_per_kwh: Optional[float] = None
+    calc_consumption_per_100km: Optional[float] = None
+    calc_fuel_price_per_liter: Optional[float] = None
 
     owner: Optional[User] = Relationship(back_populates="cars")
     bookings: List["Booking"] = Relationship(back_populates="car")

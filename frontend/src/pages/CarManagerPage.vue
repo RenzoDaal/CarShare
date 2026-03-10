@@ -8,17 +8,45 @@ import Textarea from 'primevue/textarea';
 import InputNumber from 'primevue/inputnumber';
 import DatePicker from 'primevue/datepicker';
 import Tag from 'primevue/tag';
+import SelectButton from 'primevue/selectbutton';
 
 import { useCarStore, type NewCarPayload, type UpdateCarPayload, type Car } from '@/stores/cars';
 import { formatDateOnly } from '@/utils/formatDate';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
 import http from '@/api/http';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
+
+const priceModeOptions = computed(() => [
+  { label: t('car_manager_price_mode_manual'), value: 'manual' },
+  { label: t('car_manager_price_mode_calculated'), value: 'calculated' },
+]);
+
+const fuelTypeOptions = computed(() => [
+  { label: t('car_manager_fuel_electric'), value: 'electric' },
+  { label: t('car_manager_fuel_combustion'), value: 'combustion' },
+]);
+
+const calcPricePerKm = (
+  fuelType: string | null | undefined,
+  batteryKwh: number | null | undefined,
+  rangeKm: number | null | undefined,
+  chargeCost: number | null | undefined,
+  consumption: number | null | undefined,
+  fuelPrice: number | null | undefined,
+): number | null => {
+  if (fuelType === 'electric' && batteryKwh && rangeKm && chargeCost) {
+    return (batteryKwh / rangeKm) * chargeCost;
+  }
+  if (fuelType === 'combustion' && consumption && fuelPrice) {
+    return (consumption / 100) * fuelPrice;
+  }
+  return null;
+};
 
 type UnavailabilityBlock = {
   id: number;
@@ -90,6 +118,13 @@ const newCar = ref<NewCarPayload>({
   name: '',
   description: '',
   price_per_km: 0,
+  price_mode: 'manual',
+  fuel_type: null,
+  calc_battery_kwh: null,
+  calc_range_km: null,
+  calc_charge_cost_per_kwh: null,
+  calc_consumption_per_100km: null,
+  calc_fuel_price_per_liter: null,
 });
 
 const editCar = ref<UpdateCarPayload>({
@@ -97,6 +132,51 @@ const editCar = ref<UpdateCarPayload>({
   description: '',
   price_per_km: 0,
   is_active: true,
+  price_mode: 'manual',
+  fuel_type: null,
+  calc_battery_kwh: null,
+  calc_range_km: null,
+  calc_charge_cost_per_kwh: null,
+  calc_consumption_per_100km: null,
+  calc_fuel_price_per_liter: null,
+});
+
+const newCarCalcPrice = computed(() => calcPricePerKm(
+  newCar.value.fuel_type,
+  newCar.value.calc_battery_kwh,
+  newCar.value.calc_range_km,
+  newCar.value.calc_charge_cost_per_kwh,
+  newCar.value.calc_consumption_per_100km,
+  newCar.value.calc_fuel_price_per_liter,
+));
+
+const editCarCalcPrice = computed(() => calcPricePerKm(
+  editCar.value.fuel_type,
+  editCar.value.calc_battery_kwh,
+  editCar.value.calc_range_km,
+  editCar.value.calc_charge_cost_per_kwh,
+  editCar.value.calc_consumption_per_100km,
+  editCar.value.calc_fuel_price_per_liter,
+));
+
+// Whenever any calc input changes, auto-fill price_per_km with the new calculated result
+const calcFields = (car: typeof newCar.value | typeof editCar.value) => [
+  car.fuel_type,
+  car.calc_battery_kwh,
+  car.calc_range_km,
+  car.calc_charge_cost_per_kwh,
+  car.calc_consumption_per_100km,
+  car.calc_fuel_price_per_liter,
+];
+
+watch(() => calcFields(newCar.value), () => {
+  if (newCarCalcPrice.value !== null)
+    newCar.value.price_per_km = Math.round(newCarCalcPrice.value * 100) / 100;
+});
+
+watch(() => calcFields(editCar.value), () => {
+  if (editCarCalcPrice.value !== null)
+    editCar.value.price_per_km = Math.round(editCarCalcPrice.value * 100) / 100;
 });
 
 const submitCreateCar = async () => {
@@ -113,6 +193,13 @@ const submitCreateCar = async () => {
     name: '',
     description: '',
     price_per_km: 0,
+    price_mode: 'manual',
+    fuel_type: null,
+    calc_battery_kwh: null,
+    calc_range_km: null,
+    calc_charge_cost_per_kwh: null,
+    calc_consumption_per_100km: null,
+    calc_fuel_price_per_liter: null,
   };
 }
 
@@ -123,6 +210,13 @@ const openEditDialog = (car: Car) => {
     description: car.description ?? '',
     price_per_km: car.price_per_km,
     is_active: car.is_active,
+    price_mode: car.price_mode ?? 'manual',
+    fuel_type: car.fuel_type ?? null,
+    calc_battery_kwh: car.calc_battery_kwh ?? null,
+    calc_range_km: car.calc_range_km ?? null,
+    calc_charge_cost_per_kwh: car.calc_charge_cost_per_kwh ?? null,
+    calc_consumption_per_100km: car.calc_consumption_per_100km ?? null,
+    calc_fuel_price_per_liter: car.calc_fuel_price_per_liter ?? null,
   };
   editCarDialogVisible.value = true;
   loadEditImages(car.id);
@@ -323,8 +417,44 @@ const confirmLeaveCoOwnership = (car: Car) => {
     <div class="flex flex-col gap-4">
       <InputText v-model="newCar.name" :placeholder="$t('car_manager_car_name_placeholder')" />
       <Textarea v-model="newCar.description" :placeholder="$t('car_manager_description_placeholder')" rows="3" />
-      <InputNumber v-model="newCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
-        :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
+
+      <div>
+        <p class="text-sm font-medium mb-2">{{ $t('car_manager_price_mode_label') }}</p>
+        <SelectButton v-model="newCar.price_mode" :options="priceModeOptions" optionLabel="label" optionValue="value" />
+      </div>
+
+      <template v-if="newCar.price_mode === 'manual'">
+        <InputNumber v-model="newCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
+          :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
+      </template>
+
+      <template v-else>
+        <div>
+          <p class="text-sm font-medium mb-2">{{ $t('car_manager_fuel_type_label') }}</p>
+          <SelectButton v-model="newCar.fuel_type" :options="fuelTypeOptions" optionLabel="label" optionValue="value" />
+        </div>
+
+        <template v-if="newCar.fuel_type === 'electric'">
+          <InputNumber v-model="newCar.calc_battery_kwh" mode="decimal" :min="0" :step="1" :minFractionDigits="0"
+            :maxFractionDigits="1" locale="en-US" :placeholder="$t('car_manager_calc_battery_kwh')" />
+          <InputNumber v-model="newCar.calc_range_km" mode="decimal" :min="0" :step="1" :minFractionDigits="0"
+            :maxFractionDigits="0" locale="en-US" :placeholder="$t('car_manager_calc_range_km')" />
+          <InputNumber v-model="newCar.calc_charge_cost_per_kwh" mode="decimal" :min="0" :step="0.01"
+            :minFractionDigits="2" :maxFractionDigits="3" locale="en-US" :placeholder="$t('car_manager_calc_charge_cost')" />
+        </template>
+
+        <template v-else-if="newCar.fuel_type === 'combustion'">
+          <InputNumber v-model="newCar.calc_consumption_per_100km" mode="decimal" :min="0" :step="0.1"
+            :minFractionDigits="1" :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_calc_consumption')" />
+          <InputNumber v-model="newCar.calc_fuel_price_per_liter" mode="decimal" :min="0" :step="0.01"
+            :minFractionDigits="2" :maxFractionDigits="3" locale="en-US" :placeholder="$t('car_manager_calc_fuel_price')" />
+        </template>
+
+        <p v-if="newCarCalcPrice === null" class="text-xs text-surface-400">{{ $t('car_manager_calc_incomplete') }}</p>
+        <InputNumber v-model="newCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
+          :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
+      </template>
+
       <input type="file" accept="image/*" @change="onNewCarImageSelected" />
     </div>
     <template #footer>
@@ -337,8 +467,43 @@ const confirmLeaveCoOwnership = (car: Car) => {
     <div class="flex flex-col gap-4">
       <InputText v-model="editCar.name" :placeholder="$t('car_manager_car_name_placeholder')" />
       <Textarea v-model="editCar.description" :placeholder="$t('car_manager_description_placeholder')" rows="3" />
-      <InputNumber v-model="editCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
-        :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
+
+      <div>
+        <p class="text-sm font-medium mb-2">{{ $t('car_manager_price_mode_label') }}</p>
+        <SelectButton v-model="editCar.price_mode" :options="priceModeOptions" optionLabel="label" optionValue="value" />
+      </div>
+
+      <template v-if="editCar.price_mode === 'manual'">
+        <InputNumber v-model="editCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
+          :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
+      </template>
+
+      <template v-else>
+        <div>
+          <p class="text-sm font-medium mb-2">{{ $t('car_manager_fuel_type_label') }}</p>
+          <SelectButton v-model="editCar.fuel_type" :options="fuelTypeOptions" optionLabel="label" optionValue="value" />
+        </div>
+
+        <template v-if="editCar.fuel_type === 'electric'">
+          <InputNumber v-model="editCar.calc_battery_kwh" mode="decimal" :min="0" :step="1" :minFractionDigits="0"
+            :maxFractionDigits="1" locale="en-US" :placeholder="$t('car_manager_calc_battery_kwh')" />
+          <InputNumber v-model="editCar.calc_range_km" mode="decimal" :min="0" :step="1" :minFractionDigits="0"
+            :maxFractionDigits="0" locale="en-US" :placeholder="$t('car_manager_calc_range_km')" />
+          <InputNumber v-model="editCar.calc_charge_cost_per_kwh" mode="decimal" :min="0" :step="0.01"
+            :minFractionDigits="2" :maxFractionDigits="3" locale="en-US" :placeholder="$t('car_manager_calc_charge_cost')" />
+        </template>
+
+        <template v-else-if="editCar.fuel_type === 'combustion'">
+          <InputNumber v-model="editCar.calc_consumption_per_100km" mode="decimal" :min="0" :step="0.1"
+            :minFractionDigits="1" :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_calc_consumption')" />
+          <InputNumber v-model="editCar.calc_fuel_price_per_liter" mode="decimal" :min="0" :step="0.01"
+            :minFractionDigits="2" :maxFractionDigits="3" locale="en-US" :placeholder="$t('car_manager_calc_fuel_price')" />
+        </template>
+
+        <p v-if="editCarCalcPrice === null" class="text-xs text-surface-400">{{ $t('car_manager_calc_incomplete') }}</p>
+        <InputNumber v-model="editCar.price_per_km" mode="decimal" :min="0" :step="0.01" :minFractionDigits="2"
+          :maxFractionDigits="2" locale="en-US" :placeholder="$t('car_manager_price_per_km_placeholder')" />
+      </template>
 
       <div>
         <p class="text-sm font-medium mb-2">{{ $t('car_manager_photos') }}</p>

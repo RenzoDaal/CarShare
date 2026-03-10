@@ -39,6 +39,13 @@ class CarCreate(SQLModel):
     name: str
     description: Optional[str] = None
     price_per_km: float
+    price_mode: str = "manual"
+    fuel_type: Optional[str] = None
+    calc_battery_kwh: Optional[float] = None
+    calc_range_km: Optional[float] = None
+    calc_charge_cost_per_kwh: Optional[float] = None
+    calc_consumption_per_100km: Optional[float] = None
+    calc_fuel_price_per_liter: Optional[float] = None
 
 
 class CarRead(SQLModel):
@@ -49,6 +56,13 @@ class CarRead(SQLModel):
     price_per_km: float
     is_active: bool
     image_url: Optional[str] = None
+    price_mode: str = "manual"
+    fuel_type: Optional[str] = None
+    calc_battery_kwh: Optional[float] = None
+    calc_range_km: Optional[float] = None
+    calc_charge_cost_per_kwh: Optional[float] = None
+    calc_consumption_per_100km: Optional[float] = None
+    calc_fuel_price_per_liter: Optional[float] = None
 
 
 class CarUpdate(SQLModel):
@@ -57,6 +71,13 @@ class CarUpdate(SQLModel):
     price_per_km: Optional[float] = None
     is_active: Optional[bool] = None
     image_url: Optional[str] = None
+    price_mode: Optional[str] = None
+    fuel_type: Optional[str] = None
+    calc_battery_kwh: Optional[float] = None
+    calc_range_km: Optional[float] = None
+    calc_charge_cost_per_kwh: Optional[float] = None
+    calc_consumption_per_100km: Optional[float] = None
+    calc_fuel_price_per_liter: Optional[float] = None
 
 
 class DashboardBookingRead(SQLModel):

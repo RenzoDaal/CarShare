@@ -9,12 +9,26 @@ export type Car = {
   price_per_km: number;
   is_active: boolean;
   image_url?: string | null;
+  price_mode: string;
+  fuel_type?: string | null;
+  calc_battery_kwh?: number | null;
+  calc_range_km?: number | null;
+  calc_charge_cost_per_kwh?: number | null;
+  calc_consumption_per_100km?: number | null;
+  calc_fuel_price_per_liter?: number | null;
 };
 
 export type NewCarPayload = {
   name: string;
   description?: string | null;
   price_per_km: number;
+  price_mode?: string;
+  fuel_type?: string | null;
+  calc_battery_kwh?: number | null;
+  calc_range_km?: number | null;
+  calc_charge_cost_per_kwh?: number | null;
+  calc_consumption_per_100km?: number | null;
+  calc_fuel_price_per_liter?: number | null;
 };
 
 export type UpdateCarPayload = {
@@ -22,6 +36,13 @@ export type UpdateCarPayload = {
   description?: string | null;
   price_per_km?: number;
   is_active?: boolean;
+  price_mode?: string;
+  fuel_type?: string | null;
+  calc_battery_kwh?: number | null;
+  calc_range_km?: number | null;
+  calc_charge_cost_per_kwh?: number | null;
+  calc_consumption_per_100km?: number | null;
+  calc_fuel_price_per_liter?: number | null;
 };
 
 export const useCarStore = defineStore("cars", {
