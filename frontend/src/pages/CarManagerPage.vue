@@ -448,7 +448,7 @@ const confirmLeaveCoOwnership = (car: Car) => {
 
 
 <template>
-  <Dialog v-model:visible="createCarDialogVisible" modal :header="$t('car_manager_add_car_title')">
+  <Dialog v-model:visible="createCarDialogVisible" modal :header="$t('car_manager_add_car_title')" :style="{ width: '36rem' }">
     <div class="flex flex-col gap-4">
       <InputText v-model="newCar.name" :placeholder="$t('car_manager_car_name_placeholder')" />
       <Textarea v-model="newCar.description" :placeholder="$t('car_manager_description_placeholder')" rows="3" />

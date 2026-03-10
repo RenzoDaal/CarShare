@@ -249,20 +249,19 @@ const selectDay = async (day: Date) => {
               </div>
             </div>
 
-            <!-- Legend + hint -->
-            <div class="flex items-center justify-between mt-4">
-              <div class="flex items-center gap-4 text-xs text-surface-500">
-                <div class="flex items-center gap-1">
-                  <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
-                  <span>{{ $t('availability_unavailable') }}</span>
-                </div>
-                <div class="flex items-center gap-1">
-                  <div class="w-4 h-4 rounded border-2 border-primary"></div>
-                  <span>{{ $t('availability_today') }}</span>
-                </div>
+            <!-- Legend -->
+            <div class="flex items-center gap-4 mt-4 text-xs text-surface-500">
+              <div class="flex items-center gap-1">
+                <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
+                <span>{{ $t('availability_unavailable') }}</span>
               </div>
-              <span class="text-xs text-surface-400 italic">{{ $t('availability_click_day_hint') }}</span>
+              <div class="flex items-center gap-1">
+                <div class="w-4 h-4 rounded border-2 border-primary"></div>
+                <span>{{ $t('availability_today') }}</span>
+              </div>
             </div>
+            <!-- Hint -->
+            <p class="text-xs text-surface-400 italic mt-2">{{ $t('availability_click_day_hint') }}</p>
           </template>
         </Card>
 
