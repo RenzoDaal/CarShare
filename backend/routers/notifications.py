@@ -67,11 +67,20 @@ def create_notification(
     message: str,
     booking_id: Optional[int] = None,
 ):
-    """Add a notification to the session (caller must commit) and send web push."""
+    """Add a notification row to the session (caller must commit). Push is sent separately via send_web_push_task."""
     notif = Notification(user_id=user_id, message=message, booking_id=booking_id)
     session.add(notif)
-    session.flush()  # ensure the new notification is visible to the count query below
-    _send_web_push(session, user_id, message)
+    session.flush()
+
+
+def send_web_push_task(user_id: int, message: str) -> None:
+    """Background-safe push sender: opens its own DB session so it can run after the request returns."""
+    from database import engine
+    with Session(engine) as session:
+        try:
+            _send_web_push(session, user_id, message)
+        except Exception as ex:
+            logger.error("Background web push failed for user_id=%s: %s", user_id, ex)
 
 
 @router.get("/notifications", response_model=List[NotificationRead])

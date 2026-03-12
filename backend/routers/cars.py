@@ -11,7 +11,7 @@ import emailer
 from auth import get_current_user, get_session
 from config import BASE_DATA_DIR, CAR_IMAGE_DIR, MAX_IMAGE_SIZE
 from models import Booking, BookingStatus, Car, CarCoOwner, CarImage, CarUnavailability, User
-from routers.notifications import create_notification
+from routers.notifications import create_notification, send_web_push_task
 from schemas import (
     CalendarDateRange,
     CarCreate,
@@ -587,6 +587,7 @@ def invite_co_owner(
             invitee.id,
             f"{current_user.full_name} invited you to co-own {car.name}",
         )
+        background_tasks.add_task(send_web_push_task, invitee.id, f"{current_user.full_name} invited you to co-own {car.name}")
     session.commit()
 
     if invitee_prefs["co_owner_invite"]["email"] and invitee.email:
@@ -639,6 +640,7 @@ def accept_co_owner_invite(
                 owner.id,
                 f"{current_user.full_name} accepted your co-owner invite for {car.name}",
             )
+            background_tasks.add_task(send_web_push_task, owner.id, f"{current_user.full_name} accepted your co-owner invite for {car.name}")
     session.commit()
     session.refresh(current_user)
 
@@ -689,6 +691,7 @@ def decline_co_owner_invite(
                 owner.id,
                 f"{current_user.full_name} declined your co-owner invite for {car.name}",
             )
+            background_tasks.add_task(send_web_push_task, owner.id, f"{current_user.full_name} declined your co-owner invite for {car.name}")
     session.commit()
 
     if owner:
@@ -737,6 +740,7 @@ def leave_co_ownership(
                 owner.id,
                 f"{current_user.full_name} left co-ownership of {car.name}",
             )
+            background_tasks.add_task(send_web_push_task, owner.id, f"{current_user.full_name} left co-ownership of {car.name}")
     session.commit()
 
     if owner:
@@ -780,6 +784,7 @@ def remove_co_owner(
                 removed_user.id,
                 f"You have been removed as co-owner of {car.name}",
             )
+            background_tasks.add_task(send_web_push_task, removed_user.id, f"You have been removed as co-owner of {car.name}")
     session.delete(row)
     session.commit()
 

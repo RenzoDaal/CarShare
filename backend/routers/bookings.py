@@ -3,21 +3,15 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import emailer
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlmodel import Session, select
-
 import schemas
 from auth import get_current_user, get_session
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from models import Booking, BookingStatus, Car, CarCoOwner, User, Waitlist
-from routers.notifications import create_notification
-from schemas import (
-    BookingReschedule,
-    BorrowerStatsRead,
-    CarRead,
-    DashboardBookingRead,
-    DashboardResponse,
-)
-from utils import get_managed_car_ids, is_car_manager, get_prefs, parse_iso
+from routers.notifications import create_notification, send_web_push_task
+from schemas import (BookingReschedule, BorrowerStatsRead, CarRead,
+                     DashboardBookingRead, DashboardResponse)
+from sqlmodel import Session, select
+from utils import get_managed_car_ids, get_prefs, is_car_manager, parse_iso
 
 router = APIRouter()
 
@@ -67,78 +61,83 @@ def create_booking(
     session.commit()
     session.refresh(booking)
 
-    owner = car.owner or session.get(User, car.owner_id)
-    if owner:
-        owner_prefs = get_prefs(owner)
-        if owner_prefs["booking_request"]["push"]:
-            create_notification(
-                session,
-                owner.id,
-                f"New booking request for {car.name} from {current_user.full_name}",
-                booking.id,
-            )
-        session.commit()
-        if owner_prefs["booking_request"]["email"] and owner.email:
-            background_tasks.add_task(
-                emailer.owner_booking_request_email,
-                owner_email=owner.email,
-                owner_name=owner.full_name,
-                car_name=car.name,
-                borrower_name=current_user.full_name,
-                start_iso=booking.start_datetime.isoformat(),
-                end_iso=booking.end_datetime.isoformat(),
-                booking_id=booking.id,
-                notes=booking.notes,
-                tz=getattr(owner, "timezone", "Europe/Amsterdam"),
-            )
-    else:
-        session.commit()
-
-    # Notify accepted co-owners
-    co_owners = session.exec(
-        select(CarCoOwner).where(CarCoOwner.car_id == car.id, CarCoOwner.status == "accepted")
-    ).all()
-    for co in co_owners:
-        co_user = session.get(User, co.user_id)
-        if co_user:
-            co_prefs = get_prefs(co_user)
-            if co_prefs["booking_request"]["push"]:
+    try:
+        owner = car.owner or session.get(User, car.owner_id)
+        if owner:
+            owner_prefs = get_prefs(owner)
+            if owner_prefs["booking_request"]["push"]:
                 create_notification(
                     session,
-                    co_user.id,
+                    owner.id,
                     f"New booking request for {car.name} from {current_user.full_name}",
                     booking.id,
                 )
-            if co_prefs["booking_request"]["email"] and co_user.email:
+                background_tasks.add_task(send_web_push_task, owner.id, f"New booking request for {car.name} from {current_user.full_name}")
+            session.commit()
+            if owner_prefs["booking_request"]["email"] and owner.email:
                 background_tasks.add_task(
                     emailer.owner_booking_request_email,
-                    owner_email=co_user.email,
-                    owner_name=co_user.full_name,
+                    owner_email=owner.email,
+                    owner_name=owner.full_name,
                     car_name=car.name,
                     borrower_name=current_user.full_name,
                     start_iso=booking.start_datetime.isoformat(),
                     end_iso=booking.end_datetime.isoformat(),
                     booking_id=booking.id,
                     notes=booking.notes,
-                    tz=getattr(co_user, "timezone", "Europe/Amsterdam"),
+                    tz=getattr(owner, "timezone", "Europe/Amsterdam"),
                 )
 
-    borrower_prefs = get_prefs(current_user)
-    if borrower_prefs["booking_request"]["email"] and current_user.email:
-        background_tasks.add_task(
-            emailer.borrower_booking_confirmation_email,
-            borrower_email=current_user.email,
-            borrower_name=current_user.full_name,
-            car_name=car.name,
-            owner_name=owner.full_name if owner else "the owner",
-            start_iso=booking.start_datetime.isoformat(),
-            end_iso=booking.end_datetime.isoformat(),
-            booking_id=booking.id,
-            tz=getattr(current_user, "timezone", "Europe/Amsterdam"),
-        )
+        co_owners = session.exec(
+            select(CarCoOwner).where(CarCoOwner.car_id == car.id, CarCoOwner.status == "accepted")
+        ).all()
+        for co in co_owners:
+            co_user = session.get(User, co.user_id)
+            if co_user:
+                co_prefs = get_prefs(co_user)
+                if co_prefs["booking_request"]["push"]:
+                    create_notification(
+                        session,
+                        co_user.id,
+                        f"New booking request for {car.name} from {current_user.full_name}",
+                        booking.id,
+                    )
+                    background_tasks.add_task(send_web_push_task, co_user.id, f"New booking request for {car.name} from {current_user.full_name}")
+                if co_prefs["booking_request"]["email"] and co_user.email:
+                    background_tasks.add_task(
+                        emailer.owner_booking_request_email,
+                        owner_email=co_user.email,
+                        owner_name=co_user.full_name,
+                        car_name=car.name,
+                        borrower_name=current_user.full_name,
+                        start_iso=booking.start_datetime.isoformat(),
+                        end_iso=booking.end_datetime.isoformat(),
+                        booking_id=booking.id,
+                        notes=booking.notes,
+                        tz=getattr(co_user, "timezone", "Europe/Amsterdam"),
+                    )
 
-    return booking
+        borrower_prefs = get_prefs(current_user)
+        if borrower_prefs["booking_request"]["email"] and current_user.email:
+            background_tasks.add_task(
+                emailer.borrower_booking_confirmation_email,
+                borrower_email=current_user.email,
+                borrower_name=current_user.full_name,
+                car_name=car.name,
+                owner_name=owner.full_name if owner else "the owner",
+                start_iso=booking.start_datetime.isoformat(),
+                end_iso=booking.end_datetime.isoformat(),
+                booking_id=booking.id,
+                tz=getattr(current_user, "timezone", "Europe/Amsterdam"),
+            )
 
+        session.commit()
+
+    except Exception as e:
+        # log this, but do not fail booking creation
+        print(f"Post-booking notification error: {e}")
+
+    return {"id": booking.id}
 
 @router.post("/bookings/{booking_id}/cancel", response_model=schemas.BookingRead)
 def cancel_booking(
@@ -171,6 +170,7 @@ def cancel_booking(
                 f"{current_user.full_name} cancelled their booking for {car.name}",
                 booking.id,
             )
+            background_tasks.add_task(send_web_push_task, owner.id, f"{current_user.full_name} cancelled their booking for {car.name}")
         if owner_prefs["booking_cancelled"]["email"] and owner.email:
             background_tasks.add_task(
                 emailer.owner_booking_cancelled_email,
@@ -198,6 +198,7 @@ def cancel_booking(
                     f"{current_user.full_name} cancelled their booking for {car.name}",
                     booking.id,
                 )
+                background_tasks.add_task(send_web_push_task, co_user.id, f"{current_user.full_name} cancelled their booking for {car.name}")
 
     # Notify waitlist users whose requested period overlaps with the now-free slot
     waitlist_entries = session.exec(
@@ -217,6 +218,7 @@ def cancel_booking(
                     entry.user_id,
                     f"{car.name} may now be available for your requested dates",
                 )
+                background_tasks.add_task(send_web_push_task, entry.user_id, f"{car.name} may now be available for your requested dates")
             if wl_prefs["waitlist"]["email"]:
                 background_tasks.add_task(
                     emailer.waitlist_availability_email,
@@ -296,6 +298,7 @@ def reschedule_booking(
                 f"{current_user.full_name} rescheduled their booking for {car.name}",
                 booking.id,
             )
+            background_tasks.add_task(send_web_push_task, owner.id, f"{current_user.full_name} rescheduled their booking for {car.name}")
     session.commit()
     session.refresh(booking)
 
@@ -512,6 +515,7 @@ def send_booking_reminder(
     current_user: User = Depends(get_current_user),
 ):
     from datetime import datetime, timezone
+
     from models import CarCoOwner
     booking = session.get(Booking, booking_id)
     if booking is None:
@@ -538,14 +542,11 @@ def send_booking_reminder(
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
 
+    reminder_message = f"{current_user.full_name} is waiting for your response on their booking for {car.name}"
     owner = session.get(User, car.owner_id)
     if owner:
-        create_notification(
-            session,
-            owner.id,
-            f"{current_user.full_name} is waiting for your response on their booking for {car.name}",
-            booking.id,
-        )
+        create_notification(session, owner.id, reminder_message, booking.id)
+        background_tasks.add_task(send_web_push_task, owner.id, reminder_message)
 
     co_owners = session.exec(
         select(CarCoOwner).where(CarCoOwner.car_id == car.id, CarCoOwner.status == "accepted")
@@ -553,12 +554,8 @@ def send_booking_reminder(
     for co in co_owners:
         co_user = session.get(User, co.user_id)
         if co_user:
-            create_notification(
-                session,
-                co_user.id,
-                f"{current_user.full_name} is waiting for your response on their booking for {car.name}",
-                booking.id,
-            )
+            create_notification(session, co_user.id, reminder_message, booking.id)
+            background_tasks.add_task(send_web_push_task, co_user.id, reminder_message)
 
     booking.last_reminder_sent = now
     session.add(booking)
@@ -612,6 +609,7 @@ def accept_booking(
                 f"Your booking for {car.name} was accepted",
                 booking.id,
             )
+            background_tasks.add_task(send_web_push_task, borrower.id, f"Your booking for {car.name} was accepted")
     session.commit()
     session.refresh(booking)
 
@@ -678,6 +676,7 @@ def decline_booking(
                 f"Your booking for {car.name} was declined",
                 booking.id,
             )
+            background_tasks.add_task(send_web_push_task, borrower.id, f"Your booking for {car.name} was declined")
     session.commit()
     session.refresh(booking)
 
