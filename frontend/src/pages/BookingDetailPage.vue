@@ -9,6 +9,7 @@ import { useConfirm } from 'primevue/useconfirm';
 import { useAuthStore } from '@/stores/auth';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
 import RescheduleDialog from '@/components/RescheduleDialog.vue';
+import RouteMap from '@/components/RouteMap.vue';
 import http from '@/api/http';
 import { formatDateTime } from '@/utils/formatDate';
 import { useI18n } from 'vue-i18n';
@@ -34,6 +35,7 @@ type Booking = {
   borrower_email?: string | null;
   stops?: string[] | null;
   notes?: string | null;
+  route_coordinates?: number[][] | null;
 };
 
 const route = useRoute();
@@ -213,6 +215,16 @@ async function declineBooking() {
               </div>
             </li>
           </ol>
+        </template>
+      </Card>
+
+      <!-- Route map -->
+      <Card v-if="booking.route_coordinates && booking.route_coordinates.length >= 2">
+        <template #title>{{ $t('booking_detail_route_map') }}</template>
+        <template #content>
+          <div class="h-64 rounded-lg overflow-hidden">
+            <RouteMap :coordinates="(booking.route_coordinates as [number, number][])" />
+          </div>
         </template>
       </Card>
 

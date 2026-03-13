@@ -8,11 +8,9 @@ import CarImageCarousel from '@/components/CarImageCarousel.vue';
 import Step from 'primevue/step';
 import Stepper from 'primevue/stepper';
 import StepList from 'primevue/steplist';
-import StepPanels from 'primevue/steppanels';
-import StepPanel from 'primevue/steppanel';
 import RouteMap from '@/components/RouteMap.vue';
 
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import type { Car } from '@/stores/cars';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
@@ -29,6 +27,37 @@ const bookingError = ref<string | null>(null);
 const bookingCompleted = ref(false);
 const bookingSubmitting = ref(false);
 
+// Step navigation
+const activeStep = ref(1);
+const stepDirection = ref<'forward' | 'back'>('forward');
+
+const goForward = (step: number) => {
+  stepDirection.value = 'forward';
+  activeStep.value = step;
+};
+
+const goBack = (step: number) => {
+  stepDirection.value = 'back';
+  activeStep.value = step;
+};
+
+// Animate the newly visible step content via a watcher instead of <Transition>,
+// which avoids mode="out-in" timing issues with synchronous done() calls.
+const stepContentEl = ref<HTMLElement | null>(null);
+
+watch(activeStep, async () => {
+  await nextTick();
+  const child = stepContentEl.value?.firstElementChild as HTMLElement | null;
+  if (!child) return;
+  const fromX = stepDirection.value === 'forward' ? 48 : -48;
+  child.animate(
+    [
+      { opacity: '0', transform: `translateX(${fromX}px)` },
+      { opacity: '1', transform: 'translateX(0)' },
+    ],
+    { duration: 420, easing: 'ease' },
+  );
+});
 
 // Step 1: Dates & Times
 const start = ref<Date | null>(null);
@@ -37,21 +66,17 @@ const loadingCars = ref(false);
 const datesError = ref<string | null>(null);
 
 const canGoNextFromDates = computed(() => {
-  if (!start.value || !end.value) {
-    return false;
-  }
+  if (!start.value || !end.value) return false;
   return end.value > start.value;
-})
+});
 
-const handleDatesNext = async (activateCallback: (step: number) => void) => {
+const handleDatesNext = async () => {
   if (!canGoNextFromDates.value) {
     datesError.value = t('reserve_error_dates');
     return;
   }
   await loadAvailableCars();
-  if (!datesError.value) {
-    activateCallback(2);
-  }
+  if (!datesError.value) goForward(2);
 };
 
 // Step 2: available cars
@@ -78,18 +103,17 @@ const joinWaitlist = async (car: Car) => {
     });
     waitlistJoined.value = new Set([...waitlistJoined.value, car.id]);
   } catch {
-    // silently ignore duplicate joins
     waitlistJoined.value = new Set([...waitlistJoined.value, car.id]);
   } finally {
     waitlistLoading.value = new Set([...waitlistLoading.value].filter(id => id !== car.id));
   }
 };
 
-const handleSelectCar = (car: Car, activateCallback: (step: number) => void) => {
+const handleSelectCar = (car: Car) => {
   selectedCar.value = car;
   bookingCompleted.value = false;
   bookingError.value = null;
-  activateCallback(3);
+  goForward(3);
 };
 
 // Step 3: route & distance
@@ -107,8 +131,6 @@ const setStopRef = (el: unknown, index: number) => {
 const getStopInput = (index: number): HTMLInputElement | null =>
   stopAutoCompleteRefs.value[index]?.$el?.querySelector('input') ?? null;
 
-// Called on mousedown/touchstart — fires BEFORE focus, giving us time to
-// set readonly on other fields before Safari decides what to autofill.
 const onStopPointerDown = (index: number) => {
   stopAutoCompleteRefs.value.forEach((_, i) => {
     const input = getStopInput(i);
@@ -119,9 +141,7 @@ const onStopPointerDown = (index: number) => {
   });
 };
 
-const onStopFocus = (index: number) => {
-  activeStopIndex.value = index;
-};
+const onStopFocus = (index: number) => { activeStopIndex.value = index; };
 
 const onStopBlur = (index: number) => {
   setTimeout(() => {
@@ -130,52 +150,41 @@ const onStopBlur = (index: number) => {
     locationSuggestions.value = [];
     stopAutoCompleteRefs.value.forEach((_, i) => {
       const input = getStopInput(i);
-      if (input) {
-        input.readOnly = false;
-        input.autocomplete = 'new-password';
-      }
+      if (input) { input.readOnly = false; input.autocomplete = 'new-password'; }
     });
   }, 200);
 };
+
 const userLocation = ref<{ lat: number; lon: number } | null>(null);
 
 onMounted(() => {
   navigator.geolocation?.getCurrentPosition(
     (pos) => { userLocation.value = { lat: pos.coords.latitude, lon: pos.coords.longitude }; },
-    () => {},
+    () => { },
   );
 });
+
 const distanceKm = ref<number | null>(null);
 const routeEstimating = ref(false);
 const routeError = ref<string | null>(null);
 const routeCoordinates = ref<[number, number][]>([]);
 
-const trimmedStops = computed(() =>
-  stops.value.map(s => s.trim()).filter(Boolean)
-);
+const trimmedStops = computed(() => stops.value.map(s => s.trim()).filter(Boolean));
 
 const estimatedPrice = computed(() => {
-  if (!selectedCar.value || distanceKm.value == null) {
-    return null;
-  }
+  if (!selectedCar.value || distanceKm.value == null) return null;
   return distanceKm.value * selectedCar.value.price_per_km;
 });
 
-const canGoNextFromRoute = computed(() => {
-  return trimmedStops.value.length >= 2 &&
-    distanceKm.value != null &&
-    !routeEstimating.value;
-});
-
-watch(
-  stops,
-  () => {
-    distanceKm.value = null;
-    routeError.value = null;
-    routeCoordinates.value = [];
-  },
-  { deep: true }
+const canGoNextFromRoute = computed(() =>
+  trimmedStops.value.length >= 2 && distanceKm.value != null && !routeEstimating.value
 );
+
+watch(stops, () => {
+  distanceKm.value = null;
+  routeError.value = null;
+  routeCoordinates.value = [];
+}, { deep: true });
 
 const addStop = () => {
   const insertAt = stops.value.length - 1;
@@ -184,22 +193,16 @@ const addStop = () => {
 };
 
 const removeStop = (index: number) => {
-  if (stops.value.length <= 2) {
-    return;
-  }
+  if (stops.value.length <= 2) return;
   stops.value.splice(index, 1);
   stopKeys.value.splice(index, 1);
 };
 
 const searchLocations = async (event: { query: string }) => {
   const query = (event.query || '').trim();
-  if (!query || query.length < 3) {
-    locationSuggestions.value = [];
-    return;
-  }
+  if (!query || query.length < 3) { locationSuggestions.value = []; return; }
 
   try {
-    // Call Photon directly from the browser — supports both POI names and addresses
     const photonParams = new URLSearchParams({ q: query, limit: '5' });
     if (userLocation.value) {
       photonParams.set('lat', String(userLocation.value.lat));
@@ -221,16 +224,10 @@ const searchLocations = async (event: { query: string }) => {
         return true;
       });
       console.log('[Photon] labels:', labels);
-      if (labels.length) {
-        locationSuggestions.value = labels;
-        return;
-      }
+      if (labels.length) { locationSuggestions.value = labels; return; }
     }
-  } catch (e) {
-    console.error('[Photon] fetch error:', e);
-  }
+  } catch (e) { console.error('[Photon] fetch error:', e); }
 
-  // Fallback: ORS via backend (address search)
   try {
     const res = await http.get<string[]>('/locations/suggest', {
       params: {
@@ -251,16 +248,11 @@ const estimateRoute = async () => {
   routeCoordinates.value = [];
 
   const payloadStops = trimmedStops.value;
-  if (payloadStops.length < 2) {
-    routeError.value = t('reserve_error_route');
-    return;
-  }
+  if (payloadStops.length < 2) { routeError.value = t('reserve_error_route'); return; }
 
   routeEstimating.value = true;
   try {
-    const res = await http.post('/routes/estimate', {
-      stops: payloadStops
-    });
+    const res = await http.post('/routes/estimate', { stops: payloadStops });
     distanceKm.value = res.data.distance_km;
     const backendCoords = (res.data.coordinates || []) as [number, number][];
     routeCoordinates.value = backendCoords.map(([lon, lat]) => [lat, lon]);
@@ -295,9 +287,7 @@ const resetFlow = () => {
 };
 
 const loadAvailableCars = async () => {
-  if (!start.value || !end.value) {
-    return;
-  }
+  if (!start.value || !end.value) return;
   loadingCars.value = true;
   datesError.value = null;
   waitlistJoined.value = new Set();
@@ -305,10 +295,7 @@ const loadAvailableCars = async () => {
   try {
     const [availableRes, allRes] = await Promise.all([
       http.get<Car[]>('/cars/available', {
-        params: {
-          start_datetime: start.value.toISOString(),
-          end_datetime: end.value.toISOString(),
-        }
+        params: { start_datetime: start.value.toISOString(), end_datetime: end.value.toISOString() }
       }),
       http.get<Car[]>('/cars'),
     ]);
@@ -325,28 +312,19 @@ const loadAvailableCars = async () => {
 
 const hasAvailableCars = computed(() => availableCars.value.length > 0);
 
-const canSubmitBooking = computed(() => {
-  return (
-    !!selectedCar.value &&
-    !!start.value &&
-    !!end.value &&
-    distanceKm.value != null &&
-    !bookingSubmitting.value
-  );
-});
+const canSubmitBooking = computed(() =>
+  !!selectedCar.value && !!start.value && !!end.value && distanceKm.value != null && !bookingSubmitting.value
+);
 
 const submitBooking = async () => {
-  if (!auth.user) {
-    bookingError.value = t('reserve_error_not_logged_in');
-    return;
-  }
-  if (!selectedCar.value || !start.value || !end.value || distanceKm.value == null) {
-    return;
-  }
+  if (!auth.user) { bookingError.value = t('reserve_error_not_logged_in'); return; }
+  if (!selectedCar.value || !start.value || !end.value || distanceKm.value == null) return;
 
   bookingSubmitting.value = true;
   bookingError.value = null;
   bookingCompleted.value = false;
+
+  let bookingId: number | null = null;
 
   try {
     const res = await http.post<{ id: number }>('/bookings', null, {
@@ -357,14 +335,20 @@ const submitBooking = async () => {
         distance_km: distanceKm.value,
         stops: JSON.stringify(trimmedStops.value),
         notes: bookingNotes.value.trim() || undefined,
+        route_coordinates: routeCoordinates.value.length >= 2
+          ? JSON.stringify(routeCoordinates.value)
+          : undefined,
       }
     });
-
-    router.push({ name: 'booking-detail', params: { id: res.data.id } });
+    bookingId = res.data.id;
   } catch (err: any) {
     bookingError.value = err?.response?.data?.detail ?? t('reserve_error_booking');
   } finally {
     bookingSubmitting.value = false;
+  }
+
+  if (bookingId != null) {
+    await router.push({ name: 'booking-detail', params: { id: String(bookingId) } });
   }
 };
 </script>
@@ -373,292 +357,276 @@ const submitBooking = async () => {
   <div class="flex-1 flex items-center justify-center w-full">
     <Card class="w-full max-w-[95%]">
       <template #title>
-        <div class="flex items-center justify-between">
-          <span>{{ $t('reserve_title') }}</span>
-        </div>
+        <span>{{ $t('reserve_title') }}</span>
       </template>
 
       <template #content>
-        <Stepper :value="1" linear class="w-full">
+        <Stepper :value="activeStep" linear class="w-full">
           <StepList>
             <Step :value="1">{{ $t('reserve_step_dates') }}</Step>
             <Step :value="2">{{ $t('reserve_step_select_car') }}</Step>
             <Step :value="3">{{ $t('reserve_step_select_route') }}</Step>
             <Step :value="4">{{ $t('reserve_step_confirm') }}</Step>
           </StepList>
+        </Stepper>
 
-          <StepPanels>
-            <StepPanel v-slot="{ activateCallback }" :value="1">
-              <div class="flex flex-col gap-6">
-                <div class="grid gap-4 md:grid-cols-2">
-                  <div class="space-y-2">
-                    <span class="block text-sm font-medium">{{ $t('reserve_start_label') }}</span>
-                    <DatePicker v-model="start" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5"
-                      fluid inline />
-                  </div>
+        <!-- Step content: v-if switches content, watcher animates the incoming div -->
+        <div class="mt-6 overflow-x-hidden" ref="stepContentEl">
 
-                  <div class="space-y-2">
-                    <span class="block text-sm font-medium">{{ $t('reserve_end_label') }}</span>
-                    <DatePicker v-model="end" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5"
-                      fluid inline />
-                  </div>
+            <!-- Step 1: Dates & Times -->
+            <div v-if="activeStep === 1" class="flex flex-col gap-6">
+              <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-2">
+                  <span class="block text-sm font-medium">{{ $t('reserve_start_label') }}</span>
+                  <DatePicker v-model="start" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5"
+                    fluid inline />
                 </div>
-
-                <div v-if="datesError" class="text-sm text-red-500">
-                  {{ datesError }}
-                </div>
-
-                <div class="flex justify-end gap-2">
-                  <Button :label="$t('reserve_next')" icon="pi pi-arrow-right" iconPos="right"
-                    :disabled="!canGoNextFromDates || loadingCars" :loading="loadingCars"
-                    @click="handleDatesNext(activateCallback)" />
+                <div class="space-y-2">
+                  <span class="block text-sm font-medium">{{ $t('reserve_end_label') }}</span>
+                  <DatePicker v-model="end" showTime hourFormat="24" showIcon :manualInput="true" :stepMinute="5"
+                    fluid inline />
                 </div>
               </div>
-            </StepPanel>
 
-            <StepPanel v-slot="{ activateCallback }" :value="2">
-              <div class="flex flex-col gap-6">
-                <div v-if="!hasAvailableCars && !loadingCars" class="text-sm text-surface-500">
-                  {{ $t('reserve_no_cars_available') }}<br />
-                  {{ $t('reserve_go_back_different_dates') }}
-                </div>
+              <div v-if="datesError" class="text-sm text-red-500">{{ datesError }}</div>
 
-                <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Card v-for="(car, index) in availableCars" :key="car.id"
-                    class="overflow-hidden cursor-pointer hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 card-animate"
-                    :style="{ animationDelay: `${index * 70}ms` }"
-                    @click="handleSelectCar(car, activateCallback)">
+              <div class="flex justify-end gap-2">
+                <Button :label="$t('reserve_next')" icon="pi pi-arrow-right" iconPos="right"
+                  :disabled="!canGoNextFromDates || loadingCars" :loading="loadingCars"
+                  @click="handleDatesNext" />
+              </div>
+            </div>
+
+            <!-- Step 2: Select Car -->
+            <div v-else-if="activeStep === 2" class="flex flex-col gap-6">
+              <div v-if="!hasAvailableCars && !loadingCars" class="text-sm text-surface-500">
+                {{ $t('reserve_no_cars_available') }}<br />
+                {{ $t('reserve_go_back_different_dates') }}
+              </div>
+
+              <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Card v-for="(car, index) in availableCars" :key="car.id"
+                  class="overflow-hidden cursor-pointer hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 card-animate"
+                  :style="{ animationDelay: `${index * 70}ms` }" @click="handleSelectCar(car)">
+                  <template #header>
+                    <div class="h-80 w-full relative">
+                      <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
+                      <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent pointer-events-none" />
+                      <div class="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
+                        <p class="text-white font-semibold text-base leading-tight">{{ car.name }}</p>
+                        <p class="text-white/75 text-sm mt-0.5">{{ car.price_per_km }} € / km</p>
+                      </div>
+                    </div>
+                  </template>
+                  <template #content>
+                    <p class="text-sm text-surface-500 mb-3 line-clamp-2">
+                      {{ car.description || $t('reserve_no_description') }}
+                    </p>
+                    <Button :label="$t('reserve_select_button')" size="small" class="w-full"
+                      @click.stop="handleSelectCar(car)" />
+                  </template>
+                </Card>
+              </div>
+
+              <div v-if="unavailableCars.length > 0" class="space-y-3">
+                <p class="text-sm font-medium text-surface-500">{{ $t('reserve_unavailable_for_dates') }}</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Card v-for="car in unavailableCars" :key="car.id" class="overflow-hidden opacity-60 grayscale">
                     <template #header>
-                      <div class="h-80 w-full relative">
+                      <div class="h-44 w-full relative">
                         <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent pointer-events-none" />
-                        <div class="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
-                          <p class="text-white font-semibold text-base leading-tight">{{ car.name }}</p>
-                          <p class="text-white/75 text-sm mt-0.5">{{ car.price_per_km }} € / km</p>
+                        <div class="absolute bottom-0 left-0 right-0 p-3 pointer-events-none">
+                          <p class="text-white font-semibold text-sm leading-tight">{{ car.name }}</p>
+                          <p class="text-white/75 text-xs mt-0.5">{{ car.price_per_km }} € / km</p>
                         </div>
                       </div>
                     </template>
                     <template #content>
-                      <p class="text-sm text-surface-500 mb-3 line-clamp-2">
-                        {{ car.description || $t('reserve_no_description') }}
-                      </p>
-                      <Button :label="$t('reserve_select_button')" size="small" class="w-full"
-                        @click.stop="handleSelectCar(car, activateCallback)" />
+                      <p class="text-sm text-surface-500 mb-3">{{ car.description || $t('reserve_no_description') }}</p>
+                      <Button v-if="!waitlistJoined.has(car.id)" :label="$t('reserve_notify_when_available')"
+                        icon="pi pi-bell" size="small" severity="secondary" outlined
+                        :loading="waitlistLoading.has(car.id)" @click="joinWaitlist(car)" />
+                      <div v-else class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                        <i class="pi pi-check-circle" />
+                        <span>{{ $t('reserve_on_waitlist') }}</span>
+                      </div>
                     </template>
                   </Card>
                 </div>
+              </div>
 
-                <!-- Unavailable cars with waitlist option -->
-                <div v-if="unavailableCars.length > 0" class="space-y-3">
-                  <p class="text-sm font-medium text-surface-500">{{ $t('reserve_unavailable_for_dates') }}</p>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Card v-for="car in unavailableCars" :key="car.id"
-                      class="overflow-hidden opacity-60 grayscale">
-                      <template #header>
-                        <div class="h-44 w-full relative">
-                          <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
-                          <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent pointer-events-none" />
-                          <div class="absolute bottom-0 left-0 right-0 p-3 pointer-events-none">
-                            <p class="text-white font-semibold text-sm leading-tight">{{ car.name }}</p>
-                            <p class="text-white/75 text-xs mt-0.5">{{ car.price_per_km }} € / km</p>
-                          </div>
-                        </div>
-                      </template>
-                      <template #content>
-                        <p class="text-sm text-surface-500 mb-3">{{ car.description || $t('reserve_no_description') }}</p>
-                        <Button
-                          v-if="!waitlistJoined.has(car.id)"
-                          :label="$t('reserve_notify_when_available')"
-                          icon="pi pi-bell"
-                          size="small"
-                          severity="secondary"
-                          outlined
-                          :loading="waitlistLoading.has(car.id)"
-                          @click="joinWaitlist(car)"
-                        />
-                        <div v-else class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                          <i class="pi pi-check-circle" />
-                          <span>{{ $t('reserve_on_waitlist') }}</span>
-                        </div>
-                      </template>
-                    </Card>
+              <div class="flex justify-between">
+                <Button :label="$t('reserve_previous')" icon="pi pi-arrow-left" severity="secondary" outlined
+                  @click="goBack(1)" />
+              </div>
+            </div>
+
+            <!-- Step 3: Route -->
+            <div v-else-if="activeStep === 3" class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+              <div class="flex flex-col gap-6 w-full">
+                <div class="space-y-2">
+                  <h2 class="font-semibold text-base">{{ $t('reserve_route_title') }}</h2>
+                  <p class="text-sm text-surface-500">{{ $t('reserve_route_description') }}</p>
+                </div>
+
+                <TransitionGroup name="stop" tag="div" class="relative flex flex-col">
+                  <div v-for="(_stop, index) in stops" :key="stopKeys[index]" class="flex gap-3">
+                    <div class="flex flex-col items-center w-8 shrink-0">
+                      <div class="h-5 shrink-0" />
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold z-10"
+                        :class="index === 0
+                          ? 'bg-primary text-white'
+                          : index === stops.length - 1
+                          ? 'bg-slate-600 text-white'
+                          : 'bg-surface-0 dark:bg-surface-800 text-surface-600 dark:text-surface-300 border-2 border-surface-300 dark:border-surface-500'">
+                        {{ String.fromCharCode(65 + index) }}
+                      </div>
+                      <div v-if="index < stops.length - 1" class="connector-line" />
+                    </div>
+
+                    <div class="flex-1 min-w-0 pb-3 flex items-start gap-2">
+                      <div class="flex-1 min-w-0">
+                        <span class="block text-xs font-medium mb-1 text-surface-500">
+                          {{ index === 0 ? $t('reserve_start_location') : index === stops.length - 1 ? $t('reserve_end_location') : $t('reserve_stop_label').replace('{index}', String(index)) }}
+                        </span>
+                        <AutoComplete :ref="(el) => setStopRef(el, index)"
+                          v-model="stops[index]"
+                          :suggestions="locationSuggestions" :minLength="3" :delay="300"
+                          :placeholder="$t('reserve_address_placeholder')" class="w-full" inputClass="w-full"
+                          @mousedown="onStopPointerDown(index)" @touchstart.passive="onStopPointerDown(index)"
+                          @focus="onStopFocus(index)" @blur="onStopBlur(index)" @complete="searchLocations" />
+                      </div>
+                      <Button v-if="index > 0 && index < stops.length - 1"
+                        icon="pi pi-minus" severity="danger" outlined rounded size="small"
+                        class="shrink-0 mt-6"
+                        @click="removeStop(index)" />
+                    </div>
                   </div>
+                </TransitionGroup>
+
+                <Button :label="$t('reserve_add_stop')" icon="pi pi-plus" text @click="addStop" />
+
+                <div class="space-y-2">
+                  <div class="flex items-center gap-4">
+                    <Button :label="$t('reserve_calculate_distance')" icon="pi pi-map" :loading="routeEstimating"
+                      :disabled="routeEstimating || trimmedStops.length < 2" @click="estimateRoute" />
+                    <div v-if="distanceKm != null" class="text-sm space-y-1">
+                      <div>
+                        <span class="font-medium">{{ $t('reserve_total_distance') }}</span>
+                        <span class="ml-1">{{ distanceKm.toFixed(1) }} km</span>
+                      </div>
+                      <div v-if="estimatedPrice != null">
+                        <span class="font-medium">{{ $t('reserve_estimated_cost') }}</span>
+                        <span class="ml-1">€{{ estimatedPrice.toFixed(2) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p v-if="routeError" class="text-sm text-red-500">{{ routeError }}</p>
                 </div>
 
                 <div class="flex justify-between">
                   <Button :label="$t('reserve_previous')" icon="pi pi-arrow-left" severity="secondary" outlined
-                    @click="activateCallback(1)" />
+                    @click="goBack(2)" />
+                  <Button :label="$t('reserve_next')" icon="pi pi-arrow-right" iconPos="right"
+                    :disabled="!canGoNextFromRoute" @click="goForward(4)" />
                 </div>
               </div>
-            </StepPanel>
 
-            <StepPanel v-slot="{ activateCallback }" :value="3">
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-                <div class="flex flex-col gap-6 w-full">
-                  <div class="space-y-2">
-                    <h2 class="font-semibold text-base">{{ $t('reserve_route_title') }}</h2>
-                    <p class="text-sm text-surface-500">
-                      {{ $t('reserve_route_description') }}
-                    </p>
-                  </div>
-
-                  <div class="space-y-3">
-                    <div v-for="(_stop, index) in stops" :key="stopKeys[index]" class="flex items-center gap-2 w-full">
-                      <div class="flex-1 min-w-0">
-                        <span class="block text-xs font-medium mb-1">
-                          {{
-                            index === 0
-                              ? $t('reserve_start_location')
-                              : index === stops.length - 1
-                                ? $t('reserve_end_location')
-                                : $t('reserve_stop_label').replace('{index}', String(index))
-                          }}
-                        </span>
-                        <AutoComplete :ref="(el) => setStopRef(el, index)"
-                          v-model="stops[index]" :suggestions="locationSuggestions" :minLength="3"
-                          :delay="300" :placeholder="$t('reserve_address_placeholder')" class="w-full" inputClass="w-full"
-                          @mousedown="onStopPointerDown(index)"
-                          @touchstart.passive="onStopPointerDown(index)"
-                          @focus="onStopFocus(index)"
-                          @blur="onStopBlur(index)"
-                          @complete="searchLocations" />
-                      </div>
-
-                      <Button icon="pi pi-trash" severity="danger" text rounded
-                        :disabled="stops.length <= 2" @click="removeStop(index)" />
-                    </div>
-
-                    <Button :label="$t('reserve_add_stop')" icon="pi pi-plus" text @click="addStop" />
-                  </div>
-
-                  <div class="space-y-2">
-                    <div class="flex items-center gap-4">
-                      <Button :label="$t('reserve_calculate_distance')" icon="pi pi-map" :loading="routeEstimating"
-                        :disabled="routeEstimating || trimmedStops.length < 2" @click="estimateRoute" />
-
-                      <div v-if="distanceKm != null" class="text-sm space-y-1">
-                        <div>
-                          <span class="font-medium">{{ $t('reserve_total_distance') }}</span>
-                          <span class="ml-1">{{ distanceKm.toFixed(1) }} km</span>
-                        </div>
-                        <div v-if="estimatedPrice != null">
-                          <span class="font-medium">{{ $t('reserve_estimated_cost') }}</span>
-                          <span class="ml-1">€{{ estimatedPrice.toFixed(2) }}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p v-if="routeError" class="text-sm text-red-500">{{ routeError }}</p>
-                  </div>
-
-                  <div class="flex justify-between">
-                    <Button :label="$t('reserve_previous')" icon="pi pi-arrow-left" severity="secondary" outlined
-                      @click="activateCallback(2)" />
-
-                    <Button :label="$t('reserve_next')" icon="pi pi-arrow-right" iconPos="right" :disabled="!canGoNextFromRoute"
-                      @click="activateCallback(4)" />
-                  </div>
+              <div class="flex flex-col h-full">
+                <h3 class="text-sm font-medium mb-2">{{ $t('reserve_route_preview') }}</h3>
+                <div class="flex-1 min-h-[300px]">
+                  <RouteMap :coordinates="routeCoordinates" />
                 </div>
-
-                <div class="flex flex-col h-full">
-                  <h3 class="text-sm font-medium mb-2">{{ $t('reserve_route_preview') }}</h3>
-                  <div class="flex-1 min-h-[300px]">
-                    <RouteMap :coordinates="routeCoordinates" />
-                  </div>
-                </div>
-
               </div>
-            </StepPanel>
+            </div>
 
-            <StepPanel v-slot="{ activateCallback }" :value="4">
-              <div class="flex flex-col gap-6">
-                <div class="space-y-3">
-                  <h2 class="font-semibold text-base">{{ $t('reserve_summary_title') }}</h2>
-                  <div class="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden text-sm divide-y divide-surface-100 dark:divide-surface-700">
-                    <div v-if="selectedCar" class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
-                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-car" />{{ $t('reserve_car_label') }}</span>
-                      <span class="font-medium">{{ selectedCar.name }}</span>
-                    </div>
-                    <div v-if="selectedCar" class="flex justify-between items-center px-4 py-3">
-                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-tag" />{{ $t('reserve_price_per_km') }}</span>
-                      <span class="font-medium">{{ selectedCar.price_per_km }} € / km</span>
-                    </div>
-                    <div v-if="start" class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
-                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar" />{{ $t('reserve_start_summary') }}</span>
-                      <span class="font-medium">{{ formatDateTime(start!) }}</span>
-                    </div>
-                    <div v-if="end" class="flex justify-between items-center px-4 py-3">
-                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar-clock" />{{ $t('reserve_end_summary') }}</span>
-                      <span class="font-medium">{{ formatDateTime(end!) }}</span>
-                    </div>
-                    <div v-if="trimmedStops.length >= 2" class="flex justify-between items-start px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
-                      <span class="flex items-center gap-2 text-surface-500 shrink-0"><i class="pi pi-map-marker" />{{ $t('reserve_route_summary') }}</span>
-                      <ul class="text-right space-y-0.5">
-                        <li v-for="(stop, index) in trimmedStops" :key="index" class="font-medium text-xs">{{ stop }}</li>
-                      </ul>
-                    </div>
-                    <div v-if="distanceKm != null" class="flex justify-between items-center px-4 py-3">
-                      <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-map" />{{ $t('reserve_total_distance') }}</span>
-                      <span class="font-medium">{{ distanceKm.toFixed(1) }} km</span>
-                    </div>
-                    <div v-if="estimatedPrice != null" class="flex justify-between items-center px-4 py-3.5 bg-primary/5 dark:bg-primary/10">
-                      <span class="flex items-center gap-2 font-semibold text-primary"><i class="pi pi-euro" />{{ $t('reserve_estimated_cost') }}</span>
-                      <span class="text-xl font-bold text-primary">€{{ estimatedPrice.toFixed(2) }}</span>
-                    </div>
+            <!-- Step 4: Confirm -->
+            <div v-else-if="activeStep === 4" class="flex flex-col gap-6">
+              <div class="space-y-3">
+                <h2 class="font-semibold text-base">{{ $t('reserve_summary_title') }}</h2>
+                <div class="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden text-sm divide-y divide-surface-100 dark:divide-surface-700">
+                  <div v-if="selectedCar" class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+                    <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-car" />{{ $t('reserve_car_label') }}</span>
+                    <span class="font-medium">{{ selectedCar.name }}</span>
                   </div>
-                </div>
-
-                <div v-if="!bookingCompleted" class="space-y-4">
-                  <div class="space-y-2">
-                    <h2 class="font-semibold text-base">{{ $t('reserve_notes_title') }} <span class="font-normal text-surface-400 text-sm">{{ $t('reserve_notes_optional') }}</span></h2>
-                    <Textarea v-model="bookingNotes" rows="3" class="w-full" :placeholder="$t('reserve_notes_placeholder')" autoResize />
+                  <div v-if="selectedCar" class="flex justify-between items-center px-4 py-3">
+                    <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-tag" />{{ $t('reserve_price_per_km') }}</span>
+                    <span class="font-medium">{{ selectedCar.price_per_km }} € / km</span>
                   </div>
-
-                  <h2 class="font-semibold text-base">{{ $t('reserve_your_details') }}</h2>
-                  <div class="text-sm space-y-1">
-                    <div>
-                      <span class="font-medium">{{ $t('reserve_name_label') }}</span>
-                      <span class="ml-2">{{ fullName }}</span>
-                    </div>
-                    <div>
-                      <span class="font-medium">{{ $t('reserve_email_label') }}</span>
-                      <span class="ml-2">{{ email }}</span>
-                    </div>
+                  <div v-if="start" class="flex justify-between items-center px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+                    <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar" />{{ $t('reserve_start_summary') }}</span>
+                    <span class="font-medium">{{ formatDateTime(start!) }}</span>
                   </div>
-
-                  <div v-if="bookingError" class="text-sm text-red-500">
-                    {{ bookingError }}
+                  <div v-if="end" class="flex justify-between items-center px-4 py-3">
+                    <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-calendar-clock" />{{ $t('reserve_end_summary') }}</span>
+                    <span class="font-medium">{{ formatDateTime(end!) }}</span>
                   </div>
-
-                  <div class="flex justify-between">
-                    <Button :label="$t('reserve_previous')" icon="pi pi-arrow-left" severity="secondary" outlined
-                      @click="activateCallback(3)" />
-                    <Button :label="$t('reserve_confirm_button')" icon="pi pi-check" :disabled="!canSubmitBooking"
-                      :loading="bookingSubmitting" @click="submitBooking" />
+                  <div v-if="trimmedStops.length >= 2" class="flex justify-between items-start px-4 py-3 bg-surface-50 dark:bg-surface-800/50">
+                    <span class="flex items-center gap-2 text-surface-500 shrink-0"><i class="pi pi-map-marker" />{{ $t('reserve_route_summary') }}</span>
+                    <ul class="text-right space-y-0.5">
+                      <li v-for="(stop, index) in trimmedStops" :key="index" class="font-medium text-xs">{{ stop }}</li>
+                    </ul>
                   </div>
-                </div>
-
-                <div v-else class="space-y-4">
-                  <div class="text-sm text-emerald-600">
-                    {{ $t('reserve_booking_success') }}
-                    <br />
-                    {{ $t('reserve_booking_pending') }}
+                  <div v-if="distanceKm != null" class="flex justify-between items-center px-4 py-3">
+                    <span class="flex items-center gap-2 text-surface-500"><i class="pi pi-map" />{{ $t('reserve_total_distance') }}</span>
+                    <span class="font-medium">{{ distanceKm.toFixed(1) }} km</span>
                   </div>
-
-                  <div class="flex gap-2">
-                    <Button :label="$t('reserve_make_another')" @click="() => { resetFlow(); activateCallback(1); }" />
-                    <Button :label="$t('reserve_go_to_homepage')" severity="secondary" outlined
-                      @click="router.push({ name: 'home' })" />
+                  <div v-if="estimatedPrice != null" class="flex justify-between items-center px-4 py-3.5 bg-primary/5 dark:bg-primary/10">
+                    <span class="flex items-center gap-2 font-semibold text-primary"><i class="pi pi-euro" />{{ $t('reserve_estimated_cost') }}</span>
+                    <span class="text-xl font-bold text-primary">€{{ estimatedPrice.toFixed(2) }}</span>
                   </div>
                 </div>
               </div>
-            </StepPanel>
-          </StepPanels>
-        </Stepper>
+
+              <div v-if="!bookingCompleted" class="space-y-4">
+                <div class="space-y-2">
+                  <h2 class="font-semibold text-base">{{ $t('reserve_notes_title') }}
+                    <span class="font-normal text-surface-400 text-sm">{{ $t('reserve_notes_optional') }}</span>
+                  </h2>
+                  <Textarea v-model="bookingNotes" rows="3" class="w-full"
+                    :placeholder="$t('reserve_notes_placeholder')" autoResize />
+                </div>
+
+                <h2 class="font-semibold text-base">{{ $t('reserve_your_details') }}</h2>
+                <div class="text-sm space-y-1">
+                  <div>
+                    <span class="font-medium">{{ $t('reserve_name_label') }}</span>
+                    <span class="ml-2">{{ fullName }}</span>
+                  </div>
+                  <div>
+                    <span class="font-medium">{{ $t('reserve_email_label') }}</span>
+                    <span class="ml-2">{{ email }}</span>
+                  </div>
+                </div>
+
+                <div v-if="bookingError" class="text-sm text-red-500">{{ bookingError }}</div>
+
+                <div class="flex justify-between">
+                  <Button :label="$t('reserve_previous')" icon="pi pi-arrow-left" severity="secondary" outlined
+                    @click="goBack(3)" />
+                  <Button :label="$t('reserve_confirm_button')" icon="pi pi-check" :disabled="!canSubmitBooking"
+                    :loading="bookingSubmitting" @click="submitBooking" />
+                </div>
+              </div>
+
+              <div v-else class="space-y-4">
+                <div class="text-sm text-emerald-600">
+                  {{ $t('reserve_booking_success') }}<br />
+                  {{ $t('reserve_booking_pending') }}
+                </div>
+                <div class="flex gap-2">
+                  <Button :label="$t('reserve_make_another')" @click="() => { resetFlow(); activeStep = 1; }" />
+                  <Button :label="$t('reserve_go_to_homepage')" severity="secondary" outlined
+                    @click="router.push({ name: 'home' })" />
+                </div>
+              </div>
+            </div>
+
+        </div>
       </template>
     </Card>
   </div>
-
 </template>
 
 <style scoped>
@@ -668,13 +636,27 @@ const submitBooking = async () => {
 }
 
 @keyframes cardFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+
+/* Dashed connector between stop circles */
+.connector-line {
+  flex: 1;
+  width: 2px;
+  min-height: 14px;
+  margin-top: 4px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--p-surface-400, #94a3b8) 0, var(--p-surface-400, #94a3b8) 5px,
+    transparent 5px, transparent 10px
+  );
+}
+
+/* Stop add/remove transitions */
+.stop-enter-active { transition: all 0.25s ease; }
+.stop-leave-active { transition: all 0.2s ease; position: absolute; width: 100%; }
+.stop-enter-from { opacity: 0; transform: translateX(-8px); }
+.stop-leave-to   { opacity: 0; transform: translateX(-8px); }
+.stop-move { transition: transform 0.25s ease; }
 </style>

@@ -25,6 +25,15 @@ def _parse_stops(stops_json: Optional[str]) -> Optional[List[str]]:
         return None
 
 
+def _parse_coordinates(coords_json: Optional[str]) -> Optional[List[List[float]]]:
+    if not coords_json:
+        return None
+    try:
+        return json.loads(coords_json)
+    except Exception:
+        return None
+
+
 @router.post("/bookings")
 def create_booking(
     car_id: int,
@@ -34,6 +43,7 @@ def create_booking(
     distance_km: Optional[float] = None,
     stops: Optional[str] = None,
     notes: Optional[str] = None,
+    route_coordinates: Optional[str] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -55,6 +65,7 @@ def create_booking(
         total_price=total_price,
         stops_json=stops,
         notes=notes,
+        route_coordinates_json=route_coordinates,
         status=BookingStatus.PENDING.value,
     )
     session.add(booking)
@@ -372,6 +383,7 @@ def get_booking_detail(
         borrower_email=borrower.email if borrower else None,
         stops=_parse_stops(booking.stops_json),
         notes=booking.notes,
+        route_coordinates=_parse_coordinates(getattr(booking, "route_coordinates_json", None)),
     )
 
 

@@ -37,6 +37,7 @@ def _run_migrations():
         "ALTER TABLE car ADD COLUMN calc_charge_cost_per_kwh REAL",
         "ALTER TABLE car ADD COLUMN calc_consumption_per_100km REAL",
         "ALTER TABLE car ADD COLUMN calc_fuel_price_per_liter REAL",
+        "ALTER TABLE booking ADD COLUMN route_coordinates_json TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

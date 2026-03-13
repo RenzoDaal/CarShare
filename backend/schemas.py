@@ -91,6 +91,7 @@ class DashboardBookingRead(SQLModel):
     borrower_email: Optional[str] = None
     stops: Optional[List[str]] = None
     notes: Optional[str] = None
+    route_coordinates: Optional[List[List[float]]] = None
     created_at: Optional[datetime] = None
     last_reminder_sent: Optional[datetime] = None
 

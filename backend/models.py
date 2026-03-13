@@ -121,6 +121,7 @@ class Booking(SQLModel, table=True):
     stops_json: Optional[str] = None  # JSON-encoded list of stop strings
     notes: Optional[str] = None
 
+    route_coordinates_json: Optional[str] = None  # JSON [[lat, lon], ...]
     status: str = Field(default=BookingStatus.PENDING.value)
     created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_reminder_sent: Optional[datetime] = Field(default=None)

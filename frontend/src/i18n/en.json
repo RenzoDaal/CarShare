@@ -286,6 +286,7 @@
   "booking_detail_duration": "Duration",
   "booking_detail_estimated_cost": "Estimated cost",
   "booking_detail_route": "Route",
+  "booking_detail_route_map": "Route map",
   "booking_detail_notes": "Notes",
   "booking_detail_borrower": "Borrower",
   "booking_detail_cancel_booking": "Cancel booking",
