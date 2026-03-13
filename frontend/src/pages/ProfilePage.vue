@@ -27,7 +27,6 @@ function setLocale(lang: string) {
   localStorage.setItem('locale', lang);
 }
 
-// Compute the current UTC offset string for a given IANA timezone, e.g. "+1" or "-5"
 function getOffset(tz: string): string {
   const parts = new Intl.DateTimeFormat('en', {
     timeZone: tz,
@@ -37,7 +36,6 @@ function getOffset(tz: string): string {
   return raw.replace('GMT', '') || '+0';
 }
 
-// Only one entry per distinct IANA timezone group (cities sharing the same zone are listed together)
 const TIMEZONE_ZONES: { value: string; cities: string }[] = [
   { value: 'Pacific/Midway',       cities: 'Midway Island, Samoa' },
   { value: 'Pacific/Honolulu',     cities: 'Hawaii' },
@@ -51,15 +49,15 @@ const TIMEZONE_ZONES: { value: string; cities: string }[] = [
   { value: 'Atlantic/Azores',      cities: 'Azores' },
   { value: 'UTC',                  cities: 'UTC / Reykjavik' },
   { value: 'Europe/London',        cities: 'London, Dublin, Lisbon' },
-  { value: 'Europe/Amsterdam',     cities: 'Amsterdam, Paris, Brussels, Berlin, Rome, Madrid, Oslo, Stockholm, Warsaw, Vienna, Prague, Budapest, Copenhagen, Zurich' },
-  { value: 'Europe/Helsinki',      cities: 'Helsinki, Athens, Kyiv, Bucharest, Sofia, Tallinn, Riga, Vilnius' },
+  { value: 'Europe/Amsterdam',     cities: 'Amsterdam, Paris, Brussels, Berlin, Rome, Madrid' },
+  { value: 'Europe/Helsinki',      cities: 'Helsinki, Athens, Kyiv, Bucharest' },
   { value: 'Europe/Moscow',        cities: 'Moscow, Istanbul' },
   { value: 'Asia/Dubai',           cities: 'Dubai, Abu Dhabi' },
-  { value: 'Asia/Karachi',         cities: 'Karachi, Islamabad, Tashkent' },
+  { value: 'Asia/Karachi',         cities: 'Karachi, Islamabad' },
   { value: 'Asia/Kolkata',         cities: 'Mumbai, Delhi, Kolkata' },
   { value: 'Asia/Dhaka',           cities: 'Dhaka, Almaty' },
   { value: 'Asia/Bangkok',         cities: 'Bangkok, Jakarta, Hanoi' },
-  { value: 'Asia/Shanghai',        cities: 'Beijing, Shanghai, Singapore, Hong Kong, Taipei, Perth' },
+  { value: 'Asia/Shanghai',        cities: 'Beijing, Shanghai, Singapore, Hong Kong' },
   { value: 'Asia/Tokyo',           cities: 'Tokyo, Seoul, Osaka' },
   { value: 'Australia/Sydney',     cities: 'Sydney, Melbourne, Brisbane' },
   { value: 'Pacific/Auckland',     cities: 'Auckland, Wellington' },
@@ -72,7 +70,13 @@ const TIMEZONE_OPTIONS = TIMEZONE_ZONES.map(({ value, cities }) => ({
 
 const auth = useAuthStore();
 
-// Profile form
+const userInitials = (() => {
+  const name = auth.user?.full_name ?? '';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return parts.slice(0, 2).map(p => p[0]).join('').toUpperCase();
+})();
+
 const profile = reactive({
   full_name: auth.user?.full_name ?? '',
   email: auth.user?.email ?? '',
@@ -101,7 +105,6 @@ async function saveProfile() {
   }
 }
 
-// Notification preferences
 function parsePrefs(raw: string | null | undefined): NotificationPrefs {
   if (!raw) return structuredClone(DEFAULT_NOTIFICATION_PREFS);
   try {
@@ -154,12 +157,7 @@ async function saveNotifPrefs() {
   }
 }
 
-// Password change form
-const passwords = reactive({
-  current: '',
-  next: '',
-  confirm: '',
-});
+const passwords = reactive({ current: '', next: '', confirm: '' });
 const passwordSaving = ref(false);
 const passwordError = ref<string | null>(null);
 
@@ -182,7 +180,6 @@ async function changePassword() {
     passwords.current = '';
     passwords.next = '';
     passwords.confirm = '';
-    passwordError.value = null;
     toast.add({ severity: 'success', summary: t('profile_password_changed_toast'), life: 3000 });
   } catch (err: any) {
     toast.add({ severity: 'error', summary: t('profile_password_error_save'), detail: err?.response?.data?.detail, life: 4000 });
@@ -193,39 +190,75 @@ async function changePassword() {
 </script>
 
 <template>
-  <div class="p-4 flex flex-col gap-4 max-w-xl mx-auto w-full">
-    <h1 class="text-2xl font-semibold mb-2">{{ $t('profile_title') }}</h1>
+  <div class="p-4 flex flex-col gap-5 max-w-2xl mx-auto w-full">
 
-    <!-- Profile details -->
+    <!-- Profile header -->
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-2xl bg-primary/15 text-primary flex items-center justify-center text-2xl font-bold shrink-0">
+        {{ userInitials }}
+      </div>
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">{{ auth.user?.full_name }}</h1>
+        <p class="text-sm text-surface-400 mt-0.5">{{ auth.user?.email }}</p>
+      </div>
+    </div>
+
+    <!-- ── Account details ── -->
     <Card>
-      <template #title>{{ $t('profile_account_details') }}</template>
+      <template #title>
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <i class="pi pi-user text-primary text-xs" />
+          </div>
+          <span>{{ $t('profile_account_details') }}</span>
+        </div>
+      </template>
       <template #content>
         <div class="flex flex-col gap-4">
-          <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">{{ $t('profile_full_name_label') }}</label>
-            <InputText v-model="profile.full_name" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">{{ $t('profile_full_name_label') }}</label>
+              <InputText v-model="profile.full_name" class="w-full" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">{{ $t('profile_email_label') }}</label>
+              <InputText v-model="profile.email" class="w-full" />
+            </div>
           </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">{{ $t('profile_email_label') }}</label>
-            <InputText v-model="profile.email" />
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">{{ $t('profile_timezone_label') }}</label>
+              <Select v-model="profile.timezone" :options="TIMEZONE_OPTIONS" optionLabel="label" optionValue="value" fluid />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">{{ $t('profile_language_label') }}</label>
+              <Select :modelValue="locale" :options="LANGUAGE_OPTIONS" optionLabel="label" optionValue="value" fluid
+                @update:modelValue="setLocale" />
+            </div>
           </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">{{ $t('profile_timezone_label') }}</label>
-            <Select v-model="profile.timezone" :options="TIMEZONE_OPTIONS" optionLabel="label" optionValue="value" fluid />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">{{ $t('profile_language_label') }}</label>
-            <Select :modelValue="locale" :options="LANGUAGE_OPTIONS" optionLabel="label" optionValue="value" fluid @update:modelValue="setLocale" />
-          </div>
+
           <div class="flex flex-col gap-2">
             <span class="text-sm font-medium">{{ $t('profile_roles_label') }}</span>
-            <div class="flex items-center gap-2">
-              <Checkbox v-model="profile.role_owner" :binary="true" inputId="profile_role_owner" />
-              <label for="profile_role_owner" class="text-sm">{{ $t('profile_role_owner_label') }}</label>
-            </div>
-            <div class="flex items-center gap-2">
-              <Checkbox v-model="profile.role_borrower" :binary="true" inputId="profile_role_borrower" />
-              <label for="profile_role_borrower" class="text-sm">{{ $t('profile_role_borrower_label') }}</label>
+            <div class="flex gap-3">
+              <label
+                class="flex-1 flex items-center gap-2.5 p-3 rounded-xl border-2 cursor-pointer transition-all"
+                :class="profile.role_owner
+                  ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                  : 'border-surface-200 dark:border-zinc-700 hover:border-surface-300'"
+              >
+                <Checkbox v-model="profile.role_owner" :binary="true" inputId="profile_role_owner" />
+                <p class="text-sm font-medium">{{ $t('profile_role_owner_label') }}</p>
+              </label>
+              <label
+                class="flex-1 flex items-center gap-2.5 p-3 rounded-xl border-2 cursor-pointer transition-all"
+                :class="profile.role_borrower
+                  ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                  : 'border-surface-200 dark:border-zinc-700 hover:border-surface-300'"
+              >
+                <Checkbox v-model="profile.role_borrower" :binary="true" inputId="profile_role_borrower" />
+                <p class="text-sm font-medium">{{ $t('profile_role_borrower_label') }}</p>
+              </label>
             </div>
           </div>
 
@@ -236,49 +269,77 @@ async function changePassword() {
       </template>
     </Card>
 
-    <!-- Notification preferences -->
+    <!-- ── Notification preferences ── -->
     <Card>
-      <template #title>{{ $t('profile_notifications_title') }}</template>
+      <template #title>
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <i class="pi pi-bell text-primary text-xs" />
+          </div>
+          <span>{{ $t('profile_notifications_title') }}</span>
+        </div>
+      </template>
       <template #content>
         <div class="flex flex-col gap-5">
 
           <!-- Owner section -->
           <template v-if="profile.role_owner">
-            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">{{ $t('profile_as_owner') }}</p>
-            <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
-              <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
-            </div>
-            <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
-            <div v-for="type in NOTIF_OWNER_TYPES" :key="type.key"
-              class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-              <span class="text-sm">{{ $t(type.labelKey) }}</span>
-              <div class="flex justify-center">
-                <i v-if="type.pushAlwaysOn" class="pi pi-check text-primary text-sm" :title="$t('profile_notif_push_always_on')" />
-                <Checkbox v-else v-model="notifPrefs[type.key].push" :binary="true" />
+            <p class="text-xs font-semibold uppercase tracking-widest text-surface-400">{{ $t('profile_as_owner') }}</p>
+            <div class="rounded-xl border border-surface-200 dark:border-zinc-700 overflow-hidden">
+              <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center px-4 py-2.5 bg-surface-50 dark:bg-zinc-800">
+                <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
+                <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
+                <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
               </div>
-              <div class="flex justify-center">
-                <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
+              <div v-for="(type, idx) in NOTIF_OWNER_TYPES" :key="type.key"
+                class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center px-4 py-3"
+                :class="idx > 0 ? 'border-t border-surface-100 dark:border-zinc-800' : ''">
+                <span class="text-sm">{{ $t(type.labelKey) }}</span>
+                <div class="flex justify-center">
+                  <i v-if="type.pushAlwaysOn" class="pi pi-check text-primary text-sm" :title="$t('profile_notif_push_always_on')" />
+                  <Checkbox v-else v-model="notifPrefs[type.key].push" :binary="true" />
+                </div>
+                <div class="flex justify-center">
+                  <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
+                </div>
               </div>
             </div>
           </template>
 
-          <!-- Divider between sections -->
-          <div v-if="profile.role_owner && profile.role_borrower"
-            class="border-t border-surface-200 dark:border-surface-700" />
-
           <!-- Borrower section -->
           <template v-if="profile.role_borrower">
-            <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">{{ $t('profile_as_borrower') }}</p>
-            <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+            <p class="text-xs font-semibold uppercase tracking-widest text-surface-400">{{ $t('profile_as_borrower') }}</p>
+            <div class="rounded-xl border border-surface-200 dark:border-zinc-700 overflow-hidden">
+              <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center px-4 py-2.5 bg-surface-50 dark:bg-zinc-800">
+                <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
+                <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
+                <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
+              </div>
+              <div v-for="(type, idx) in NOTIF_BORROWER_TYPES" :key="type.key"
+                class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center px-4 py-3"
+                :class="idx > 0 ? 'border-t border-surface-100 dark:border-zinc-800' : ''">
+                <span class="text-sm">{{ $t(type.labelKey) }}</span>
+                <div class="flex justify-center">
+                  <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
+                </div>
+                <div class="flex justify-center">
+                  <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- General section -->
+          <p class="text-xs font-semibold uppercase tracking-widest text-surface-400">{{ $t('profile_as_general') }}</p>
+          <div class="rounded-xl border border-surface-200 dark:border-zinc-700 overflow-hidden">
+            <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center px-4 py-2.5 bg-surface-50 dark:bg-zinc-800">
               <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
               <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
               <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
             </div>
-            <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
-            <div v-for="type in NOTIF_BORROWER_TYPES" :key="type.key"
-              class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+            <div v-for="(type, idx) in NOTIF_GENERAL_TYPES" :key="type.key"
+              class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center px-4 py-3"
+              :class="idx > 0 ? 'border-t border-surface-100 dark:border-zinc-800' : ''">
               <span class="text-sm">{{ $t(type.labelKey) }}</span>
               <div class="flex justify-center">
                 <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
@@ -286,29 +347,6 @@ async function changePassword() {
               <div class="flex justify-center">
                 <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
               </div>
-            </div>
-          </template>
-
-          <!-- Divider before general section -->
-          <div v-if="profile.role_owner || profile.role_borrower"
-            class="border-t border-surface-200 dark:border-surface-700" />
-
-          <!-- General section (always visible) -->
-          <p class="text-sm font-semibold text-surface-600 dark:text-surface-300">{{ $t('profile_as_general') }}</p>
-          <div class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-            <span class="text-xs font-medium text-surface-400 uppercase tracking-wide">{{ $t('profile_notif_type_col') }}</span>
-            <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_inapp_col') }}</span>
-            <span class="text-xs font-medium text-surface-400 uppercase tracking-wide text-center">{{ $t('profile_notif_email_col') }}</span>
-          </div>
-          <div class="border-t border-surface-200 dark:border-surface-700 -mt-3" />
-          <div v-for="type in NOTIF_GENERAL_TYPES" :key="type.key"
-            class="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-            <span class="text-sm">{{ $t(type.labelKey) }}</span>
-            <div class="flex justify-center">
-              <Checkbox v-model="notifPrefs[type.key].push" :binary="true" />
-            </div>
-            <div class="flex justify-center">
-              <Checkbox v-model="notifPrefs[type.key].email" :binary="true" />
             </div>
           </div>
 
@@ -319,28 +357,38 @@ async function changePassword() {
       </template>
     </Card>
 
-    <!-- Change password -->
+    <!-- ── Change password ── -->
     <Card>
-      <template #title>{{ $t('profile_change_password_title') }}</template>
+      <template #title>
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <i class="pi pi-lock text-primary text-xs" />
+          </div>
+          <span>{{ $t('profile_change_password_title') }}</span>
+        </div>
+      </template>
       <template #content>
         <div class="flex flex-col gap-4">
-          <div class="flex flex-col gap-1">
+          <div class="flex flex-col gap-1.5">
             <label class="text-sm font-medium">{{ $t('profile_current_password') }}</label>
             <Password v-model="passwords.current" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
           </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">{{ $t('profile_new_password') }}</label>
-            <Password v-model="passwords.next" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">{{ $t('profile_confirm_new_password') }}</label>
-            <Password v-model="passwords.confirm" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">{{ $t('profile_new_password') }}</label>
+              <Password v-model="passwords.next" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">{{ $t('profile_confirm_new_password') }}</label>
+              <Password v-model="passwords.confirm" :feedback="false" toggleMask class="w-full" inputClass="w-full" />
+            </div>
           </div>
 
           <Message v-if="passwordError" severity="error" :closable="false">{{ passwordError }}</Message>
 
           <div class="flex justify-end">
-            <Button :label="$t('profile_change_password_button')" icon="pi pi-lock" :loading="passwordSaving" @click="changePassword" />
+            <Button :label="$t('profile_change_password_button')" icon="pi pi-lock" :loading="passwordSaving"
+              @click="changePassword" />
           </div>
         </div>
       </template>

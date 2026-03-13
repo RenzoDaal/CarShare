@@ -7,6 +7,27 @@ module.exports = {
       colors: {
         primary: "var(--p-primary-color)",
       },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+      },
+      keyframes: {
+        fadeUp: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+      },
+      animation: {
+        'fade-up': 'fadeUp 0.4s ease forwards',
+        'fade-in': 'fadeIn 0.3s ease forwards',
+      },
     },
   },
   plugins: [],

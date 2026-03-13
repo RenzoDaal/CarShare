@@ -14,7 +14,7 @@ import { useI18n } from 'vue-i18n';
 import { useReveal } from '@/composables/useReveal';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const { el: bookingsEl, visible: bookingsVisible } = useReveal()
 const { el: statsEl, visible: statsVisible } = useReveal()
@@ -25,6 +25,12 @@ const timeGreeting = computed(() => {
   if (h < 12) return t('dashboard_greeting_morning');
   if (h < 18) return t('dashboard_greeting_afternoon');
   return t('dashboard_greeting_evening');
+});
+
+const todayLabel = computed(() => {
+  return new Date().toLocaleDateString(locale.value === 'nl' ? 'nl-NL' : 'en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
 });
 
 type CarStats = {
@@ -38,7 +44,6 @@ type CarStats = {
 const router = useRouter();
 const auth = useAuthStore();
 const confirm = useConfirm();
-
 
 type DashboardBooking = {
   id: number;
@@ -83,31 +88,15 @@ async function loadPendingOwnerCount() {
 }
 
 const hasBookings = computed<boolean>(() => {
-  const value = data.value;
-  if (!value) return false;
-  return value.upcoming_bookings.length > 0;
+  return data.value.upcoming_bookings.length > 0;
 });
-
-
 
 const nextBooking = computed((): DashboardBooking | null => {
-  const value = data.value;
-
-  if (value.upcoming_bookings.length === 0) {
-    return null;
-  }
-
-  return value.upcoming_bookings[0]!;
+  return data.value.upcoming_bookings[0] ?? null;
 });
 
-
-
 const otherBookings = computed<DashboardBooking[]>(() => {
-  const value = data.value;
-  if (!value || value.upcoming_bookings.length <= 1) {
-    return [];
-  }
-  return value.upcoming_bookings.slice(1);
+  return data.value.upcoming_bookings.slice(1);
 });
 
 const carStats = ref<CarStats[]>([]);
@@ -149,9 +138,7 @@ async function loadPendingInvites() {
 
 async function acceptInvite(carId: number) {
   const res = await http.post(`/cars/${carId}/co-owners/accept`);
-  if (res.data?.user) {
-    auth.updateUser(res.data.user);
-  }
+  if (res.data?.user) auth.updateUser(res.data.user);
   await loadPendingInvites();
   await loadDashboard();
   await loadCarStats();
@@ -168,7 +155,7 @@ async function loadCarStats() {
     const res = await http.get<CarStats[]>('/cars/stats');
     carStats.value = res.data;
   } catch {
-    // silently ignore stats failure
+    // silently ignore
   }
 }
 
@@ -221,12 +208,10 @@ async function sendReminder(bookingId: number) {
   }
 }
 
-function goToReserve() {
-  router.push({ name: 'reserve car' });
-}
-
-function goToManageCars() {
-  router.push({ name: 'manage cars' });
+function statusSeverity(status: string) {
+  if (status === 'accepted') return 'success';
+  if (status === 'pending') return 'warn';
+  return 'danger';
 }
 
 onMounted(() => {
@@ -240,159 +225,199 @@ onMounted(() => {
 
 <template>
   <div class="flex-1 flex justify-center w-full">
-    <div class="w-full max-w-6xl px-4 py-6 space-y-4">
-      <div class="mb-6">
-        <p class="text-sm font-medium text-surface-400 mb-0.5">{{ timeGreeting }}</p>
+    <div class="w-full max-w-6xl px-4 py-6 space-y-5">
+
+      <!-- Greeting header -->
+      <div class="mb-4">
+        <p class="text-sm font-medium text-surface-400 mb-0.5 capitalize">{{ timeGreeting }}, {{ todayLabel }}</p>
         <h1 class="text-3xl font-bold tracking-tight">{{ auth.user?.full_name?.split(' ')[0] }}</h1>
       </div>
 
+      <!-- Error state -->
       <div v-if="error" class="p-3 rounded-xl bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300 text-sm">
         {{ error }}
       </div>
 
-      <div v-if="loading" class="space-y-4">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="lg:col-span-2 rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden animate-pulse">
-            <div class="p-5 space-y-3">
-              <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded-full w-1/3" />
-              <div class="h-28 bg-surface-100 dark:bg-surface-800 rounded-xl" />
-              <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded-full w-1/2" />
-            </div>
-          </div>
-          <div class="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden animate-pulse">
-            <div class="p-5 space-y-3">
-              <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded-full w-1/2" />
-              <div class="h-10 bg-surface-100 dark:bg-surface-800 rounded-xl" />
-              <div class="h-10 bg-surface-100 dark:bg-surface-800 rounded-xl" />
-            </div>
+      <!-- Loading skeleton -->
+      <div v-if="loading" class="space-y-5">
+        <!-- Action cards skeleton -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div v-for="i in 4" :key="i" class="h-24 rounded-2xl bg-surface-200 dark:bg-zinc-800 animate-pulse" />
+        </div>
+        <!-- Main booking skeleton -->
+        <div class="rounded-2xl border border-surface-200 dark:border-zinc-700 overflow-hidden animate-pulse">
+          <div class="p-5 space-y-3">
+            <div class="h-4 bg-surface-200 dark:bg-zinc-700 rounded-full w-1/3" />
+            <div class="h-28 bg-surface-100 dark:bg-zinc-800 rounded-xl" />
+            <div class="h-4 bg-surface-200 dark:bg-zinc-700 rounded-full w-1/2" />
           </div>
         </div>
       </div>
 
-      <div v-else class="space-y-4">
+      <div v-else class="space-y-5">
+        <!-- ── Quick action cards ── -->
         <div ref="bookingsEl"
-          :class="['transition-all duration-700 space-y-4', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
+          :class="['transition-all duration-700', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
 
-          <!-- Quick actions row -->
-          <div class="flex flex-wrap gap-2">
-            <Button :label="$t('dashboard_reserve_car')" icon="pi pi-calendar" @click="goToReserve" />
-            <Button v-if="isBorrower" :label="$t('dashboard_my_appointments')" icon="pi pi-list" severity="secondary"
-              @click="router.push({ name: 'borrowerappointments' })" />
-            <Button v-if="isOwner" :label="$t('dashboard_booking_requests')" icon="pi pi-inbox" severity="secondary"
-              :badge="pendingOwnerCount > 0 ? String(pendingOwnerCount) : undefined" badge-severity="warn"
-              @click="router.push({ name: 'ownerappointments' })" />
-            <Button v-if="isOwner" :label="$t('dashboard_manage_my_cars')" icon="pi pi-car" severity="secondary"
-              @click="goToManageCars" />
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <button
+              class="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-primary text-white hover:bg-primary/90 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
+              @click="router.push({ name: 'reserve car' })"
+            >
+              <div class="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                <i class="pi pi-calendar text-xl" />
+              </div>
+              <span class="text-xs font-semibold text-center leading-tight">{{ $t('dashboard_reserve_car') }}</span>
+            </button>
+
+            <button v-if="isBorrower"
+              class="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-white dark:bg-zinc-800 border border-surface-200 dark:border-zinc-700 text-slate-700 dark:text-slate-200 hover:bg-surface-50 dark:hover:bg-zinc-700 shadow-sm active:scale-95 transition-all duration-200"
+              @click="router.push({ name: 'borrowerappointments' })"
+            >
+              <div class="w-11 h-11 rounded-xl bg-surface-100 dark:bg-zinc-700 flex items-center justify-center group-hover:bg-surface-200 dark:group-hover:bg-zinc-600 transition-colors">
+                <i class="pi pi-list text-xl text-surface-600" />
+              </div>
+              <span class="text-xs font-semibold text-center leading-tight">{{ $t('dashboard_my_appointments') }}</span>
+            </button>
+
+            <button v-if="isOwner"
+              class="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-white dark:bg-zinc-800 border border-surface-200 dark:border-zinc-700 text-slate-700 dark:text-slate-200 hover:bg-surface-50 dark:hover:bg-zinc-700 shadow-sm active:scale-95 transition-all duration-200 relative"
+              @click="router.push({ name: 'ownerappointments' })"
+            >
+              <div class="relative">
+                <div class="w-11 h-11 rounded-xl bg-surface-100 dark:bg-zinc-700 flex items-center justify-center group-hover:bg-surface-200 dark:group-hover:bg-zinc-600 transition-colors">
+                  <i class="pi pi-inbox text-xl text-surface-600" />
+                </div>
+                <span v-if="pendingOwnerCount > 0"
+                  class="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-bold">
+                  {{ pendingOwnerCount }}
+                </span>
+              </div>
+              <span class="text-xs font-semibold text-center leading-tight">{{ $t('dashboard_booking_requests') }}</span>
+            </button>
+
+            <button v-if="isOwner"
+              class="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-white dark:bg-zinc-800 border border-surface-200 dark:border-zinc-700 text-slate-700 dark:text-slate-200 hover:bg-surface-50 dark:hover:bg-zinc-700 shadow-sm active:scale-95 transition-all duration-200"
+              @click="router.push({ name: 'manage cars' })"
+            >
+              <div class="w-11 h-11 rounded-xl bg-surface-100 dark:bg-zinc-700 flex items-center justify-center group-hover:bg-surface-200 dark:group-hover:bg-zinc-600 transition-colors">
+                <i class="pi pi-car text-xl text-surface-600" />
+              </div>
+              <span class="text-xs font-semibold text-center leading-tight">{{ $t('dashboard_manage_my_cars') }}</span>
+            </button>
           </div>
 
+          <!-- ── Your bookings ── -->
           <Card>
-              <template #title>
-                <div class="flex items-center justify-between gap-2">
-                  <span>{{ $t('dashboard_your_bookings') }}</span>
-                  <Tag v-if="hasBookings" :value="`${data?.upcoming_bookings.length} ${$t('dashboard_upcoming_count').replace('{count}', '')}`" />
-                  <Tag v-else :value="$t('dashboard_no_upcoming')" severity="info" />
+            <template #title>
+              <div class="flex items-center justify-between gap-2">
+                <span>{{ $t('dashboard_your_bookings') }}</span>
+                <Tag v-if="hasBookings" :value="`${data?.upcoming_bookings.length} ${$t('dashboard_upcoming_count').replace('{count}', '')}`" />
+                <Tag v-else :value="$t('dashboard_no_upcoming')" severity="info" />
+              </div>
+            </template>
+            <template #content>
+              <!-- Empty state -->
+              <div v-if="!hasBookings" class="flex flex-col items-center gap-3 py-10 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-surface-100 dark:bg-zinc-800 flex items-center justify-center">
+                  <i class="pi pi-calendar text-2xl text-surface-400" />
                 </div>
-              </template>
-              <template #content>
-                <div v-if="!hasBookings" class="flex flex-col items-center gap-3 py-8 text-center">
-                  <div class="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center">
-                    <i class="pi pi-calendar text-2xl text-surface-400" />
-                  </div>
-                  <div>
-                    <p class="font-medium text-surface-600 dark:text-surface-300">{{ $t('dashboard_no_bookings_yet') }}</p>
-                    <p class="text-sm text-surface-400 mt-1">{{ $t('dashboard_reserve_car') }}</p>
-                  </div>
-                  <Button :label="$t('dashboard_reserve_car')" icon="pi pi-calendar" size="small" @click="goToReserve" />
+                <div>
+                  <p class="font-medium text-slate-600 dark:text-slate-300">{{ $t('dashboard_no_bookings_yet') }}</p>
+                  <p class="text-sm text-surface-400 mt-1">{{ $t('dashboard_reserve_car') }}</p>
                 </div>
+                <Button :label="$t('dashboard_reserve_car')" icon="pi pi-calendar" size="small"
+                  @click="router.push({ name: 'reserve car' })" />
+              </div>
 
-                <div v-else class="space-y-4">
-                  <div v-if="nextBooking" class="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/8 to-primary/3 dark:from-primary/15 dark:to-primary/5 p-4 relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-xl"></div>
-                    <div class="pl-1">
-                      <div class="flex items-center gap-2 mb-2">
-                        <i class="pi pi-calendar-clock text-primary text-sm" />
-                        <p class="text-xs font-semibold uppercase tracking-wide text-primary">
-                          {{ $t('dashboard_next_booking') }}
-                        </p>
-                      </div>
-                      <p class="font-semibold text-base mb-0.5">
-                        {{ nextBooking!.car.name }}
+              <div v-else class="space-y-4">
+                <!-- Next booking hero card -->
+                <div v-if="nextBooking"
+                  class="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/8 to-primary/3 dark:from-primary/15 dark:to-primary/5 p-5 relative overflow-hidden">
+                  <div class="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-2xl" />
+                  <div class="pl-2">
+                    <div class="flex items-center gap-2 mb-3">
+                      <i class="pi pi-calendar-clock text-primary text-sm" />
+                      <p class="text-xs font-semibold uppercase tracking-wider text-primary">
+                        {{ $t('dashboard_next_booking') }}
                       </p>
-                      <p class="text-sm text-surface-500">
-                        {{ formatDateTime(nextBooking!.start_datetime) }}
-                        –
-                        {{ formatDateTime(nextBooking!.end_datetime) }}
-                      </p>
-                      <p v-if="nextBooking!.total_price != null" class="text-sm mt-1.5 font-semibold text-primary">
-                        € {{ nextBooking!.total_price!.toFixed(2) }}
-                      </p>
-                      <div class="mt-3 flex items-center gap-3 flex-wrap">
-                        <Tag :value="nextBooking!.status" />
-                        <span v-if="nextBooking!.status === 'pending'" class="text-xs text-surface-400">{{ $t('dashboard_awaiting_owner_approval') }}</span>
-                        <Button v-if="nextBooking!.status === 'pending'" :label="$t('borrower_send_reminder')" icon="pi pi-bell"
-                          severity="secondary" outlined size="small"
-                          :loading="reminderSending.has(nextBooking!.id)"
-                          :disabled="reminderSending.has(nextBooking!.id)"
-                          @click="sendReminder(nextBooking!.id)" />
-                        <Button :label="$t('dashboard_cancel')" icon="pi pi-times" severity="danger" outlined size="small"
-                          @click="confirmCancel(nextBooking!.id)" />
-                      </div>
+                    </div>
+                    <p class="font-bold text-lg mb-1 tracking-tight">{{ nextBooking.car.name }}</p>
+                    <p class="text-sm text-surface-500 mb-1">
+                      {{ formatDateTime(nextBooking.start_datetime) }} – {{ formatDateTime(nextBooking.end_datetime) }}
+                    </p>
+                    <p v-if="nextBooking.total_price != null" class="text-base font-bold text-primary mt-2">
+                      € {{ nextBooking.total_price.toFixed(2) }}
+                    </p>
+                    <div class="mt-4 flex items-center gap-2 flex-wrap">
+                      <Tag :value="nextBooking.status" :severity="statusSeverity(nextBooking.status)" />
+                      <span v-if="nextBooking.status === 'pending'"
+                        class="text-xs text-surface-400">{{ $t('dashboard_awaiting_owner_approval') }}</span>
+                      <Button v-if="nextBooking.status === 'pending'" :label="$t('borrower_send_reminder')"
+                        icon="pi pi-bell" severity="secondary" outlined size="small"
+                        :loading="reminderSending.has(nextBooking.id)"
+                        :disabled="reminderSending.has(nextBooking.id)"
+                        @click="sendReminder(nextBooking.id)" />
+                      <Button :label="$t('dashboard_cancel')" icon="pi pi-times" severity="danger" outlined size="small"
+                        @click="confirmCancel(nextBooking.id)" />
                     </div>
                   </div>
-
-                  <div v-if="otherBookings.length" class="space-y-2">
-                    <p class="text-xs uppercase tracking-wide text-surface-500">
-                      {{ $t('dashboard_later_bookings') }}
-                    </p>
-                    <ul class="space-y-2">
-                      <li v-for="b in otherBookings" :key="b.id"
-                        class="flex items-center justify-between text-sm border border-surface-100 dark:border-surface-700 rounded-lg px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-default">
-                        <div>
-                          <p class="font-medium">
-                            {{ b.car.name }}
-                          </p>
-                          <p class="text-xs text-surface-500">
-                            {{ formatDateTime(b.start_datetime) }}
-                          </p>
-                        </div>
-                        <div class="flex flex-col items-end gap-1">
-                          <div class="flex items-center gap-2 flex-wrap justify-end">
-                            <Tag :value="b.status" />
-                            <Button v-if="b.status === 'pending'" icon="pi pi-bell" severity="secondary" outlined rounded size="small"
-                              :loading="reminderSending.has(b.id)"
-                              :disabled="reminderSending.has(b.id)"
-                              @click="sendReminder(b.id)" />
-                            <Button icon="pi pi-times" severity="danger" outlined rounded size="small"
-                              @click="confirmCancel(b.id)" />
-                          </div>
-                        </div>
-                      </li>
-                    </ul>
-                  </div>
                 </div>
-              </template>
-            </Card>
+
+                <!-- Other bookings list -->
+                <div v-if="otherBookings.length" class="space-y-2">
+                  <p class="text-xs uppercase tracking-wider font-semibold text-surface-400">
+                    {{ $t('dashboard_later_bookings') }}
+                  </p>
+                  <ul class="space-y-1.5">
+                    <li v-for="b in otherBookings" :key="b.id"
+                      class="flex items-center justify-between text-sm border border-surface-100 dark:border-zinc-700 rounded-xl px-4 py-3 hover:bg-surface-50 dark:hover:bg-zinc-800 transition-colors cursor-default">
+                      <div>
+                        <p class="font-semibold">{{ b.car.name }}</p>
+                        <p class="text-xs text-surface-400 mt-0.5">{{ formatDateTime(b.start_datetime) }}</p>
+                      </div>
+                      <div class="flex items-center gap-2 flex-wrap justify-end">
+                        <Tag :value="b.status" :severity="statusSeverity(b.status)" />
+                        <Button v-if="b.status === 'pending'" icon="pi pi-bell" severity="secondary" outlined rounded
+                          size="small" :loading="reminderSending.has(b.id)" :disabled="reminderSending.has(b.id)"
+                          @click="sendReminder(b.id)" />
+                        <Button icon="pi pi-times" severity="danger" outlined rounded size="small"
+                          @click="confirmCancel(b.id)" />
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </template>
+          </Card>
         </div>
 
+        <!-- ── Co-owner invites ── -->
         <div v-if="pendingInvites.length > 0">
-          <Card class="mb-4">
+          <Card>
             <template #title>
               <div class="flex items-center gap-2">
                 <span>{{ $t('dashboard_pending_invites_title') }}</span>
-                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-xs font-bold">{{ pendingInvites.length }}</span>
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-xs font-bold">
+                  {{ pendingInvites.length }}
+                </span>
               </div>
             </template>
             <template #content>
               <div class="flex flex-col gap-3">
                 <div v-for="invite in pendingInvites" :key="invite.car_id"
-                  class="border border-surface-200 dark:border-surface-700 rounded-lg p-3 flex items-center justify-between gap-3">
+                  class="border border-surface-200 dark:border-zinc-700 rounded-xl p-4 flex items-center justify-between gap-3">
                   <div>
-                    <p class="font-medium text-sm">{{ invite.car_name }}</p>
-                    <p class="text-xs text-surface-500">{{ invite.owner_name }} {{ $t('dashboard_pending_invite_from') }} {{ invite.car_name }}</p>
+                    <p class="font-semibold text-sm">{{ invite.car_name }}</p>
+                    <p class="text-xs text-surface-500 mt-0.5">
+                      {{ invite.owner_name }} {{ $t('dashboard_pending_invite_from') }} {{ invite.car_name }}
+                    </p>
                   </div>
-                  <div class="flex gap-2">
-                    <Button :label="$t('dashboard_accept_invite')" icon="pi pi-check" size="small" severity="success" @click="acceptInvite(invite.car_id)" />
-                    <Button :label="$t('dashboard_decline_invite')" icon="pi pi-times" size="small" severity="danger" outlined @click="declineInvite(invite.car_id)" />
+                  <div class="flex gap-2 shrink-0">
+                    <Button :label="$t('dashboard_accept_invite')" icon="pi pi-check" size="small" severity="success"
+                      @click="acceptInvite(invite.car_id)" />
+                    <Button :label="$t('dashboard_decline_invite')" icon="pi pi-times" size="small" severity="danger"
+                      outlined @click="declineInvite(invite.car_id)" />
                   </div>
                 </div>
               </div>
@@ -400,25 +425,28 @@ onMounted(() => {
           </Card>
         </div>
 
+        <!-- ── Active rentals ── -->
         <div v-if="isOwner && data.active_rentals.length > 0">
-          <Card class="mb-4">
+          <Card>
             <template #title>
               <div class="flex items-center gap-2">
                 <span>{{ $t('dashboard_currently_in_use') }}</span>
-                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold">{{ data.active_rentals.length }}</span>
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold">
+                  {{ data.active_rentals.length }}
+                </span>
               </div>
             </template>
             <template #content>
               <div class="flex flex-col gap-3">
                 <div v-for="rental in data.active_rentals" :key="rental.id"
-                  class="border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 rounded-xl p-4 flex flex-col gap-1">
+                  class="border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-4 flex flex-col gap-1.5">
                   <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    <div class="flex items-center gap-2.5">
+                      <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
                       </span>
-                      <span class="font-semibold">{{ rental.car.name }}</span>
+                      <span class="font-bold">{{ rental.car.name }}</span>
                     </div>
                     <Tag :value="$t('dashboard_active')" severity="success" />
                   </div>
@@ -426,7 +454,8 @@ onMounted(() => {
                     {{ formatDateTime(rental.start_datetime) }} – {{ formatDateTime(rental.end_datetime) }}
                   </p>
                   <p v-if="rental.borrower_name" class="text-sm">
-                    {{ $t('dashboard_borrower') }} <span class="font-medium">{{ rental.borrower_name }}</span>
+                    {{ $t('dashboard_borrower') }}
+                    <span class="font-semibold">{{ rental.borrower_name }}</span>
                     <span v-if="rental.borrower_email" class="text-surface-400"> — {{ rental.borrower_email }}</span>
                   </p>
                   <p v-if="rental.notes" class="text-sm italic text-surface-400">"{{ rental.notes }}"</p>
@@ -436,23 +465,27 @@ onMounted(() => {
           </Card>
         </div>
 
+        <!-- ── Usage stats ── -->
         <div v-if="isOwner && carStats.length > 0" ref="statsEl"
           :class="['transition-all duration-700', statsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
-          <Card class="mb-4">
+          <Card>
             <template #title>{{ $t('dashboard_usage_stats') }}</template>
             <template #content>
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div v-for="stat in carStats" :key="stat.car_id"
-                  class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 flex flex-col gap-2 hover:shadow-md transition-shadow bg-gradient-to-br from-surface-0 to-surface-50 dark:from-surface-800 dark:to-surface-900">
-                  <p class="font-semibold text-sm text-surface-700 dark:text-surface-200">{{ stat.car_name }}</p>
-                  <p class="text-2xl font-bold text-primary">€{{ (statEarningsDisplayed[stat.car_id] ?? 0).toFixed(2) }}</p>
-                  <div class="flex items-center gap-4 text-xs text-surface-500">
-                    <span class="flex items-center gap-1">
-                      <i class="pi pi-check-circle" />
-                      {{ stat.total_bookings }} {{ stat.total_bookings !== 1 ? $t('dashboard_bookings_accepted_plural') : $t('dashboard_bookings_accepted') }}
+                  class="rounded-2xl border border-surface-200 dark:border-zinc-700 p-5 flex flex-col gap-2 hover:shadow-md transition-all duration-200 bg-gradient-to-br from-surface-0 to-surface-50 dark:from-zinc-800 dark:to-zinc-900 hover:-translate-y-0.5">
+                  <p class="font-semibold text-sm text-slate-600 dark:text-slate-300 truncate">{{ stat.car_name }}</p>
+                  <p class="text-3xl font-bold text-primary tracking-tight">
+                    €{{ (statEarningsDisplayed[stat.car_id] ?? 0).toFixed(2) }}
+                  </p>
+                  <div class="flex items-center gap-4 text-xs text-surface-500 mt-0.5">
+                    <span class="flex items-center gap-1.5">
+                      <i class="pi pi-check-circle text-green-500" />
+                      {{ stat.total_bookings }}
+                      {{ stat.total_bookings !== 1 ? $t('dashboard_bookings_accepted_plural') : $t('dashboard_bookings_accepted') }}
                     </span>
-                    <span class="flex items-center gap-1">
-                      <i class="pi pi-map-marker" />
+                    <span class="flex items-center gap-1.5">
+                      <i class="pi pi-map-marker text-primary" />
                       {{ stat.total_km.toFixed(0) }} {{ $t('dashboard_km_total') }}
                     </span>
                   </div>
@@ -462,6 +495,7 @@ onMounted(() => {
           </Card>
         </div>
 
+        <!-- ── Your cars ── -->
         <div v-if="isOwner" ref="carsEl"
           :class="['transition-all duration-700', carsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
           <Card>
@@ -469,32 +503,33 @@ onMounted(() => {
               <div class="flex items-center justify-between gap-2">
                 <span>{{ $t('dashboard_your_cars') }}</span>
                 <Button :label="$t('dashboard_manage_cars')" icon="pi pi-car" size="small" severity="secondary"
-                  @click="goToManageCars" />
+                  @click="router.push({ name: 'manage cars' })" />
               </div>
             </template>
             <template #content>
-              <div v-if="!data?.active_cars?.length" class="flex flex-col items-center gap-3 py-8 text-center">
-                <div class="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center">
+              <div v-if="!data?.active_cars?.length" class="flex flex-col items-center gap-3 py-10 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-surface-100 dark:bg-zinc-800 flex items-center justify-center">
                   <i class="pi pi-car text-2xl text-surface-400" />
                 </div>
                 <p class="text-sm text-surface-500">{{ $t('dashboard_no_cars_yet') }}</p>
-                <Button :label="$t('dashboard_manage_cars')" icon="pi pi-car" size="small" severity="secondary" @click="goToManageCars" />
+                <Button :label="$t('dashboard_manage_cars')" icon="pi pi-car" size="small" severity="secondary"
+                  @click="router.push({ name: 'manage cars' })" />
               </div>
 
-              <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div v-for="(car, index) in data!.active_cars" :key="car.id"
-                  class="relative h-80 rounded-xl overflow-hidden cursor-pointer shadow hover:-translate-y-1 hover:shadow-lg transition-all duration-300 card-animate border border-surface-200 dark:border-surface-700"
+              <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div v-for="(car, index) in data.active_cars" :key="car.id"
+                  class="relative h-64 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 card-animate"
                   :style="{ animationDelay: `${index * 60}ms` }"
-                  @click="goToManageCars">
+                  @click="router.push({ name: 'manage cars' })">
                   <CarImageCarousel :car-id="car.id" :fallback-url="car.image_url" />
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
-                  <div class="absolute bottom-0 left-0 right-0 p-3 pointer-events-none">
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
+                  <div class="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
                     <div class="flex items-center justify-between gap-2">
-                      <p class="text-white font-semibold text-sm leading-tight truncate">{{ car.name }}</p>
+                      <p class="text-white font-bold text-sm leading-tight truncate">{{ car.name }}</p>
                       <Tag :value="car.is_active ? $t('dashboard_active_tag') : $t('dashboard_disabled_tag')"
                         :severity="car.is_active ? 'success' : 'danger'" />
                     </div>
-                    <p class="text-white/70 text-xs mt-0.5">€ {{ car.price_per_km.toFixed(2) }} / km</p>
+                    <p class="text-white/65 text-xs mt-0.5">€ {{ car.price_per_km.toFixed(2) }} / km</p>
                   </div>
                 </div>
               </div>
