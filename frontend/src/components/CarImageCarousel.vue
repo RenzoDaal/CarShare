@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import http from '@/api/http';
 
 const props = defineProps<{
@@ -11,6 +11,7 @@ type CarImage = { id: number; url: string; order: number };
 
 const images = ref<string[]>([]);
 const currentIndex = ref(0);
+const imageLoaded = ref(false);
 
 onMounted(async () => {
   try {
@@ -25,6 +26,9 @@ onMounted(async () => {
 });
 
 const currentImage = computed(() => images.value[currentIndex.value] ?? null);
+
+// Reset loaded state when image changes so shimmer shows between slides
+watch(currentIndex, () => { imageLoaded.value = false; });
 
 function prev() {
   currentIndex.value = (currentIndex.value - 1 + images.value.length) % images.value.length;
@@ -53,11 +57,24 @@ function onTouchEnd(e: TouchEvent) {
 
 <template>
   <div
-    class="relative w-full h-full overflow-hidden bg-surface-900"
+    class="relative w-full h-full overflow-hidden bg-surface-200 dark:bg-zinc-800"
     @touchstart.passive="onTouchStart"
     @touchend.passive="onTouchEnd"
   >
-    <img v-if="currentImage" :src="currentImage" class="w-full h-full object-cover block" />
+    <!-- Shimmer placeholder shown while image is loading -->
+    <div
+      v-if="!imageLoaded"
+      class="absolute inset-0 bg-gradient-to-r from-surface-200 via-surface-100 to-surface-200 dark:from-zinc-800 dark:via-zinc-700 dark:to-zinc-800 animate-shimmer bg-[length:200%_100%]"
+    />
+
+    <!-- Image fades in on load -->
+    <img
+      v-if="currentImage"
+      :src="currentImage"
+      class="w-full h-full object-cover block transition-opacity duration-500"
+      :class="imageLoaded ? 'opacity-100' : 'opacity-0'"
+      @load="imageLoaded = true"
+    />
 
     <template v-if="images.length > 1">
       <button
@@ -73,12 +90,13 @@ function onTouchEnd(e: TouchEvent) {
         <i class="pi pi-chevron-right text-sm" />
       </button>
 
+      <!-- Pill-shaped dots: active dot is wider -->
       <div class="absolute bottom-2 left-0 right-0 flex justify-center gap-1 pointer-events-none">
         <span
           v-for="(_, i) in images"
           :key="i"
-          class="w-2 h-2 rounded-full transition-colors"
-          :class="i === currentIndex ? 'bg-white' : 'bg-white/50'"
+          class="h-2 rounded-full transition-all duration-300"
+          :class="i === currentIndex ? 'bg-white w-4' : 'bg-white/50 w-2'"
         />
       </div>
     </template>

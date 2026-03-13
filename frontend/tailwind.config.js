@@ -23,10 +23,17 @@ module.exports = {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        bounceBadge: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '30%': { transform: 'scale(1.45)' },
+          '60%': { transform: 'scale(0.9)' },
+        },
       },
       animation: {
         'fade-up': 'fadeUp 0.4s ease forwards',
         'fade-in': 'fadeIn 0.3s ease forwards',
+        'shimmer': 'shimmer 2s linear infinite',
+        'bounce-badge': 'bounceBadge 0.4s ease',
       },
     },
   },

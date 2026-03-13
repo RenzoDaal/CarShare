@@ -12,6 +12,7 @@ import { useConfirm } from 'primevue/useconfirm';
 import { formatDateTime } from '@/utils/formatDate';
 import { useI18n } from 'vue-i18n';
 import { useReveal } from '@/composables/useReveal';
+import { haptic } from '@/utils/haptic';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
 
 const { t, locale } = useI18n();
@@ -19,6 +20,7 @@ const { t, locale } = useI18n();
 const { el: bookingsEl, visible: bookingsVisible } = useReveal()
 const { el: statsEl, visible: statsVisible } = useReveal()
 const { el: carsEl, visible: carsVisible } = useReveal()
+const { el: borrowerStatsEl, visible: borrowerStatsVisible } = useReveal()
 
 const timeGreeting = computed(() => {
   const h = new Date().getHours();
@@ -33,12 +35,33 @@ const todayLabel = computed(() => {
   });
 });
 
+// Time-of-day ambient gradient — full class strings so Tailwind scans them statically
+const GREETING_GRADIENTS = {
+  morning:   'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/10',
+  afternoon: 'bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/20 dark:to-blue-950/10',
+  evening:   'bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/10',
+} as const;
+
+const greetingGradientClass = computed(() => {
+  const h = new Date().getHours();
+  if (h < 12) return GREETING_GRADIENTS.morning;
+  if (h < 18) return GREETING_GRADIENTS.afternoon;
+  return GREETING_GRADIENTS.evening;
+});
+
 type CarStats = {
   car_id: number;
   car_name: string;
   total_bookings: number;
   total_km: number;
   total_earnings: number;
+};
+
+type BorrowerStats = {
+  total_rides: number;
+  total_km: number;
+  total_spent: number;
+  favourite_car: string | null;
 };
 
 const router = useRouter();
@@ -108,7 +131,24 @@ const otherBookings = computed<DashboardBooking[]>(() => {
   return data.value.upcoming_bookings.slice(1);
 });
 
+// "Starts in X" countdown for the next booking
+const timeUntilNextBooking = computed((): string | null => {
+  if (!nextBooking.value) return null;
+  const now = new Date();
+  const startStr = nextBooking.value.start_datetime;
+  const start = new Date(startStr + (startStr.endsWith('Z') ? '' : 'Z'));
+  const diff = start.getTime() - now.getTime();
+  if (diff <= 0) return null; // already started or in the past
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+});
+
 const carStats = ref<CarStats[]>([]);
+const borrowerStats = ref<BorrowerStats | null>(null);
 
 const statEarningsDisplayed = ref<Record<number, number>>({})
 watch([statsVisible, carStats], () => {
@@ -168,6 +208,16 @@ async function loadCarStats() {
   }
 }
 
+async function loadBorrowerStats() {
+  if (!auth.user?.role_borrower) return;
+  try {
+    const res = await http.get<BorrowerStats>('/bookings/borrower/stats');
+    borrowerStats.value = res.data;
+  } catch {
+    // silently ignore
+  }
+}
+
 async function loadDashboard() {
   loading.value = true;
   error.value = null;
@@ -183,6 +233,7 @@ async function loadDashboard() {
 }
 
 function confirmCancel(bookingId: number) {
+  haptic(50);
   confirm.require({
     message: t('borrower_confirm_cancel_message'),
     header: t('borrower_confirm_cancel_header'),
@@ -190,6 +241,7 @@ function confirmCancel(bookingId: number) {
     rejectProps: { label: t('borrower_confirm_keep'), severity: 'secondary', outlined: true },
     acceptProps: { label: t('borrower_confirm_cancel_button'), severity: 'danger' },
     accept: async () => {
+      haptic([50, 30, 80]);
       try {
         await http.post(`/bookings/${bookingId}/cancel`);
         await loadDashboard();
@@ -226,6 +278,7 @@ function statusSeverity(status: string) {
 onMounted(() => {
   loadDashboard();
   loadCarStats();
+  loadBorrowerStats();
   loadPendingInvites();
   loadPendingOwnerCount();
 });
@@ -236,8 +289,8 @@ onMounted(() => {
   <div class="flex-1 flex justify-center w-full">
     <div class="w-full max-w-6xl px-4 py-6 space-y-5">
 
-      <!-- Greeting header -->
-      <div class="mb-4">
+      <!-- Greeting header with time-of-day ambient band -->
+      <div class="mb-4 -mx-4 px-4 py-5 rounded-2xl transition-colors duration-1000" :class="greetingGradientClass">
         <p class="text-sm font-medium text-surface-400 mb-0.5 capitalize">{{ timeGreeting }}, {{ todayLabel }}</p>
         <h1 class="text-3xl font-bold tracking-tight">{{ auth.user?.full_name?.split(' ')[0] }}</h1>
       </div>
@@ -253,18 +306,25 @@ onMounted(() => {
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div v-for="i in 4" :key="i" class="h-24 rounded-2xl bg-surface-200 dark:bg-zinc-800 animate-pulse" />
         </div>
-        <!-- Main booking skeleton -->
+        <!-- Main booking skeleton shaped like the next-booking hero card -->
         <div class="rounded-2xl border border-surface-200 dark:border-zinc-700 overflow-hidden animate-pulse">
           <div class="p-5 space-y-3">
-            <div class="h-4 bg-surface-200 dark:bg-zinc-700 rounded-full w-1/3" />
+            <div class="flex items-center gap-2">
+              <div class="h-3 w-3 rounded-full bg-primary/30" />
+              <div class="h-3 bg-surface-200 dark:bg-zinc-700 rounded-full w-24" />
+            </div>
             <div class="h-28 bg-surface-100 dark:bg-zinc-800 rounded-xl" />
             <div class="h-4 bg-surface-200 dark:bg-zinc-700 rounded-full w-1/2" />
+            <div class="flex gap-2">
+              <div class="h-8 w-20 bg-surface-200 dark:bg-zinc-700 rounded-xl" />
+              <div class="h-8 w-20 bg-surface-200 dark:bg-zinc-700 rounded-xl" />
+            </div>
           </div>
         </div>
       </div>
 
       <div v-else class="space-y-5">
-        <!-- ── Quick action cards ── -->
+        <!-- ── Quick action cards + Your bookings ── -->
         <div ref="bookingsEl"
           :class="['transition-all duration-700', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
 
@@ -358,6 +418,11 @@ onMounted(() => {
                     <p v-if="nextBooking.total_price != null" class="text-base font-bold text-primary mt-2">
                       € {{ nextBooking.total_price.toFixed(2) }}
                     </p>
+                    <!-- Time until next booking countdown -->
+                    <div v-if="timeUntilNextBooking" class="mt-1.5 flex items-center gap-1.5 text-xs text-surface-500">
+                      <i class="pi pi-clock text-xs" />
+                      <span>{{ $t('dashboard_starts_in') }} <span class="font-semibold text-primary">{{ timeUntilNextBooking }}</span></span>
+                    </div>
                     <div class="mt-4 flex items-center gap-2 flex-wrap">
                       <Tag :value="nextBooking.status" :severity="statusSeverity(nextBooking.status)" />
                       <span v-if="nextBooking.status === 'pending'"
@@ -373,19 +438,21 @@ onMounted(() => {
                   </div>
                 </div>
 
-                <!-- Other bookings list -->
+                <!-- Other bookings list with stagger + click-through -->
                 <div v-if="otherBookings.length" class="space-y-2">
                   <p class="text-xs uppercase tracking-wider font-semibold text-surface-400">
                     {{ $t('dashboard_later_bookings') }}
                   </p>
                   <ul class="space-y-1.5">
-                    <li v-for="b in otherBookings" :key="b.id"
-                      class="flex items-center justify-between text-sm border border-surface-100 dark:border-zinc-700 rounded-xl px-4 py-3 hover:bg-surface-50 dark:hover:bg-zinc-800 transition-colors cursor-default">
+                    <li v-for="(b, index) in otherBookings" :key="b.id"
+                      class="list-item-stagger flex items-center justify-between text-sm border border-surface-100 dark:border-zinc-700 rounded-xl px-4 py-3 hover:bg-surface-50 dark:hover:bg-zinc-800 hover:border-surface-200 dark:hover:border-zinc-600 transition-all cursor-pointer"
+                      :style="{ animationDelay: `${index * 60}ms` }"
+                      @click="router.push({ name: 'booking-detail', params: { id: b.id } })">
                       <div>
                         <p class="font-semibold">{{ b.car.name }}</p>
                         <p class="text-xs text-surface-400 mt-0.5">{{ formatDateTime(b.start_datetime) }}</p>
                       </div>
-                      <div class="flex items-center gap-2 flex-wrap justify-end">
+                      <div class="flex items-center gap-2 flex-wrap justify-end" @click.stop>
                         <Tag :value="b.status" :severity="statusSeverity(b.status)" />
                         <Button v-if="b.status === 'pending'" icon="pi pi-bell" severity="secondary" outlined rounded
                           size="small" :loading="reminderSending.has(b.id)" :disabled="reminderSending.has(b.id)"
@@ -399,6 +466,43 @@ onMounted(() => {
               </div>
             </template>
           </Card>
+        </div>
+
+        <!-- ── Borrower stats on dashboard ── -->
+        <div v-if="isBorrower && borrowerStats && borrowerStats.total_rides > 0"
+          ref="borrowerStatsEl"
+          :class="['transition-all duration-700', borrowerStatsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="rounded-2xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-col gap-1.5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+              <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-0.5">
+                <i class="pi pi-car text-primary text-base" />
+              </div>
+              <span class="text-2xl font-bold tracking-tight">{{ borrowerStats.total_rides }}</span>
+              <span class="text-xs text-surface-400">{{ $t('borrower_stats_rides') }}</span>
+            </div>
+            <div class="rounded-2xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-col gap-1.5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+              <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-0.5">
+                <i class="pi pi-map-marker text-primary text-base" />
+              </div>
+              <span class="text-2xl font-bold tracking-tight">{{ borrowerStats.total_km.toFixed(0) }}</span>
+              <span class="text-xs text-surface-400">{{ $t('borrower_stats_km') }}</span>
+            </div>
+            <div class="rounded-2xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-col gap-1.5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+              <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-0.5">
+                <i class="pi pi-wallet text-primary text-base" />
+              </div>
+              <span class="text-2xl font-bold tracking-tight">€{{ borrowerStats.total_spent.toFixed(2) }}</span>
+              <span class="text-xs text-surface-400">{{ $t('borrower_stats_spent') }}</span>
+            </div>
+            <div v-if="borrowerStats.favourite_car"
+              class="rounded-2xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-col gap-1.5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+              <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-0.5">
+                <i class="pi pi-heart text-primary text-base" />
+              </div>
+              <span class="text-base font-bold truncate leading-tight">{{ borrowerStats.favourite_car }}</span>
+              <span class="text-xs text-surface-400">{{ $t('borrower_stats_favourite') }}</span>
+            </div>
+          </div>
         </div>
 
         <!-- ── Co-owner invites ── -->
@@ -447,7 +551,8 @@ onMounted(() => {
               </div>
             </template>
             <template #content>
-              <div class="border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-4 flex flex-col gap-1.5 cursor-pointer"
+              <!-- Pulsing glow border to convey live state -->
+              <div class="rental-card-live border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-4 flex flex-col gap-1.5 cursor-pointer"
                 @click="router.push({ name: 'booking-detail', params: { id: activeBorrowerRental!.id } })">
                 <div class="flex items-center justify-between">
                   <span class="font-bold">{{ activeBorrowerRental!.car.name }}</span>
@@ -464,7 +569,7 @@ onMounted(() => {
           </Card>
         </div>
 
-        <!-- ── Active rentals ── -->
+        <!-- ── Active rentals (owner view) ── -->
         <div v-if="isOwner && data.active_rentals.length > 0">
           <Card>
             <template #title>
@@ -504,15 +609,16 @@ onMounted(() => {
           </Card>
         </div>
 
-        <!-- ── Usage stats ── -->
+        <!-- ── Usage stats (owner) ── -->
         <div v-if="isOwner && carStats.length > 0" ref="statsEl"
           :class="['transition-all duration-700', statsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
           <Card>
             <template #title>{{ $t('dashboard_usage_stats') }}</template>
             <template #content>
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div v-for="stat in carStats" :key="stat.car_id"
-                  class="rounded-2xl border border-surface-200 dark:border-zinc-700 p-5 flex flex-col gap-2 hover:shadow-md transition-all duration-200 bg-gradient-to-br from-surface-0 to-surface-50 dark:from-zinc-800 dark:to-zinc-900 hover:-translate-y-0.5">
+                <div v-for="(stat, index) in carStats" :key="stat.car_id"
+                  class="card-animate rounded-2xl border border-surface-200 dark:border-zinc-700 p-5 flex flex-col gap-2 hover:shadow-md transition-all duration-200 bg-gradient-to-br from-surface-0 to-surface-50 dark:from-zinc-800 dark:to-zinc-900 hover:-translate-y-0.5"
+                  :style="{ animationDelay: `${index * 80}ms` }">
                   <p class="font-semibold text-sm text-slate-600 dark:text-slate-300 truncate">{{ stat.car_name }}</p>
                   <p class="text-3xl font-bold text-primary tracking-tight">
                     €{{ (statEarningsDisplayed[stat.car_id] ?? 0).toFixed(2) }}
@@ -534,7 +640,7 @@ onMounted(() => {
           </Card>
         </div>
 
-        <!-- ── Your cars ── -->
+        <!-- ── Your cars (owner) ── -->
         <div v-if="isOwner" ref="carsEl"
           :class="['transition-all duration-700', carsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
           <Card>
@@ -588,5 +694,20 @@ onMounted(() => {
 @keyframes cardFadeIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stagger fade-in for booking list items */
+.list-item-stagger {
+  animation: cardFadeIn 0.3s ease forwards;
+  opacity: 0;
+}
+
+/* Pulsing green glow for the active rental card */
+.rental-card-live {
+  animation: rentalGlow 2.5s ease-in-out infinite;
+}
+@keyframes rentalGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.12); }
 }
 </style>

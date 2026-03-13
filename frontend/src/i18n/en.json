@@ -88,6 +88,7 @@
   "dashboard_disabled_tag": "Disabled",
   "dashboard_error_cancel": "Failed to cancel booking",
   "dashboard_error_load": "Failed to load dashboard.",
+  "dashboard_starts_in": "Starts in",
   "dashboard_bookings_accepted": "accepted booking",
   "dashboard_bookings_accepted_plural": "accepted bookings",
   "dashboard_km_total": "km total",

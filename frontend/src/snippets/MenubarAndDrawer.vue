@@ -4,7 +4,7 @@
   import Popover from 'primevue/popover';
   import Logo from '@/assets/logo.svg';
 
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '../stores/auth';
   import http from '@/api/http';
@@ -55,6 +55,38 @@
   const notifPopover = ref();
   const notifications = ref<Notification[]>([]);
   const unreadCount = computed(() => notifications.value.filter(n => !n.is_read).length);
+
+  // Badge bounce animation when new notifications arrive
+  const badgeBouncing = ref(false);
+  watch(unreadCount, (newVal, oldVal) => {
+    if (newVal > (oldVal ?? 0)) {
+      badgeBouncing.value = true;
+      setTimeout(() => { badgeBouncing.value = false; }, 500);
+    }
+  });
+
+  // Group notifications by date for the popover
+  type NotifGroup = { label: string; items: Notification[] };
+  const groupedNotifications = computed((): NotifGroup[] => {
+    if (notifications.value.length === 0) return [];
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const isToday = (d: Date) => d.toDateString() === today.toDateString();
+    const isYesterday = (d: Date) => d.toDateString() === yesterday.toDateString();
+
+    const groups: NotifGroup[] = [];
+    const todayItems = notifications.value.filter(n => isToday(new Date(n.created_at)));
+    const yesterdayItems = notifications.value.filter(n => isYesterday(new Date(n.created_at)));
+    const olderItems = notifications.value.filter(n => {
+      const d = new Date(n.created_at);
+      return !isToday(d) && !isYesterday(d);
+    });
+    if (todayItems.length) groups.push({ label: 'Today', items: todayItems });
+    if (yesterdayItems.length) groups.push({ label: 'Yesterday', items: yesterdayItems });
+    if (olderItems.length) groups.push({ label: 'Earlier', items: olderItems });
+    return groups;
+  });
 
   async function loadNotifications() {
     try {
@@ -177,6 +209,31 @@
     return sections;
   });
 
+  // Flat list of items for the mobile bottom nav sliding pill
+  const mobileNavItems = computed((): NavItem[] => {
+    const items: NavItem[] = [
+      { label: t('nav_dashboard'), icon: 'pi pi-home', routeName: 'home' },
+    ];
+    if (isCarBorrower.value) {
+      items.push({ label: t('nav_reserve'), icon: 'pi pi-calendar-plus', routeName: 'reserve car' });
+      items.push({ label: t('nav_my_appointments'), icon: 'pi pi-list', routeName: 'borrowerappointments' });
+    }
+    if (isCarOwner.value) {
+      items.push({
+        label: t('nav_appointments'),
+        icon: 'pi pi-inbox',
+        routeName: 'ownerappointments',
+        badge: pendingBookingsCount.value > 0 ? pendingBookingsCount.value : undefined,
+      });
+    }
+    items.push({ label: t('nav_my_profile'), icon: 'pi pi-user', routeName: 'profile' });
+    return items;
+  });
+
+  const activeMobileIndex = computed(() =>
+    mobileNavItems.value.findIndex(item => isActive(item.routeName))
+  );
+
   function navigate(routeName: string) {
     router.push({ name: routeName });
     drawerVisible.value = false;
@@ -200,20 +257,27 @@
         <i class="pi pi-bell-slash text-2xl block mb-2 text-surface-300" />
         {{ $t('nav_no_notifications') }}
       </div>
-      <ul v-else class="flex flex-col gap-0.5 max-h-72 overflow-y-auto">
-        <li
-          v-for="notif in notifications"
-          :key="notif.id"
-          class="text-sm px-3 py-2.5 rounded-xl transition-colors"
-          :class="[
-            notif.is_read ? 'text-surface-500' : 'font-medium bg-surface-100 dark:bg-zinc-800',
-            notif.booking_id ? 'cursor-pointer hover:bg-surface-200 dark:hover:bg-zinc-700' : ''
-          ]"
-          @click="handleNotifClick(notif)"
-        >
-          {{ notif.message }}
-        </li>
-      </ul>
+      <div v-else class="flex flex-col gap-3 max-h-80 overflow-y-auto">
+        <div v-for="group in groupedNotifications" :key="group.label">
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-surface-400 px-3 mb-1">
+            {{ group.label }}
+          </p>
+          <ul class="flex flex-col gap-0.5">
+            <li
+              v-for="notif in group.items"
+              :key="notif.id"
+              class="text-sm px-3 py-2.5 rounded-xl transition-colors"
+              :class="[
+                notif.is_read ? 'text-surface-500' : 'font-medium bg-surface-100 dark:bg-zinc-800',
+                notif.booking_id ? 'cursor-pointer hover:bg-surface-200 dark:hover:bg-zinc-700' : ''
+              ]"
+              @click="handleNotifClick(notif)"
+            >
+              {{ notif.message }}
+            </li>
+          </ul>
+        </div>
+      </div>
       <div v-if="notifications.length > 0" class="pt-2 mt-1 border-t border-surface-100 dark:border-zinc-700">
         <Button :label="$t('nav_clear_notifications')" icon="pi pi-times" text size="small" severity="secondary"
           class="w-full" @click="clearAllNotifications" />
@@ -222,7 +286,7 @@
   </Popover>
 
   <!-- ========== DESKTOP SIDEBAR ========== -->
-  <aside class="hidden lg:flex flex-col fixed inset-y-0 left-0 w-60 z-[200] border-r border-surface-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <aside class="hidden lg:flex flex-col fixed inset-y-0 left-0 w-60 z-[200] border-r border-surface-200 dark:border-zinc-800 bg-gradient-to-b from-white to-slate-50 dark:from-zinc-900 dark:to-zinc-950">
 
     <!-- Logo area -->
     <div class="flex items-center gap-2.5 px-5 h-16 border-b border-surface-100 dark:border-zinc-800 shrink-0">
@@ -240,12 +304,15 @@
         <button
           v-for="item in section.items"
           :key="item.routeName"
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group"
+          class="w-full relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group"
           :class="isActive(item.routeName)
             ? 'bg-primary/10 text-primary dark:bg-primary/20'
             : 'text-slate-600 dark:text-slate-400 hover:bg-surface-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-slate-100'"
           @click="navigate(item.routeName)"
         >
+          <!-- Active left accent bar -->
+          <span v-if="isActive(item.routeName)"
+            class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
           <i :class="[item.icon, 'text-[15px] shrink-0 transition-colors',
             isActive(item.routeName) ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300']" />
           <span class="flex-1 truncate text-left">{{ item.label }}</span>
@@ -268,7 +335,8 @@
         <i class="pi pi-bell text-[15px] text-slate-400 shrink-0" />
         <span class="flex-1 text-left">{{ $t('nav_notifications') }}</span>
         <span v-if="unreadCount > 0"
-          class="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+          class="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold"
+          :class="badgeBouncing ? 'animate-bounce-badge' : ''">
           {{ unreadCount }}
         </span>
       </button>
@@ -310,10 +378,10 @@
   <header
     class="lg:hidden fixed top-0 left-0 right-0 z-[200] flex flex-col border-b border-surface-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
   >
-    <!-- Safe-area spacer: inherits the same background as the header -->
+    <!-- Safe-area spacer -->
     <div style="height: env(safe-area-inset-top)" />
 
-    <!-- Actual nav row: always exactly h-14 and vertically centered -->
+    <!-- Nav row -->
     <div class="h-14 flex items-center justify-between px-3">
       <div class="flex items-center gap-2">
         <button
@@ -334,7 +402,8 @@
         >
           <i class="pi pi-bell text-base" />
           <span v-if="unreadCount > 0"
-            class="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none">
+            class="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none"
+            :class="badgeBouncing ? 'animate-bounce-badge' : ''">
             {{ unreadCount > 9 ? '9+' : unreadCount }}
           </span>
         </button>
@@ -359,9 +428,9 @@
   </header>
 
   <!-- ========== MOBILE DRAWER ========== -->
-  <Drawer v-model:visible="drawerVisible" class="!w-72">
+  <Drawer v-model:visible="drawerVisible" class="!w-[85vw] !max-w-[288px]">
     <template #container>
-      <div class="flex flex-col h-full bg-white dark:bg-zinc-900">
+      <div class="flex flex-col h-full bg-gradient-to-b from-white to-slate-50 dark:from-zinc-900 dark:to-zinc-950">
         <!-- Drawer header -->
         <div class="flex items-center justify-between px-4 h-14 border-b border-surface-100 dark:border-zinc-800 shrink-0">
           <div class="flex items-center gap-2">
@@ -387,12 +456,15 @@
             <button
               v-for="item in section.items"
               :key="item.routeName"
-              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group"
+              class="w-full relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group"
               :class="isActive(item.routeName)
                 ? 'bg-primary/10 text-primary dark:bg-primary/20'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-surface-100 dark:hover:bg-zinc-800'"
               @click="navigate(item.routeName)"
             >
+              <!-- Active left accent bar -->
+              <span v-if="isActive(item.routeName)"
+                class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
               <i :class="[item.icon, 'text-[15px] shrink-0',
                 isActive(item.routeName) ? 'text-primary' : 'text-slate-400']" />
               <span class="flex-1 truncate text-left">{{ item.label }}</span>
@@ -430,58 +502,37 @@
   <!-- ========== MOBILE BOTTOM NAV ========== -->
   <nav
     class="lg:hidden fixed bottom-0 left-0 right-0 z-[200] border-t border-surface-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+    style="padding-bottom: env(safe-area-inset-bottom)"
   >
-    <div class="flex items-stretch">
-      <button
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors min-h-[56px]"
-        :class="isActive('home') ? 'text-primary' : 'text-slate-400'"
-        @click="navigate('home')"
-      >
-        <i class="pi pi-home text-lg" />
-        <span>{{ $t('nav_dashboard') }}</span>
-      </button>
+    <div class="relative">
+      <!-- Sliding active indicator at top of nav -->
+      <div
+        v-if="activeMobileIndex >= 0"
+        class="absolute top-0 left-0 h-0.5 bg-primary rounded-full transition-transform duration-300 ease-out"
+        :style="{
+          width: `${100 / mobileNavItems.length}%`,
+          transform: `translateX(${activeMobileIndex * 100}%)`,
+        }"
+      />
 
-      <button v-if="isCarBorrower"
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors min-h-[56px]"
-        :class="isActive('reserve car') ? 'text-primary' : 'text-slate-400'"
-        @click="navigate('reserve car')"
-      >
-        <i class="pi pi-calendar-plus text-lg" />
-        <span>{{ $t('nav_reserve') }}</span>
-      </button>
-
-      <button v-if="isCarBorrower"
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors min-h-[56px]"
-        :class="isActive('borrowerappointments') ? 'text-primary' : 'text-slate-400'"
-        @click="navigate('borrowerappointments')"
-      >
-        <i class="pi pi-list text-lg" />
-        <span>{{ $t('nav_my_appointments') }}</span>
-      </button>
-
-      <button v-if="isCarOwner"
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors min-h-[56px] relative"
-        :class="isActive('ownerappointments') ? 'text-primary' : 'text-slate-400'"
-        @click="navigate('ownerappointments')"
-      >
-        <span class="relative inline-block">
-          <i class="pi pi-inbox text-lg" />
-          <span v-if="pendingBookingsCount > 0"
-            class="absolute -top-1 -right-2 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-primary text-white text-[9px] font-bold leading-none">
-            {{ pendingBookingsCount }}
+      <div class="flex items-stretch">
+        <button
+          v-for="item in mobileNavItems"
+          :key="item.routeName"
+          class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors min-h-[56px]"
+          :class="isActive(item.routeName) ? 'text-primary' : 'text-slate-400'"
+          @click="navigate(item.routeName)"
+        >
+          <span class="relative inline-block">
+            <i :class="[item.icon, 'text-lg transition-transform duration-200', isActive(item.routeName) ? 'scale-110' : '']" />
+            <span v-if="item.badge"
+              class="absolute -top-1 -right-2 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-primary text-white text-[9px] font-bold leading-none">
+              {{ item.badge }}
+            </span>
           </span>
-        </span>
-        <span>{{ $t('nav_appointments') }}</span>
-      </button>
-
-      <button
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors min-h-[56px]"
-        :class="isActive('profile') ? 'text-primary' : 'text-slate-400'"
-        @click="navigate('profile')"
-      >
-        <i class="pi pi-user text-lg" />
-        <span>{{ $t('nav_my_profile') }}</span>
-      </button>
+          <span>{{ item.label }}</span>
+        </button>
+      </div>
     </div>
   </nav>
 </template>

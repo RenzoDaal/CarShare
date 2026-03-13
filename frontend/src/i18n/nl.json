@@ -88,6 +88,7 @@
   "dashboard_disabled_tag": "Uitgeschakeld",
   "dashboard_error_cancel": "Boeking annuleren mislukt",
   "dashboard_error_load": "Dashboard laden mislukt.",
+  "dashboard_starts_in": "Begint over",
   "dashboard_bookings_accepted": "geaccepteerde boeking",
   "dashboard_bookings_accepted_plural": "geaccepteerde boekingen",
   "dashboard_km_total": "km totaal",
