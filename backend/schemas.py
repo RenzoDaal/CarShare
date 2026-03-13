@@ -1,13 +1,14 @@
 from datetime import date, datetime
 from typing import List, Optional
 
+from pydantic import Field
 from sqlmodel import SQLModel
 
 
 class UserCreate(SQLModel):
-    email: str
-    password: str
-    full_name: str
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=128)
+    full_name: str = Field(max_length=100)
     role_owner: bool = False
     role_borrower: bool = True
 
@@ -36,8 +37,8 @@ class TokenResponse(SQLModel):
 
 
 class CarCreate(SQLModel):
-    name: str
-    description: Optional[str] = None
+    name: str = Field(max_length=100)
+    description: Optional[str] = Field(None, max_length=1000)
     price_per_km: float
     price_mode: str = "manual"
     fuel_type: Optional[str] = None
@@ -66,8 +67,8 @@ class CarRead(SQLModel):
 
 
 class CarUpdate(SQLModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = Field(None, max_length=1000)
     price_per_km: Optional[float] = None
     is_active: Optional[bool] = None
     image_url: Optional[str] = None
@@ -101,7 +102,7 @@ class BookingReschedule(SQLModel):
     end_datetime: str
     distance_km: Optional[float] = None
     stops: Optional[List[str]] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class DashboardResponse(SQLModel):

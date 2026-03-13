@@ -27,7 +27,7 @@ if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY environment variable must be set")
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -86,6 +86,6 @@ def user_to_read(user: User) -> UserRead:
         role_borrower=user.role_borrower,
         is_approved=user.is_approved,
         is_admin=user.is_admin,
-        timezone=getattr(user, "timezone", "Europe/Amsterdam"),
+        timezone=getattr(user, "timezone", None) or "Europe/Amsterdam",
         notification_prefs=getattr(user, "notification_prefs", None),
     )

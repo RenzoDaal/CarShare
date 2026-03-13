@@ -5,8 +5,11 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import SQLModel
+
+from auth import get_current_user
+from models import User
 
 router = APIRouter(tags=["routing"])
 
@@ -31,6 +34,7 @@ async def suggest_locations(
     query: str = Query(..., min_length=3),
     focus_lat: Optional[float] = Query(None),
     focus_lon: Optional[float] = Query(None),
+    _: User = Depends(get_current_user),
 ):
     params: dict = {"api_key": ORS_API_KEY, "text": query, "size": 5}
     if focus_lat is not None and focus_lon is not None:
@@ -49,7 +53,10 @@ async def suggest_locations(
 
 
 @router.post("/routes/estimate", response_model=RouteEstimateResponse)
-async def estimate_route(body: RouteEstimateRequest):
+async def estimate_route(
+    body: RouteEstimateRequest,
+    _: User = Depends(get_current_user),
+):
     if len(body.stops) < 2:
         raise HTTPException(
             status_code=400,

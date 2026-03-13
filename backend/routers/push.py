@@ -34,10 +34,22 @@ def subscribe(
         select(PushSubscription).where(PushSubscription.endpoint == payload.endpoint)
     ).first()
     if existing:
-        existing.user_id = current_user.id
-        existing.p256dh = payload.p256dh
-        existing.auth = payload.auth
-        session.add(existing)
+        if existing.user_id != current_user.id:
+            # Endpoint previously registered by a different user (e.g. shared device).
+            # Remove the old entry so push notifications go to the correct user.
+            session.delete(existing)
+            session.add(
+                PushSubscription(
+                    user_id=current_user.id,
+                    endpoint=payload.endpoint,
+                    p256dh=payload.p256dh,
+                    auth=payload.auth,
+                )
+            )
+        else:
+            existing.p256dh = payload.p256dh
+            existing.auth = payload.auth
+            session.add(existing)
     else:
         session.add(
             PushSubscription(

@@ -68,10 +68,18 @@ export const useAuthStore = defineStore("auth", {
         localStorage.getItem("auth_user") ??
         sessionStorage.getItem("auth_user");
       if (token && userJson) {
-        this.token = token;
-        const parsed = JSON.parse(userJson) as User;
-        // Ensure timezone is always set — old cached users may not have it
-        this.user = { ...parsed, timezone: parsed.timezone || "Europe/Amsterdam" };
+        try {
+          const parsed = JSON.parse(userJson) as User;
+          // Ensure timezone is always set — old cached users may not have it
+          this.user = { ...parsed, timezone: parsed.timezone || "Europe/Amsterdam" };
+          this.token = token;
+        } catch {
+          // Corrupted storage — clear it and require a fresh login
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("auth_user");
+          sessionStorage.removeItem("auth_token");
+          sessionStorage.removeItem("auth_user");
+        }
       }
     },
 

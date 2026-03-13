@@ -1,8 +1,11 @@
 import json
+import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
 import emailer
+
+logger = logging.getLogger(__name__)
 import schemas
 from auth import get_current_user, get_session
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -22,6 +25,7 @@ def _parse_stops(stops_json: Optional[str]) -> Optional[List[str]]:
     try:
         return json.loads(stops_json)
     except Exception:
+        logger.warning("Failed to parse stops_json: %r", stops_json)
         return None
 
 
@@ -31,6 +35,7 @@ def _parse_coordinates(coords_json: Optional[str]) -> Optional[List[List[float]]
     try:
         return json.loads(coords_json)
     except Exception:
+        logger.warning("Failed to parse route_coordinates_json: %r", coords_json)
         return None
 
 
@@ -53,6 +58,10 @@ def create_booking(
 
     start_dt = parse_iso(start_datetime)
     end_dt = parse_iso(end_datetime)
+    if end_dt <= start_dt:
+        raise HTTPException(status_code=400, detail="End time must be after start time")
+    if distance_km is not None and not (0 <= distance_km <= 10_000):
+        raise HTTPException(status_code=400, detail="distance_km must be between 0 and 10000")
     total_price = round(distance_km * car.price_per_km, 2) if distance_km is not None else None
 
     booking = Booking(
@@ -144,9 +153,9 @@ def create_booking(
 
         session.commit()
 
-    except Exception as e:
-        # log this, but do not fail booking creation
-        print(f"Post-booking notification error: {e}")
+    except Exception:
+        # Log but do not fail booking creation
+        logger.exception("Post-booking notification error for booking_id=%s", booking.id)
 
     return {"id": booking.id}
 
@@ -283,6 +292,8 @@ def reschedule_booking(
     if end_dt <= start_dt:
         raise HTTPException(status_code=400, detail="End time must be after start time")
 
+    if body.distance_km is not None and not (0 <= body.distance_km <= 10_000):
+        raise HTTPException(status_code=400, detail="distance_km must be between 0 and 10000")
     booking.start_datetime = start_dt
     booking.end_datetime = end_dt
     booking.status = BookingStatus.PENDING.value
@@ -526,9 +537,6 @@ def send_booking_reminder(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    from datetime import datetime, timezone
-
-    from models import CarCoOwner
     booking = session.get(Booking, booking_id)
     if booking is None:
         raise HTTPException(status_code=404, detail="Booking not found")

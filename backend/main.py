@@ -11,8 +11,13 @@ from routers.notifications import router as notifications_router
 from routers.push import router as push_router
 from routers.users import router as users_router
 from routers.waitlist import router as waitlist_router
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from limiter import limiter
 
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.mount("/static", StaticFiles(directory="data"), name="static")
 

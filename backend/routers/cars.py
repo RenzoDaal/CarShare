@@ -108,7 +108,7 @@ async def upload_car_image(
     if len(contents) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code=400, detail="Image file too large (max 5 MB)")
 
-    if car.image_url:
+    if car.image_url and car.image_url.startswith("/static/"):
         old_path = os.path.join(BASE_DATA_DIR, car.image_url[len("/static/"):])
         if os.path.isfile(old_path):
             os.remove(old_path)
@@ -223,7 +223,7 @@ def delete_car(
     if car.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed to delete this car")
 
-    if car.image_url:
+    if car.image_url and car.image_url.startswith("/static/"):
         image_path = os.path.join(BASE_DATA_DIR, car.image_url[len("/static/"):])
         if os.path.isfile(image_path):
             os.remove(image_path)
@@ -318,9 +318,10 @@ def delete_car_image(
     if image is None or image.car_id != car_id:
         raise HTTPException(status_code=404, detail="Image not found")
 
-    file_path = os.path.join(BASE_DATA_DIR, image.url[len("/static/"):])
-    if os.path.isfile(file_path):
-        os.remove(file_path)
+    if image.url.startswith("/static/"):
+        file_path = os.path.join(BASE_DATA_DIR, image.url[len("/static/"):])
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 
     session.delete(image)
 
@@ -540,7 +541,7 @@ def list_co_owners(
     car = session.get(Car, car_id)
     if car is None:
         raise HTTPException(status_code=404, detail="Car not found")
-    if not is_car_manager(car_id, current_user.id, session) and car.owner_id != current_user.id:
+    if not is_car_manager(car_id, current_user.id, session):
         raise HTTPException(status_code=403, detail="Not allowed")
     rows = session.exec(select(CarCoOwner).where(CarCoOwner.car_id == car_id)).all()
     result = []

@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 import emailer
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from limiter import limiter
 from sqlmodel import Session, select
 
 from auth import (
@@ -44,7 +45,9 @@ def register_user(
 
 
 @router.post("/auth/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 def login(
+    request: Request,
     data: LoginRequest,
     session: Session = Depends(get_session),
 ):
@@ -111,7 +114,9 @@ def change_password(
 
 
 @router.post("/auth/request-reset")
+@limiter.limit("5/minute")
 def request_password_reset(
+    request: Request,
     data: RequestPasswordReset,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -158,7 +163,10 @@ def reset_password(
         select(PasswordResetToken).where(PasswordResetToken.token == data.token)
     ).first()
 
-    if reset_token is None or reset_token.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+    def _ensure_utc(dt: datetime) -> datetime:
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+    if reset_token is None or _ensure_utc(reset_token.expires_at) < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
     user = session.get(User, reset_token.user_id)
