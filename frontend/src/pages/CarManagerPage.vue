@@ -652,8 +652,8 @@ const confirmLeaveCoOwnership = (car: Car) => {
     </div>
   </Dialog>
 
-  <div class="flex flex-col w-full">
-    <Toolbar class="w-full max-w-[98%] mx-auto mt-4">
+  <div class="flex flex-col w-full px-4 py-6 gap-6 max-w-6xl mx-auto">
+    <Toolbar class="w-full">
       <template #start>
         <span>{{ $t('car_manager_my_cars') }}</span>
       </template>
@@ -661,7 +661,7 @@ const confirmLeaveCoOwnership = (car: Car) => {
         <Button icon="pi pi-plus" severity="contrast" rounded @click="createCarDialogVisible = true" />
       </template>
     </Toolbar>
-    <div class="w-full max-w-[95%] mx-auto mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <Card v-for="car in cars" :key="car.id" class="overflow-hidden">
         <template #header>
           <div class="h-80 w-full">

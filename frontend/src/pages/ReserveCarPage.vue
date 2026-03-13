@@ -354,8 +354,8 @@ const submitBooking = async () => {
 </script>
 
 <template>
-  <div class="flex-1 flex items-center justify-center w-full">
-    <Card class="w-full max-w-[95%]">
+  <div class="flex-1 flex justify-center w-full px-4 py-6">
+    <Card class="w-full max-w-4xl">
       <template #title>
         <span>{{ $t('reserve_title') }}</span>
       </template>

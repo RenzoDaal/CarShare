@@ -176,11 +176,11 @@ const selectDay = async (day: Date) => {
 </script>
 
 <template>
-  <div class="flex flex-col w-full">
+  <div class="flex flex-col w-full px-4 py-6">
 
     <!-- Car grid -->
     <template v-if="!selectedCar">
-      <div class="w-full max-w-[98%] mx-auto mt-6 px-2">
+      <div class="w-full max-w-6xl mx-auto">
         <h1 class="text-xl font-semibold mb-4">{{ $t('availability_title') }}</h1>
         <p class="text-sm text-surface-500 mb-6">{{ $t('availability_select_car') }}</p>
         <p v-if="carsLoading" class="text-sm text-surface-500">{{ $t('availability_loading_cars') }}</p>
@@ -202,7 +202,7 @@ const selectDay = async (day: Date) => {
 
     <!-- Calendar / Day detail view -->
     <template v-else>
-      <div class="w-full max-w-2xl mx-auto mt-6 px-2">
+      <div class="w-full max-w-2xl mx-auto">
 
         <!-- Header: always visible, back button changes target depending on view -->
         <div class="flex items-center gap-3 mb-6">
