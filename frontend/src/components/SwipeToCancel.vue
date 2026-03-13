@@ -11,13 +11,13 @@ const isDragging = ref(false);
 let startX = 0;
 
 function onTouchStart(e: TouchEvent) {
-  startX = e.touches[0].clientX;
+  startX = e.touches.item(0)?.clientX ?? 0;
   isDragging.value = true;
 }
 
 function onTouchMove(e: TouchEvent) {
   if (!isDragging.value) return;
-  const dx = e.touches[0].clientX - startX;
+  const dx = (e.touches.item(0)?.clientX ?? startX) - startX;
   // Only allow left swipe (negative dx)
   if (dx >= 0) {
     translateX.value = 0;
@@ -41,7 +41,6 @@ function onTouchEnd() {
   }
 }
 
-const revealFraction = ref(0);
 </script>
 
 <template>
