@@ -166,6 +166,7 @@ class CarUnavailabilityRead(SQLModel):
 class CalendarDateRange(SQLModel):
     start: date
     end: date
+    type: str  # 'booking' | 'block'
 
 
 class WaitlistCreate(SQLModel):

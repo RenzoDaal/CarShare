@@ -13,6 +13,8 @@ import type { NotificationPrefs, User } from '@/stores/auth';
 import http from '@/api/http';
 import { useI18n } from 'vue-i18n';
 import { useToast } from 'primevue/usetoast';
+import { applyColorTheme, getSavedTheme } from '@/utils/colorTheme';
+import type { ColorThemeName } from '@/utils/colorTheme';
 
 const { t, locale } = useI18n();
 const toast = useToast();
@@ -157,6 +159,22 @@ async function saveNotifPrefs() {
   }
 }
 
+// --- Accent colour ---
+const activeTheme = ref<ColorThemeName>(getSavedTheme());
+
+const COLOR_SWATCHES: { name: ColorThemeName; bg: string; labelKey: string }[] = [
+  { name: 'emerald', bg: '#10b981', labelKey: 'profile_accent_emerald' },
+  { name: 'blue',    bg: '#3b82f6', labelKey: 'profile_accent_blue' },
+  { name: 'violet',  bg: '#8b5cf6', labelKey: 'profile_accent_violet' },
+  { name: 'orange',  bg: '#f97316', labelKey: 'profile_accent_orange' },
+  { name: 'rose',    bg: '#f43f5e', labelKey: 'profile_accent_rose' },
+];
+
+function selectTheme(name: ColorThemeName) {
+  activeTheme.value = name;
+  applyColorTheme(name);
+}
+
 const passwords = reactive({ current: '', next: '', confirm: '' });
 const passwordSaving = ref(false);
 const passwordError = ref<string | null>(null);
@@ -266,6 +284,36 @@ async function changePassword() {
             <Button :label="$t('profile_save')" icon="pi pi-check" :loading="profileSaving" @click="saveProfile" />
           </div>
         </div>
+      </template>
+    </Card>
+
+    <!-- ── Accent colour ── -->
+    <Card>
+      <template #title>
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <i class="pi pi-palette text-primary text-xs" />
+          </div>
+          <span>{{ $t('profile_accent_color_title') }}</span>
+        </div>
+      </template>
+      <template #content>
+        <p class="text-sm text-surface-500 mb-4">{{ $t('profile_accent_color_hint') }}</p>
+        <div class="flex gap-3 flex-wrap">
+          <button
+            v-for="swatch in COLOR_SWATCHES"
+            :key="swatch.name"
+            type="button"
+            :title="$t(swatch.labelKey)"
+            class="w-9 h-9 rounded-full transition-all duration-200 focus:outline-none"
+            :class="activeTheme === swatch.name
+              ? 'ring-2 ring-offset-2 ring-primary scale-110'
+              : 'hover:scale-110 opacity-80 hover:opacity-100'"
+            :style="{ backgroundColor: swatch.bg }"
+            @click="selectTheme(swatch.name)"
+          />
+        </div>
+        <p class="text-xs text-surface-400 mt-3">{{ $t(COLOR_SWATCHES.find(s => s.name === activeTheme)?.labelKey ?? '') }}</p>
       </template>
     </Card>
 

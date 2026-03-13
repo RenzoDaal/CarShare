@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router';
 import { formatDateTime } from '@/utils/formatDate';
 import { useI18n } from 'vue-i18n';
 import { useToast } from 'primevue/usetoast';
+import { haptic } from '@/utils/haptic';
 
 const { t } = useI18n();
 const toast = useToast();
@@ -75,6 +76,7 @@ async function fetchBookings() {
 }
 
 async function acceptBooking(id: number) {
+  haptic([30, 20, 60]);
   const booking = bookings.value.find(b => b.id === id);
   if (!booking) return;
   const prev = booking.status;
@@ -89,6 +91,7 @@ async function acceptBooking(id: number) {
 }
 
 async function declineBooking(id: number) {
+  haptic(50);
   const booking = bookings.value.find(b => b.id === id);
   if (!booking) return;
   const prev = booking.status;

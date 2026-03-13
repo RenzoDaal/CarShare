@@ -10,7 +10,9 @@ import { useToast } from 'primevue/usetoast';
 import { useRouter } from 'vue-router';
 import { formatDateTime } from '@/utils/formatDate';
 import { useI18n } from 'vue-i18n';
+import { haptic } from '@/utils/haptic';
 import RescheduleDialog from '@/components/RescheduleDialog.vue';
+import SwipeToCancel from '@/components/SwipeToCancel.vue';
 
 const { t } = useI18n();
 
@@ -123,6 +125,7 @@ async function fetchBookings() {
 }
 
 function confirmCancel(bookingId: number) {
+  haptic(50);
   confirm.require({
     message: t('borrower_confirm_cancel_message'),
     header: t('borrower_confirm_cancel_header'),
@@ -130,6 +133,7 @@ function confirmCancel(bookingId: number) {
     rejectProps: { label: t('borrower_confirm_keep'), severity: 'secondary', outlined: true },
     acceptProps: { label: t('borrower_confirm_cancel_button'), severity: 'danger' },
     accept: async () => {
+      haptic([50, 30, 80]);
       try {
         await http.post(`/bookings/${bookingId}/cancel`);
         await fetchBookings();
@@ -253,7 +257,8 @@ onMounted(() => {
           </div>
 
           <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div v-for="booking in upcoming" :key="booking.id"
+            <SwipeToCancel v-for="booking in upcoming" :key="booking.id" @cancel="confirmCancel(booking.id)">
+            <div
               class="bg-white dark:bg-zinc-900 rounded-2xl border overflow-hidden flex flex-col transition-all duration-200 hover:shadow-md"
               :style="{
                 borderColor: booking.status === 'pending' ? '#fbbf24' : booking.status === 'accepted' ? '#22c55e' : undefined,
@@ -303,6 +308,7 @@ onMounted(() => {
                 </div>
               </div>
             </div>
+            </SwipeToCancel>
           </div>
         </template>
       </Card>

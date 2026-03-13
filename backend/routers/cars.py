@@ -436,7 +436,7 @@ def get_car_calendar(
         )
     ).all()
     for b in bookings:
-        ranges.append(CalendarDateRange(start=b.start_datetime.date(), end=b.end_datetime.date()))
+        ranges.append(CalendarDateRange(start=b.start_datetime.date(), end=b.end_datetime.date(), type='booking'))
 
     blocks = session.exec(
         select(CarUnavailability).where(
@@ -446,7 +446,7 @@ def get_car_calendar(
         )
     ).all()
     for b in blocks:
-        ranges.append(CalendarDateRange(start=b.start_date, end=b.end_date))
+        ranges.append(CalendarDateRange(start=b.start_date, end=b.end_date, type='block'))
 
     return ranges
 

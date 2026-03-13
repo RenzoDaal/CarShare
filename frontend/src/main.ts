@@ -14,12 +14,14 @@ import Aura from "@primeuix/themes/aura";
 import { definePreset } from "@primeuix/themes";
 import "primeicons/primeicons.css";
 import { useAuthStore } from "@/stores/auth";
+import { loadColorTheme } from "@/utils/colorTheme";
 
 const app = createApp(App);
 const pinia = createPinia();
 
 app.use(pinia);
 useAuthStore().loadFromStorage();
+loadColorTheme();
 app.use(ConfirmationService);
 app.use(ToastService);
 

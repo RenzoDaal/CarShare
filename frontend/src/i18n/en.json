@@ -408,5 +408,12 @@
   "dashboard_pending_invites_title": "Co-owner invitations",
   "dashboard_pending_invite_from": "invited you to co-own",
   "dashboard_accept_invite": "Accept",
-  "dashboard_decline_invite": "Decline"
+  "dashboard_decline_invite": "Decline",
+  "profile_accent_color_title": "Accent colour",
+  "profile_accent_color_hint": "Choose the primary colour used throughout the app.",
+  "profile_accent_emerald": "Emerald",
+  "profile_accent_blue": "Blue",
+  "profile_accent_violet": "Violet",
+  "profile_accent_orange": "Orange",
+  "profile_accent_rose": "Rose"
 }

@@ -9,7 +9,7 @@ import { useI18n } from 'vue-i18n';
 
 const { locale } = useI18n();
 
-type DateRange = { start: string; end: string };
+type DateRange = { start: string; end: string; type: 'booking' | 'block' };
 type DayBusySlot = { start: string; end: string; type: 'booking' | 'block' };
 type DaySegment = { startMinutes: number; endMinutes: number; type: 'free' | 'booking' | 'block' };
 
@@ -57,10 +57,16 @@ const toDateStr = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
-const isUnavailable = (day: Date) => {
+// Returns the dominant type for a day: 'booking' takes priority over 'block'
+const dayType = (day: Date): 'booking' | 'block' | null => {
   const ds = toDateStr(day);
-  return unavailableRanges.value.some(r => ds >= r.start && ds <= r.end);
+  const matches = unavailableRanges.value.filter(r => ds >= r.start && ds <= r.end);
+  if (matches.some(r => r.type === 'booking')) return 'booking';
+  if (matches.some(r => r.type === 'block')) return 'block';
+  return null;
 };
+
+const isUnavailable = (day: Date) => dayType(day) !== null;
 
 const isToday = (day: Date) => toDateStr(day) === toDateStr(new Date());
 
@@ -241,10 +247,10 @@ const selectDay = async (day: Date) => {
                 <div v-for="(day, i) in calendarDays" :key="i"
                   class="aspect-square flex items-center justify-center rounded-lg text-sm transition-all"
                   :class="{
-                    'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400': day && isUnavailable(day),
+                    'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-200 dark:hover:bg-red-800/50': day && dayType(day) === 'booking',
+                    'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 cursor-pointer hover:bg-orange-200 dark:hover:bg-orange-800/50': day && dayType(day) === 'block',
                     'ring-2 ring-primary font-semibold': day && isToday(day) && !isUnavailable(day),
                     'text-surface-800 dark:text-surface-100 cursor-pointer hover:bg-surface-100 dark:hover:bg-surface-700': day && !isUnavailable(day),
-                    'cursor-pointer hover:bg-red-200 dark:hover:bg-red-800/50': day && isUnavailable(day),
                     'text-surface-300': !day,
                   }"
                   @click="day && selectDay(day)">
@@ -253,12 +259,16 @@ const selectDay = async (day: Date) => {
               </div>
 
               <!-- Legend -->
-              <div class="flex items-center gap-4 mt-4 text-xs text-surface-500">
-                <div class="flex items-center gap-1">
+              <div class="flex items-center gap-4 mt-4 flex-wrap text-xs text-surface-500">
+                <div class="flex items-center gap-1.5">
                   <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/40"></div>
-                  <span>{{ $t('availability_unavailable') }}</span>
+                  <span>{{ $t('availability_day_booked') }}</span>
                 </div>
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1.5">
+                  <div class="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900/40"></div>
+                  <span>{{ $t('availability_day_blocked') }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
                   <div class="w-4 h-4 rounded border-2 border-primary"></div>
                   <span>{{ $t('availability_today') }}</span>
                 </div>

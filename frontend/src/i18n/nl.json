@@ -408,5 +408,12 @@
   "dashboard_pending_invites_title": "Mede-eigenaar uitnodigingen",
   "dashboard_pending_invite_from": "heeft je uitgenodigd om mede-eigenaar te worden van",
   "dashboard_accept_invite": "Accepteren",
-  "dashboard_decline_invite": "Weigeren"
+  "dashboard_decline_invite": "Weigeren",
+  "profile_accent_color_title": "Accentkleur",
+  "profile_accent_color_hint": "Kies de primaire kleur die door de hele app wordt gebruikt.",
+  "profile_accent_emerald": "Smaragd",
+  "profile_accent_blue": "Blauw",
+  "profile_accent_violet": "Violet",
+  "profile_accent_orange": "Oranje",
+  "profile_accent_rose": "Roze"
 }
