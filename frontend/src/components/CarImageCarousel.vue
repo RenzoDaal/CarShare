@@ -33,10 +33,30 @@ function prev() {
 function next() {
   currentIndex.value = (currentIndex.value + 1) % images.value.length;
 }
+
+const touchStartX = ref(0);
+
+function onTouchStart(e: TouchEvent) {
+  const touch = e.touches[0];
+  if (touch) touchStartX.value = touch.clientX;
+}
+
+function onTouchEnd(e: TouchEvent) {
+  if (images.value.length <= 1) return;
+  const touch = e.changedTouches[0];
+  if (!touch) return;
+  const delta = touch.clientX - touchStartX.value;
+  if (delta < -50) next();
+  else if (delta > 50) prev();
+}
 </script>
 
 <template>
-  <div class="relative w-full h-full overflow-hidden bg-surface-900">
+  <div
+    class="relative w-full h-full overflow-hidden bg-surface-900"
+    @touchstart.passive="onTouchStart"
+    @touchend.passive="onTouchEnd"
+  >
     <img v-if="currentImage" :src="currentImage" class="w-full h-full object-cover block" />
 
     <template v-if="images.length > 1">

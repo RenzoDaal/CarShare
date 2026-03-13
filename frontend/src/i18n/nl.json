@@ -73,6 +73,8 @@
   "dashboard_my_appointments": "Mijn afspraken",
   "dashboard_booking_requests": "Boekingsverzoeken",
   "dashboard_currently_in_use": "Momenteel in gebruik",
+  "dashboard_currently_using": "Momenteel in gebruik",
+  "booking_detail_add_to_calendar": "Toevoegen aan agenda",
   "dashboard_active": "Actief",
   "dashboard_borrower": "Lener:",
   "dashboard_usage_stats": "Gebruiksstatistieken",

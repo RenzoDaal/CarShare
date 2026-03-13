@@ -91,6 +91,39 @@ function statusLabel(status: string): string {
   return '';
 }
 
+function addToCalendar() {
+  if (!booking.value) return;
+  const fmt = (iso: string) => iso.replace(/[-:]/g, '').replace(/\.\d+/, '').replace('Z', '') + 'Z';
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//CarShare//CarShare//EN',
+    'BEGIN:VEVENT',
+    `DTSTART:${fmt(booking.value.start_datetime)}`,
+    `DTEND:${fmt(booking.value.end_datetime)}`,
+    `SUMMARY:${booking.value.car.name}`,
+    booking.value.stops?.length ? `LOCATION:${booking.value.stops[0]}` : '',
+    `DESCRIPTION:CarShare booking #${booking.value.id}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `booking-${booking.value.id}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const hasActions = computed(() => {
+  if (!booking.value) return false;
+  if (!isOwnerView.value && (booking.value.status === 'pending' || booking.value.status === 'accepted')) return true;
+  if (isOwnerView.value && booking.value.status === 'pending') return true;
+  return false;
+});
+
 function confirmCancel() {
   if (!booking.value) return;
   confirm.require({
@@ -193,28 +226,28 @@ async function declineBooking() {
       <Card v-if="booking.stops && booking.stops.length >= 2">
         <template #title>{{ $t('booking_detail_route') }}</template>
         <template #content>
-          <ol class="relative space-y-0">
-            <li v-for="(stop, i) in booking.stops" :key="i" class="flex items-start gap-3 pb-4 last:pb-0 relative">
-              <!-- vertical connector line (not on last item) -->
-              <div v-if="i < booking.stops!.length - 1"
-                class="absolute left-[9px] top-5 bottom-0 w-px bg-surface-200 dark:bg-surface-700" />
-              <!-- circle indicator -->
-              <span class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 z-10"
-                :class="i === 0
-                  ? 'bg-primary text-white'
-                  : i === booking.stops!.length - 1
-                  ? 'bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900'
-                  : 'bg-surface-200 dark:bg-surface-600 text-surface-600 dark:text-white'">
-                {{ i === 0 ? 'A' : i === booking.stops!.length - 1 ? 'B' : i }}
-              </span>
-              <div class="flex flex-col min-w-0 pt-0.5">
-                <span class="text-xs text-surface-400 font-medium uppercase tracking-wide mb-0.5">
+          <div class="flex flex-col">
+            <div v-for="(stop, i) in booking.stops" :key="i" class="flex gap-3">
+              <div class="flex flex-col items-center w-8 shrink-0">
+                <div class="h-1 shrink-0" />
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  :class="i === 0
+                    ? 'bg-primary text-white'
+                    : i === booking.stops!.length - 1
+                    ? 'bg-slate-600 text-white'
+                    : 'bg-surface-0 dark:bg-zinc-800 text-surface-600 dark:text-surface-300 border-2 border-surface-300 dark:border-zinc-500'">
+                  {{ String.fromCharCode(65 + i) }}
+                </div>
+                <div v-if="i < booking.stops!.length - 1" class="connector-line" />
+              </div>
+              <div class="flex-1 min-w-0 pb-4">
+                <span class="block text-xs font-medium mb-0.5 text-surface-500">
                   {{ i === 0 ? $t('reserve_start_location') : i === booking.stops!.length - 1 ? $t('reserve_end_location') : $t('reserve_stop_label').replace('{index}', String(i)) }}
                 </span>
                 <span class="text-sm">{{ stop }}</span>
               </div>
-            </li>
-          </ol>
+            </div>
+          </div>
         </template>
       </Card>
 
@@ -246,10 +279,18 @@ async function declineBooking() {
       </Card>
 
       <!-- Actions -->
-      <div class="sticky bottom-0 -mx-4 px-4 py-3 mt-2 bg-surface-0/95 dark:bg-surface-900/95 backdrop-blur-sm border-t border-surface-100 dark:border-surface-800 sm:static sm:bg-transparent sm:border-0 sm:backdrop-filter-none sm:px-0 sm:py-0 sm:mx-0">
+      <div v-if="hasActions" class="sticky bottom-0 z-10 -mx-4 px-4 py-3 mt-2 bg-white dark:bg-zinc-900 border-t border-surface-100 dark:border-zinc-800 sm:static sm:bg-transparent sm:border-0 sm:px-0 sm:py-0 sm:mx-0 sm:z-auto">
         <div class="flex gap-2 flex-wrap">
           <!-- Borrower actions -->
           <template v-if="!isOwnerView">
+            <Button
+              v-if="booking.status === 'accepted'"
+              :label="$t('booking_detail_add_to_calendar')"
+              icon="pi pi-calendar-plus"
+              severity="secondary"
+              outlined
+              @click="addToCalendar"
+            />
             <Button
               v-if="booking.status === 'pending' || booking.status === 'accepted'"
               :label="$t('booking_detail_cancel_booking')"
@@ -280,3 +321,17 @@ async function declineBooking() {
 
   <RescheduleDialog v-model:visible="rescheduleVisible" :booking="booking" @rescheduled="booking!.status = 'pending'" />
 </template>
+
+<style scoped>
+.connector-line {
+  flex: 1;
+  width: 2px;
+  min-height: 14px;
+  margin-top: 4px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--p-surface-400, #94a3b8) 0, var(--p-surface-400, #94a3b8) 5px,
+    transparent 5px, transparent 10px
+  );
+}
+</style>

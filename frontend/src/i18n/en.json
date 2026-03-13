@@ -73,6 +73,8 @@
   "dashboard_my_appointments": "My appointments",
   "dashboard_booking_requests": "Booking requests",
   "dashboard_currently_in_use": "Currently in use",
+  "dashboard_currently_using": "Currently using",
+  "booking_detail_add_to_calendar": "Add to calendar",
   "dashboard_active": "Active",
   "dashboard_borrower": "Borrower:",
   "dashboard_usage_stats": "Usage stats",

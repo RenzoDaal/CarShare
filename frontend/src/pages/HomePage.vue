@@ -87,6 +87,15 @@ async function loadPendingOwnerCount() {
   }
 }
 
+const activeBorrowerRental = computed<DashboardBooking | null>(() => {
+  const now = new Date();
+  return data.value.upcoming_bookings.find(b =>
+    b.status === 'accepted' &&
+    new Date(b.start_datetime + (b.start_datetime.endsWith('Z') ? '' : 'Z')) <= now &&
+    new Date(b.end_datetime + (b.end_datetime.endsWith('Z') ? '' : 'Z')) >= now,
+  ) ?? null;
+});
+
 const hasBookings = computed<boolean>(() => {
   return data.value.upcoming_bookings.length > 0;
 });
@@ -420,6 +429,36 @@ onMounted(() => {
                       outlined @click="declineInvite(invite.car_id)" />
                   </div>
                 </div>
+              </div>
+            </template>
+          </Card>
+        </div>
+
+        <!-- ── Borrower: currently using a car ── -->
+        <div v-if="isBorrower && activeBorrowerRental">
+          <Card>
+            <template #title>
+              <div class="flex items-center gap-2">
+                <span>{{ $t('dashboard_currently_using') }}</span>
+                <span class="relative flex h-2.5 w-2.5">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                </span>
+              </div>
+            </template>
+            <template #content>
+              <div class="border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-4 flex flex-col gap-1.5 cursor-pointer"
+                @click="router.push({ name: 'booking-detail', params: { id: activeBorrowerRental!.id } })">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold">{{ activeBorrowerRental!.car.name }}</span>
+                  <Tag :value="$t('dashboard_active')" severity="success" />
+                </div>
+                <p class="text-sm text-surface-500">
+                  {{ formatDateTime(activeBorrowerRental!.start_datetime) }} – {{ formatDateTime(activeBorrowerRental!.end_datetime) }}
+                </p>
+                <p v-if="activeBorrowerRental!.total_price != null" class="text-sm font-semibold text-primary">
+                  €{{ activeBorrowerRental!.total_price.toFixed(2) }}
+                </p>
               </div>
             </template>
           </Card>
