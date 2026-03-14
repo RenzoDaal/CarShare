@@ -56,12 +56,14 @@
   const notifications = ref<Notification[]>([]);
   const unreadCount = computed(() => notifications.value.filter(n => !n.is_read).length);
 
-  // Badge bounce animation when new notifications arrive
+  // Badge bounce + bell shake animation when new notifications arrive
   const badgeBouncing = ref(false);
+  const bellShaking = ref(false);
   watch(unreadCount, (newVal, oldVal) => {
     if (newVal > (oldVal ?? 0)) {
       badgeBouncing.value = true;
-      setTimeout(() => { badgeBouncing.value = false; }, 500);
+      bellShaking.value = true;
+      setTimeout(() => { badgeBouncing.value = false; bellShaking.value = false; }, 600);
     }
   });
 
@@ -332,7 +334,7 @@
         @click="toggleNotifPopover($event)"
         aria-label="Notifications"
       >
-        <i class="pi pi-bell text-[15px] text-slate-400 shrink-0" />
+        <i class="pi pi-bell text-[15px] text-slate-400 shrink-0" :class="bellShaking ? 'animate-bell-shake' : ''" />
         <span class="flex-1 text-left">{{ $t('nav_notifications') }}</span>
         <span v-if="unreadCount > 0"
           class="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold"
@@ -400,7 +402,7 @@
           @click="toggleNotifPopover($event)"
           aria-label="Notifications"
         >
-          <i class="pi pi-bell text-base" />
+          <i class="pi pi-bell text-base" :class="bellShaking ? 'animate-bell-shake' : ''" />
           <span v-if="unreadCount > 0"
             class="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none"
             :class="badgeBouncing ? 'animate-bounce-badge' : ''">

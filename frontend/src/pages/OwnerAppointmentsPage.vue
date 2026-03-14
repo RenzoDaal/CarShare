@@ -105,6 +105,30 @@ async function declineBooking(id: number) {
   }
 }
 
+const TAB_ORDER: TabKey[] = ['pending', 'accepted', 'declined', 'cancelled'];
+
+let swipeStartX = 0;
+let swipeStartY = 0;
+
+function onSwipeStart(e: TouchEvent) {
+  swipeStartX = e.touches[0]!.clientX;
+  swipeStartY = e.touches[0]!.clientY;
+}
+
+function onSwipeEnd(e: TouchEvent) {
+  const dx = e.changedTouches[0]!.clientX - swipeStartX;
+  const dy = e.changedTouches[0]!.clientY - swipeStartY;
+  if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+  const idx = TAB_ORDER.indexOf(activeTab.value);
+  if (dx < 0 && idx < TAB_ORDER.length - 1) {
+    activeTab.value = TAB_ORDER[idx + 1]!;
+    haptic(20);
+  } else if (dx > 0 && idx > 0) {
+    activeTab.value = TAB_ORDER[idx - 1]!;
+    haptic(20);
+  }
+}
+
 onMounted(fetchBookings);
 </script>
 
@@ -153,8 +177,8 @@ onMounted(fetchBookings);
       </div>
     </div>
 
-    <!-- Content area -->
-    <template v-else>
+    <!-- Content area (swipe left/right to change tab) -->
+    <div v-else @touchstart.passive="onSwipeStart" @touchend.passive="onSwipeEnd">
       <!-- Empty state -->
       <div v-if="activeBookings.length === 0"
         class="flex flex-col items-center justify-center gap-3 py-16 text-center">
@@ -237,6 +261,6 @@ onMounted(fetchBookings);
           </p>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>

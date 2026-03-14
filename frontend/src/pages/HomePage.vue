@@ -324,11 +324,8 @@ onMounted(() => {
       </div>
 
       <div v-else class="space-y-5">
-        <!-- ── Quick action cards + Your bookings ── -->
-        <div ref="bookingsEl"
-          :class="['transition-all duration-700', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
-
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <!-- ── Quick action cards (full-width above grid) ── -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <button
               class="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-primary text-white hover:bg-primary/90 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
               @click="router.push({ name: 'reserve car' })"
@@ -375,6 +372,12 @@ onMounted(() => {
               <span class="text-xs font-semibold text-center leading-tight">{{ $t('dashboard_manage_my_cars') }}</span>
             </button>
           </div>
+
+        <!-- Two-column grid on large screens -->
+        <div class="lg:grid lg:grid-cols-[3fr_2fr] lg:gap-6 lg:items-start space-y-5 lg:space-y-0">
+          <!-- LEFT column: bookings -->
+          <div ref="bookingsEl"
+            :class="['transition-all duration-700', bookingsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
 
           <!-- ── Your bookings ── -->
           <Card>
@@ -466,7 +469,10 @@ onMounted(() => {
               </div>
             </template>
           </Card>
-        </div>
+          </div>
+
+          <!-- RIGHT column: stats, rentals, cars -->
+          <div class="space-y-5">
 
         <!-- ── Borrower stats on dashboard ── -->
         <div v-if="isBorrower && borrowerStats && borrowerStats.total_rides > 0"
@@ -680,6 +686,8 @@ onMounted(() => {
               </div>
             </template>
           </Card>
+        </div>
+          </div>
         </div>
       </div>
     </div>

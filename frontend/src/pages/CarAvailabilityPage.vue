@@ -189,7 +189,11 @@ const selectDay = async (day: Date) => {
       <div class="w-full max-w-6xl mx-auto">
         <h1 class="text-xl font-semibold mb-4">{{ $t('availability_title') }}</h1>
         <p class="text-sm text-surface-500 mb-6">{{ $t('availability_select_car') }}</p>
-        <p v-if="carsLoading" class="text-sm text-surface-500">{{ $t('availability_loading_cars') }}</p>
+        <div v-if="carsLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div v-for="i in 6" :key="i"
+            class="h-80 rounded-xl border border-surface-200 dark:border-zinc-700 bg-surface-100 dark:bg-zinc-800 animate-pulse"
+            :style="{ animationDelay: `${i * 60}ms` }" />
+        </div>
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div v-for="(car, index) in cars" :key="car.id"
             class="relative h-80 rounded-xl overflow-hidden cursor-pointer shadow hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 card-animate border border-surface-200 dark:border-surface-700"
@@ -242,7 +246,9 @@ const selectDay = async (day: Date) => {
               </div>
 
               <!-- Calendar grid -->
-              <div v-if="calendarLoading" class="text-center py-8 text-sm text-surface-500">{{ $t('availability_loading_calendar') }}</div>
+              <div v-if="calendarLoading" class="grid grid-cols-7 gap-1 animate-pulse">
+                <div v-for="i in 35" :key="i" class="aspect-square rounded-lg bg-surface-100 dark:bg-zinc-800" />
+              </div>
               <div v-else class="grid grid-cols-7 gap-1">
                 <div v-for="(day, i) in calendarDays" :key="i"
                   class="aspect-square flex items-center justify-center rounded-lg text-sm transition-all"
@@ -280,8 +286,10 @@ const selectDay = async (day: Date) => {
           <!-- Day detail view -->
           <Card v-else key="day-detail">
             <template #content>
-              <div v-if="dayLoading" class="text-sm text-surface-500 py-8 text-center">
-                {{ $t('availability_loading_calendar') }}
+              <div v-if="dayLoading" class="flex flex-col rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700 animate-pulse" style="height: min(420px, 55vh)">
+                <div class="flex-1 bg-green-50 dark:bg-green-900/20" />
+                <div class="h-16 bg-red-100 dark:bg-red-900/40" />
+                <div class="flex-1 bg-green-50 dark:bg-green-900/20" />
               </div>
 
               <div v-else-if="!dayBusySlots.length" class="text-sm text-green-600 dark:text-green-400 py-4">

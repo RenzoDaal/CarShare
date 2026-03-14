@@ -61,7 +61,7 @@ function onTouchEnd() {
       :style="{
         transform: `translateX(${translateX}px)`,
         transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-        pointerEvents: isDragging ? 'none' : undefined,
+        pointerEvents: Math.abs(translateX) > 8 ? 'none' : undefined,
       }"
     >
       <slot />

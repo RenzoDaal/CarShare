@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useCountUp } from '@/composables/useCountUp';
+import PullToRefresh from '@/components/PullToRefresh.vue';
 import Card from 'primevue/card';
 import Tag from 'primevue/tag';
 import Button from 'primevue/button';
@@ -171,6 +173,21 @@ async function sendReminder(bookingId: number) {
   }
 }
 
+const ptr = ref<InstanceType<typeof PullToRefresh>>();
+
+const statRides = computed(() => stats.value?.total_rides ?? 0);
+const statKm = computed(() => stats.value?.total_km ?? 0);
+const statSpent = computed(() => stats.value?.total_spent ?? 0);
+
+const ridesDisplay = useCountUp(statRides);
+const kmDisplay = useCountUp(statKm);
+const spentDisplay = useCountUp(statSpent);
+
+async function refresh() {
+  await Promise.all([fetchBookings(), fetchWaitlist(), fetchStats()]);
+  ptr.value?.done();
+}
+
 onMounted(() => {
   fetchBookings();
   fetchWaitlist();
@@ -179,6 +196,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <PullToRefresh ref="ptr" @refresh="refresh">
   <div class="p-4 flex flex-col gap-5 max-w-5xl mx-auto w-full">
     <div>
       <h1 class="text-2xl font-bold tracking-tight">{{ $t('borrower_appointments_title') }}</h1>
@@ -190,21 +208,21 @@ onMounted(() => {
         <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-0.5">
           <i class="pi pi-car text-primary text-base" />
         </div>
-        <span class="text-2xl font-bold tracking-tight">{{ stats.total_rides }}</span>
+        <span class="text-2xl font-bold tracking-tight">{{ ridesDisplay.toFixed(0) }}</span>
         <span class="text-xs text-surface-400">{{ $t('borrower_stats_rides') }}</span>
       </div>
       <div class="rounded-2xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-col gap-1.5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
         <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-0.5">
           <i class="pi pi-map-marker text-primary text-base" />
         </div>
-        <span class="text-2xl font-bold tracking-tight">{{ stats.total_km.toFixed(0) }}</span>
+        <span class="text-2xl font-bold tracking-tight">{{ kmDisplay.toFixed(0) }}</span>
         <span class="text-xs text-surface-400">{{ $t('borrower_stats_km') }}</span>
       </div>
       <div class="rounded-2xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-col gap-1.5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
         <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-0.5">
           <i class="pi pi-wallet text-primary text-base" />
         </div>
-        <span class="text-2xl font-bold tracking-tight">€{{ stats.total_spent.toFixed(2) }}</span>
+        <span class="text-2xl font-bold tracking-tight">€{{ spentDisplay.toFixed(2) }}</span>
         <span class="text-xs text-surface-400">{{ $t('borrower_stats_spent') }}</span>
       </div>
       <div v-if="stats.favourite_car"
@@ -365,4 +383,5 @@ onMounted(() => {
   </div>
 
   <RescheduleDialog v-model:visible="rescheduleVisible" :booking="rescheduleBooking" @rescheduled="fetchBookings" />
+  </PullToRefresh>
 </template>

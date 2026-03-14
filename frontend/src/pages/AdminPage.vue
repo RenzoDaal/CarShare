@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import ProgressSpinner from 'primevue/progressspinner';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import http from '@/api/http';
@@ -76,8 +75,39 @@ onMounted(fetchUsers);
       </span>
     </div>
 
-    <div v-if="loading" class="flex justify-center items-center py-10">
-      <ProgressSpinner />
+    <!-- Skeleton screens matching the two-card layout -->
+    <div v-if="loading" class="flex flex-col gap-4">
+      <div class="rounded-xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5 animate-pulse space-y-4">
+        <div class="h-4 bg-surface-200 dark:bg-zinc-700 rounded-full w-40" />
+        <div class="flex flex-col gap-3">
+          <div v-for="i in 2" :key="i" class="flex items-center justify-between p-3 rounded-lg border border-surface-100 dark:border-zinc-800">
+            <div class="space-y-2">
+              <div class="h-3.5 bg-surface-200 dark:bg-zinc-700 rounded-full w-32" />
+              <div class="h-3 bg-surface-100 dark:bg-zinc-800 rounded-full w-48" />
+              <div class="flex gap-1.5">
+                <div class="h-5 w-14 bg-surface-200 dark:bg-zinc-700 rounded-full" />
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <div class="h-8 w-20 bg-surface-200 dark:bg-zinc-700 rounded-lg" />
+              <div class="h-8 w-16 bg-surface-200 dark:bg-zinc-700 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5 animate-pulse space-y-3">
+        <div class="h-4 bg-surface-200 dark:bg-zinc-700 rounded-full w-36" />
+        <div v-for="i in 4" :key="i" class="flex items-center justify-between p-2 rounded border border-surface-100 dark:border-zinc-800">
+          <div class="flex gap-2 items-center">
+            <div class="h-3.5 bg-surface-200 dark:bg-zinc-700 rounded-full w-28" />
+            <div class="h-3 bg-surface-100 dark:bg-zinc-800 rounded-full w-40" />
+          </div>
+          <div class="flex gap-1.5">
+            <div class="h-5 w-12 bg-surface-200 dark:bg-zinc-700 rounded-full" />
+            <div class="h-7 w-7 bg-surface-200 dark:bg-zinc-700 rounded-full" />
+          </div>
+        </div>
+      </div>
     </div>
 
     <template v-else>

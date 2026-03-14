@@ -52,6 +52,13 @@
 
 <template>
   <div class="h-screen flex overflow-hidden bg-surface-50 dark:bg-zinc-950">
+    <!-- Ambient mesh gradient orbs — adapt to accent colour automatically -->
+    <div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden" aria-hidden="true">
+      <div class="absolute -top-32 -right-32 w-[28rem] h-[28rem] rounded-full opacity-[0.06] dark:opacity-[0.04] blur-3xl"
+        style="background: var(--p-primary-500, #10b981)" />
+      <div class="absolute -bottom-32 -left-32 w-[24rem] h-[24rem] rounded-full opacity-[0.05] dark:opacity-[0.03] blur-3xl"
+        style="background: var(--p-primary-400, #34d399)" />
+    </div>
     <MenubarAndDrawer v-if="!route.meta.hideLayout" />
     <ConfirmDialog />
     <Toast position="top-right" />

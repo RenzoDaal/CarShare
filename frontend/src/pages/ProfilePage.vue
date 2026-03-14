@@ -13,7 +13,7 @@ import type { NotificationPrefs, User } from '@/stores/auth';
 import http from '@/api/http';
 import { useI18n } from 'vue-i18n';
 import { useToast } from 'primevue/usetoast';
-import { applyColorTheme, getSavedTheme } from '@/utils/colorTheme';
+import { applyColorTheme, getSavedTheme, applyCustomColor } from '@/utils/colorTheme';
 import type { ColorThemeName } from '@/utils/colorTheme';
 
 const { t, locale } = useI18n();
@@ -161,6 +161,7 @@ async function saveNotifPrefs() {
 
 // --- Accent colour ---
 const activeTheme = ref<ColorThemeName>(getSavedTheme());
+const customColor = ref<string>(localStorage.getItem('customColor') ?? '#10b981');
 
 const COLOR_SWATCHES: { name: ColorThemeName; bg: string; labelKey: string }[] = [
   { name: 'emerald', bg: '#10b981', labelKey: 'profile_accent_emerald' },
@@ -172,7 +173,7 @@ const COLOR_SWATCHES: { name: ColorThemeName; bg: string; labelKey: string }[] =
 
 function selectTheme(name: ColorThemeName) {
   activeTheme.value = name;
-  applyColorTheme(name);
+  if (name !== 'custom') applyColorTheme(name);
 }
 
 const passwords = reactive({ current: '', next: '', confirm: '' });
@@ -312,6 +313,30 @@ async function changePassword() {
             :style="{ backgroundColor: swatch.bg }"
             @click="selectTheme(swatch.name)"
           />
+          <!-- Custom colour picker -->
+          <label
+            class="relative w-9 h-9 rounded-full cursor-pointer transition-all duration-200 focus-within:outline-none overflow-hidden"
+            :class="activeTheme === 'custom'
+              ? 'ring-2 ring-offset-2 ring-primary scale-110'
+              : 'hover:scale-110 opacity-80 hover:opacity-100'"
+            title="Custom colour"
+          >
+            <input
+              type="color"
+              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              :value="customColor"
+              @input="(e) => {
+                const hex = (e.target as HTMLInputElement).value;
+                customColor = hex;
+                activeTheme = 'custom';
+                applyCustomColor(hex);
+              }"
+            />
+            <div class="w-full h-full rounded-full flex items-center justify-center"
+              :style="{ backgroundColor: activeTheme === 'custom' ? customColor : '#94a3b8' }">
+              <i class="pi pi-pencil text-white text-[10px]" />
+            </div>
+          </label>
         </div>
         <p class="text-xs text-surface-400 mt-3">{{ $t(COLOR_SWATCHES.find(s => s.name === activeTheme)?.labelKey ?? '') }}</p>
       </template>

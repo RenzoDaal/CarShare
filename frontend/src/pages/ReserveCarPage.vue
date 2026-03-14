@@ -348,7 +348,7 @@ const submitBooking = async () => {
   }
 
   if (bookingId != null) {
-    await router.push({ name: 'booking-detail', params: { id: String(bookingId) } });
+    await router.push({ name: 'booking-detail', params: { id: String(bookingId) }, query: { new: '1' } });
   }
 };
 </script>
@@ -398,7 +398,9 @@ const submitBooking = async () => {
             </div>
 
             <!-- Step 2: Select Car -->
-            <div v-else-if="activeStep === 2" class="flex flex-col gap-6">
+            <div v-else-if="activeStep === 2" class="lg:grid lg:grid-cols-[1fr_240px] lg:gap-6 lg:items-start flex flex-col gap-6">
+              <!-- Main content -->
+              <div class="flex flex-col gap-6 min-w-0">
               <div v-if="!hasAvailableCars && !loadingCars" class="text-sm text-surface-500">
                 {{ $t('reserve_no_cars_available') }}<br />
                 {{ $t('reserve_go_back_different_dates') }}
@@ -459,6 +461,37 @@ const submitBooking = async () => {
               <div class="flex justify-between">
                 <Button :label="$t('reserve_previous')" icon="pi pi-arrow-left" severity="secondary" outlined
                   @click="goBack(1)" />
+              </div>
+              </div>
+
+              <!-- Sticky summary sidebar (desktop only) -->
+              <div class="hidden lg:block">
+                <div class="sticky top-6 rounded-2xl border border-surface-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-sm">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-surface-400">{{ $t('reserve_summary') }}</p>
+                  <div class="space-y-2 text-sm">
+                    <div class="flex items-start gap-2">
+                      <i class="pi pi-calendar text-primary mt-0.5 shrink-0" />
+                      <div>
+                        <p class="font-medium">{{ start ? formatDateTime(start) : '—' }}</p>
+                        <p class="text-surface-400 text-xs mt-0.5">{{ $t('reserve_label_start') }}</p>
+                      </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                      <i class="pi pi-calendar text-primary mt-0.5 shrink-0" />
+                      <div>
+                        <p class="font-medium">{{ end ? formatDateTime(end) : '—' }}</p>
+                        <p class="text-surface-400 text-xs mt-0.5">{{ $t('reserve_label_end') }}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="pt-3 border-t border-surface-100 dark:border-zinc-700 flex items-center gap-2">
+                    <i class="pi pi-car text-primary text-sm" />
+                    <span class="text-sm">
+                      <span class="font-bold text-primary">{{ availableCars.length }}</span>
+                      {{ $t('reserve_cars_available') }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import ProgressSpinner from 'primevue/progressspinner';
 import { useConfirm } from 'primevue/useconfirm';
 import { useAuthStore } from '@/stores/auth';
 import CarImageCarousel from '@/components/CarImageCarousel.vue';
@@ -49,6 +48,7 @@ const error = ref<string | null>(null);
 const rescheduleVisible = ref(false);
 
 const isOwnerView = computed(() => auth.user?.id === booking.value?.car.owner_id);
+const justSubmitted = computed(() => route.query.new === '1' && booking.value?.status === 'pending');
 
 onMounted(async () => {
   try {
@@ -163,8 +163,37 @@ async function declineBooking() {
       <h1 class="text-2xl font-semibold">{{ $t('booking_detail_title') }}</h1>
     </div>
 
-    <div v-if="loading" class="flex justify-center py-12">
-      <ProgressSpinner />
+    <!-- Success banner for newly submitted bookings -->
+    <Transition name="slide-down">
+      <div v-if="justSubmitted"
+        class="flex items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300">
+        <i class="pi pi-check-circle text-green-500 text-xl shrink-0" />
+        <div>
+          <p class="font-semibold text-sm">{{ $t('booking_detail_submitted_title') }}</p>
+          <p class="text-xs mt-0.5 opacity-80">{{ $t('booking_detail_submitted_hint') }}</p>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Content-shaped skeleton -->
+    <div v-if="loading" class="flex flex-col gap-6 animate-pulse">
+      <div class="h-14 rounded-xl bg-surface-100 dark:bg-zinc-800" />
+      <div class="rounded-xl border border-surface-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-900">
+        <div class="h-56 w-full bg-surface-200 dark:bg-zinc-700" />
+        <div class="p-5 space-y-2">
+          <div class="h-5 bg-surface-200 dark:bg-zinc-700 rounded-full w-1/3" />
+          <div class="h-3 bg-surface-100 dark:bg-zinc-800 rounded-full w-1/2" />
+        </div>
+      </div>
+      <div class="rounded-xl border border-surface-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-900">
+        <div class="p-5 space-y-2 mb-2">
+          <div class="h-4 bg-surface-200 dark:bg-zinc-700 rounded-full w-28" />
+        </div>
+        <div v-for="i in 4" :key="i" class="flex justify-between px-4 py-3 border-t border-surface-100 dark:border-zinc-800">
+          <div class="h-3.5 bg-surface-200 dark:bg-zinc-700 rounded-full w-24" />
+          <div class="h-3.5 bg-surface-100 dark:bg-zinc-800 rounded-full w-32" />
+        </div>
+      </div>
     </div>
 
     <div v-else-if="error" class="p-3 rounded bg-red-100 text-red-800 text-sm">{{ error }}</div>
@@ -323,6 +352,9 @@ async function declineBooking() {
 </template>
 
 <style scoped>
+.slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; }
+.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-8px); }
+
 .connector-line {
   flex: 1;
   width: 2px;

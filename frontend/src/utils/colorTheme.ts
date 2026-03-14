@@ -1,6 +1,6 @@
-export type ColorThemeName = 'emerald' | 'blue' | 'violet' | 'orange' | 'rose';
+export type ColorThemeName = 'emerald' | 'blue' | 'violet' | 'orange' | 'rose' | 'custom';
 
-const PALETTES: Record<ColorThemeName, Record<number, string>> = {
+const PALETTES: Record<Exclude<ColorThemeName, 'custom'>, Record<number, string>> = {
   emerald: {
     50:  '#ecfdf5',
     100: '#d1fae5',
@@ -70,7 +70,49 @@ const PALETTES: Record<ColorThemeName, Record<number, string>> = {
 
 const LS_KEY = 'colorTheme';
 
-export function applyColorTheme(name: ColorThemeName): void {
+function hexToHsl(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const sl = s / 100, ll = l / 100;
+  const a = sl * Math.min(ll, 1 - ll);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = ll - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+export function applyCustomColor(hex: string): void {
+  const [h, s] = hexToHsl(hex);
+  const shadeToLightness: [number, number][] = [
+    [50, 97], [100, 94], [200, 87], [300, 75], [400, 62],
+    [500, 50], [600, 42], [700, 35], [800, 27], [900, 20], [950, 12],
+  ];
+  const root = document.documentElement;
+  for (const [shade, lightness] of shadeToLightness) {
+    root.style.setProperty(`--p-primary-${shade}`, hslToHex(h, Math.min(s, 85), lightness));
+  }
+  localStorage.setItem(LS_KEY, 'custom');
+  localStorage.setItem('customColor', hex);
+}
+
+export function applyColorTheme(name: Exclude<ColorThemeName, 'custom'>): void {
   const palette = PALETTES[name];
   const root = document.documentElement;
   for (const [shade, value] of Object.entries(palette)) {
@@ -81,12 +123,18 @@ export function applyColorTheme(name: ColorThemeName): void {
 
 export function loadColorTheme(): void {
   const saved = localStorage.getItem(LS_KEY) as ColorThemeName | null;
+  if (saved === 'custom') {
+    const hex = localStorage.getItem('customColor');
+    if (hex) applyCustomColor(hex);
+    return;
+  }
   if (saved && saved in PALETTES) {
-    applyColorTheme(saved);
+    applyColorTheme(saved as Exclude<ColorThemeName, 'custom'>);
   }
 }
 
 export function getSavedTheme(): ColorThemeName {
   const saved = localStorage.getItem(LS_KEY) as ColorThemeName | null;
+  if (saved === 'custom') return 'custom';
   return saved && saved in PALETTES ? saved : 'emerald';
 }
