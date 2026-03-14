@@ -618,32 +618,27 @@ onMounted(() => {
         <!-- ── Usage stats (owner) ── -->
         <div v-if="isOwner && carStats.length > 0" ref="statsEl"
           :class="['transition-all duration-700', statsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5']">
-          <Card>
-            <template #title>{{ $t('dashboard_usage_stats') }}</template>
-            <template #content>
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div v-for="(stat, index) in carStats" :key="stat.car_id"
-                  class="card-animate rounded-2xl border border-surface-200 dark:border-zinc-700 p-5 flex flex-col gap-2 hover:shadow-md transition-all duration-200 bg-gradient-to-br from-surface-0 to-surface-50 dark:from-zinc-800 dark:to-zinc-900 hover:-translate-y-0.5"
-                  :style="{ animationDelay: `${index * 80}ms` }">
-                  <p class="font-semibold text-sm text-slate-600 dark:text-slate-300 truncate">{{ stat.car_name }}</p>
-                  <p class="text-3xl font-bold text-primary tracking-tight">
-                    €{{ (statEarningsDisplayed[stat.car_id] ?? 0).toFixed(2) }}
-                  </p>
-                  <div class="flex items-center gap-4 text-xs text-surface-500 mt-0.5">
-                    <span class="flex items-center gap-1.5">
-                      <i class="pi pi-check-circle text-green-500" />
-                      {{ stat.total_bookings }}
-                      {{ stat.total_bookings !== 1 ? $t('dashboard_bookings_accepted_plural') : $t('dashboard_bookings_accepted') }}
-                    </span>
-                    <span class="flex items-center gap-1.5">
-                      <i class="pi pi-map-marker text-primary" />
-                      {{ stat.total_km.toFixed(0) }} {{ $t('dashboard_km_total') }}
-                    </span>
-                  </div>
-                </div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-3">{{ $t('dashboard_usage_stats') }}</p>
+          <div class="flex flex-col gap-2">
+            <div v-for="(stat, index) in carStats" :key="stat.car_id"
+              class="card-animate rounded-2xl border border-surface-200 dark:border-zinc-700 px-4 py-3 flex flex-col gap-1 hover:shadow-sm transition-all duration-200 bg-white dark:bg-zinc-900"
+              :style="{ animationDelay: `${index * 80}ms` }">
+              <div class="flex items-center justify-between gap-2">
+                <p class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{{ stat.car_name }}</p>
+                <p class="text-base font-bold text-primary shrink-0">€{{ (statEarningsDisplayed[stat.car_id] ?? 0).toFixed(2) }}</p>
               </div>
-            </template>
-          </Card>
+              <div class="flex items-center gap-3 text-xs text-surface-500">
+                <span class="flex items-center gap-1">
+                  <i class="pi pi-check-circle text-green-500" />
+                  {{ stat.total_bookings }} {{ stat.total_bookings !== 1 ? $t('dashboard_bookings_accepted_plural') : $t('dashboard_bookings_accepted') }}
+                </span>
+                <span class="flex items-center gap-1">
+                  <i class="pi pi-map-marker text-primary" />
+                  {{ stat.total_km.toFixed(0) }} {{ $t('dashboard_km_total') }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ── Your cars (owner) ── -->
